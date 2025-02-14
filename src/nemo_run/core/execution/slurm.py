@@ -530,15 +530,18 @@ class SlurmExecutor(Executor):
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             with open(filename, "w") as f:
                 f.write(cfg)
-
-            filenames.append(
-                os.path.join(
-                    "/",
-                    RUNDIR_NAME,
-                    "configs",
-                    name,
-                )
-            )
+            # Amol
+            # filenames.append(
+            #     os.path.join(
+            #         "/",
+            #         RUNDIR_NAME,
+            #         "configs",
+            #         name,
+            #     )
+            # )
+            print(f"filename: {filename}")
+            filenames.append(filename)
+            
 
         return filenames
 
@@ -863,6 +866,9 @@ class SlurmBatchRequest:
         def get_container_flags(
             base_mounts: list[str], src_job_dir: str, container_image: Optional[str]
         ) -> list[str]:
+            if not container_image:
+                return []
+
             _container_flags = ["--container-image", container_image] if container_image else []
 
             new_mounts = copy.deepcopy(base_mounts)
