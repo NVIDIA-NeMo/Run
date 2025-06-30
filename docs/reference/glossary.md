@@ -20,29 +20,11 @@ A TorchX specification that defines distributed ML application topology, includi
 
 A Fiddle feature that automatically generates configurations for ML models, training functions, and data pipelines based on their signatures and type hints. Simplifies experiment setup by inferring configuration parameters.
 
-### Autoscaling
-
-Dynamic resource allocation that automatically scales compute resources based on workload demands. NeMo Run supports autoscaling in cloud environments and Ray clusters for cost-effective training.
-
-## B
-
-### Backend
-
-The underlying execution environment for ML workloads. NeMo Run supports multiple backends including local, Docker, Slurm, Kubernetes, and cloud platforms.
-
 ## C
 
 ### Config
 
 **`run.Config`** is a NeMo Run primitive that creates type-safe configurations for ML models, training functions, and data pipelines using Fiddle. Ensures reproducibility and validation of experiment parameters.
-
-### Configuration
-
-The process of defining ML experiment parameters, model architectures, hyperparameters, and execution requirements. NeMo Run's configuration system ensures experiments are reproducible and version-controlled.
-
-### Container Image
-
-A lightweight, reproducible environment that includes ML frameworks, dependencies, and runtime. NeMo Run executors use container images to ensure consistent training environments across different compute resources.
 
 ### Context Manager
 
@@ -50,13 +32,13 @@ NeMo Run's `Experiment` class implements Python's context manager protocol, requ
 
 ## D
 
+### DGXCloudExecutor
+
+An executor that submits ML workloads to NVIDIA DGX Cloud clusters via REST API. Supports multi-node distributed training with automatic authentication, project/cluster discovery, and PVC-based storage management.
+
 ### Direct Execution
 
 A NeMo Run execution mode where tasks run in the same process without packaging or remote execution. Used for debugging and local development with `direct=True` parameter.
-
-### DockerExecutor
-
-An executor that runs ML workloads in Docker containers. Provides isolation, reproducibility, and easy deployment of training environments.
 
 ### Dryrun
 
@@ -96,33 +78,9 @@ A Python library for configuration management that provides type-safe, composabl
 
 A packager that uses `git archive` to package version-controlled ML code for remote execution. Ensures only committed changes are deployed and maintains repository structure.
 
-### Gradient Accumulation
-
-A technique for simulating larger batch sizes by accumulating gradients across multiple forward/backward passes. NeMo Run launchers support gradient accumulation for memory-efficient training.
-
 ### HybridPackager
 
 A packager that combines multiple packaging strategies for complex ML codebases. Allows different packaging approaches for models, data processing, and utilities.
-
-## I
-
-### Interactive Development
-
-Development workflow using persistent compute resources (like RayCluster) for iterative model development, debugging, and experimentation.
-
-## J
-
-### Job
-
-A single ML task execution with associated executor and metadata. Jobs can be training runs, inference jobs, or data processing tasks.
-
-### Job Group
-
-A collection of related ML jobs (e.g., hyperparameter sweep, model ensemble training). Supports dependencies and coordinated execution.
-
-### Job Directory
-
-The directory where job-specific files, logs, checkpoints, and artifacts are stored. Each ML job gets its own subdirectory within the experiment directory.
 
 ## L
 
@@ -130,19 +88,15 @@ The directory where job-specific files, logs, checkpoints, and artifacts are sto
 
 A component that determines how ML tasks execute within their environment. Common launchers include `torchrun` for distributed PyTorch training and `FaultTolerance` for resilient execution.
 
-### LocalExecutor
+### LeptonExecutor
 
-An executor that runs ML workloads locally on the current machine. Used for development, debugging, and small-scale experiments.
+An executor that submits ML workloads to NVIDIA DGX Cloud Lepton clusters via Python SDK. Supports resource shape-based scheduling, node group affinity, and automatic data movement between job storage and persistent volumes.
 
 ## M
 
 ### Metadata
 
 Information about ML experiments, jobs, and tasks automatically captured by NeMo Run. Includes hyperparameters, training metrics, environment details, and results.
-
-### Mixed Precision
-
-Training technique that uses both FP16 and FP32 precision to reduce memory usage and speed up training. NeMo Run launchers support automatic mixed precision.
 
 ## N
 
@@ -153,10 +107,6 @@ The root directory where NeMo Run stores experiment metadata, logs, and artifact
 ### NeMo Run
 
 A comprehensive Python framework for configuring, executing, and managing machine learning experiments across diverse computing environments. Built for AI developers with a focus on reproducibility and scalability.
-
-### Node
-
-A single machine in a distributed computing cluster. NeMo Run executors manage multi-node training coordination and resource allocation.
 
 ## P
 
@@ -198,10 +148,6 @@ The ability to recreate exact ML experiment conditions and results. NeMo Run ens
 
 A NeMo Run CLI concept that manages execution settings, including executor configurations, plugins, and execution parameters for command-line interfaces.
 
-### Runtime Environment
-
-The software environment where ML workloads execute, including Python packages, ML frameworks, and system libraries. NeMo Run manages runtime environments through executors.
-
 ### run.run()
 
 A NeMo Run function for single task execution. Provides a simple interface for running configured functions with optional executors and plugins.
@@ -221,10 +167,6 @@ An executor that submits ML jobs to Slurm clusters. Supports containerized execu
 ### Torchrun
 
 A launcher that uses PyTorch's `torchrun` command for distributed training. Handles process coordination, rendezvous, and distributed communication for multi-GPU training.
-
-### Training Loop
-
-The iterative process of updating model parameters using training data. NeMo Run launchers manage training loops across distributed environments.
 
 ### Tunnel
 
