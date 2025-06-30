@@ -1,12 +1,12 @@
 ---
 description: "Comprehensive guide for deploying and managing NeMo Run including installation, configuration, maintenance, version management, and operational procedures."
 tags: ["administration", "deployment", "maintenance", "configuration", "monitoring", "troubleshooting"]
-categories: ["guides"]
+categories: ["deployment"]
 ---
 
-(admin)=
+(deploy-admin)=
 
-# Manage NeMo Run Deployments
+# Deploy NeMo Run
 
 This guide covers administrative tasks for NeMo Run including deployment, maintenance, version management, and operational procedures. This is essential reading for system administrators, DevOps engineers, and anyone responsible for managing NeMo Run installations.
 

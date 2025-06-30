@@ -82,9 +82,9 @@ Learn why NeMo Run is the preferred choice for ML experiment management.
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
-:link: get-started/index
+:link: get-started/quickstart
 :link-type: doc
-:link-alt: Get started guide
+:link-alt: Quickstart Guide
 
 Set up your first NeMo Run experiment in minutes
 :::
@@ -142,42 +142,13 @@ Manage and monitor your experiments with comprehensive tracking and reproducibil
 
 ---
 
-## Deploy
 
-::::{grid} 1 1 2 2
-:gutter: 1 1 1 2
-
-:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Deploy Ray Clusters and Jobs
-:link: deploy/ray
-:link-type: doc
-:link-alt: Deploy Ray Clusters and Jobs
-
-Deploy and manage Ray clusters and jobs for scalable distributed computing.
-:::
-
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` NeMo Run Packaging Strategies
-:link: deploy/packaging
-:link-type: doc
-:link-alt: NeMo Run Packaging Strategies guide
-
-Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
-:::
-
-:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy and Manage NeMo Run
-:link: deploy/admin
-:link-type: doc
-:link-alt: Manage NeMo Run Deployments
-
-Deploy, configure, and maintain NeMo Run in production environments.
-:::
-
-::::
 
 ---
 
 ## Reference
 
-::::{grid} 1 1 1 3
+::::{grid} 1 1 1 2 2
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Reference
@@ -204,6 +175,14 @@ Find answers to common questions about NeMo Run.
 Solutions for common issues and error messages.
 :::
 
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Glossary
+:link: reference/glossary
+:link-type: doc
+:link-alt: NeMo Run Glossary
+
+Technical glossary of NeMo Run-specific concepts and terminology.
+:::
+
 ::::
 
 ---
@@ -228,23 +207,18 @@ get-started/tutorials
 
 ::::{toctree}
 :hidden:
-:caption: About NeMo Run Guides
+:caption: NeMo Run Guide
 :maxdepth: 2
 guides/index
 guides/configuration
 guides/execution
 guides/management
+guides/ray
+guides/packaging
+guides/deploy
 ::::
 
-::::{toctree}
-:hidden:
-:caption: Deploy
-:maxdepth: 2
-deploy/index
-deploy/admin
-deploy/packaging
-deploy/ray
-::::
+
 
 ::::{toctree}
 :hidden:
@@ -254,4 +228,5 @@ reference/index
 reference/cli
 reference/faqs
 reference/troubleshooting
+reference/glossary
 ::::

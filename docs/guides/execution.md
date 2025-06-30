@@ -23,6 +23,8 @@ NeMo Run provides a unified execution framework that abstracts away the complexi
 
 ## Core Concepts
 
+For detailed definitions of terms used in this guide, see the [Glossary](../reference/glossary).
+
 ### Execution Units
 
 An execution unit consists of a task configuration paired with an executor. This separation allows you to:

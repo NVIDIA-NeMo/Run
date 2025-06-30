@@ -2,6 +2,8 @@
 
 NeMo Run provides a flexible configuration system that allows you to define machine learning experiments in a type-safe, reproducible manner. This guide covers the two main configuration approaches supported by NeMo Run.
 
+For detailed definitions of configuration terms and concepts, see the [Glossary](../reference/glossary).
+
 ## Configuration Overview
 
 NeMo Run supports two primary configuration systems:

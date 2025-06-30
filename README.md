@@ -23,34 +23,17 @@
 
 NeMo Run is built around three core pillars:
 
-::::{grid} 1 1 1 3
-:gutter: 1 1 1 2
+### Configuration
 
-:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
-:link: docs/guides/configuration.md
-:link-type: doc
-:link-alt: Configuration guide
+Python-based configuration using Fiddle, supporting complex nested structures and type safety. See our [Configuration Guide](docs/guides/configuration.md) for detailed information.
 
-Python-based configuration using Fiddle, supporting complex nested structures and type safety
-:::
+### Execution
 
-:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
-:link: docs/guides/execution.md
-:link-type: doc
-:link-alt: Execution guide
+Multi-environment execution with executors for local, Docker, Slurm, Kubernetes, and cloud platforms. Learn more in our [Execution Guide](docs/guides/execution.md).
 
-Multi-environment execution with executors for local, Docker, Slurm, Kubernetes, and cloud platforms
-:::
+### Management
 
-:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-:link: docs/guides/management.md
-:link-type: doc
-:link-alt: Management guide
-
-Experiment lifecycle management with metadata tracking, logging, and reproducibility
-:::
-
-::::
+Experiment lifecycle management with metadata tracking, logging, and reproducibility. Explore our [Management Guide](docs/guides/management.md) for comprehensive details.
 
 ## 📦 Installation
 

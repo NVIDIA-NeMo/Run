@@ -16,7 +16,7 @@ The reference section provides detailed documentation for NeMo Run, including co
 
 ## Reference Materials
 
-::::{grid} 1 1 1 3
+::::{grid} 1 1 1 2 2
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Reference
@@ -43,6 +43,14 @@ Find answers to common questions about NeMo Run usage and troubleshooting.
 Solutions for common issues, error messages, and debugging techniques.
 :::
 
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Glossary
+:link: glossary
+:link-type: doc
+:link-alt: NeMo Run Glossary
+
+Comprehensive definitions of terms and concepts used throughout NeMo Run documentation.
+:::
+
 ::::
 
 ## What You'll Find
@@ -52,7 +60,7 @@ Solutions for common issues, error messages, and debugging techniques.
 - **Error Messages**: Explanations and resolutions for error codes
 - **Best Practices**: Recommended approaches for various use cases
 
-For comprehensive guides on configuration, execution, and management, see the [About NeMo Run Guides](../guides/index).
+For comprehensive guides on configuration, execution, and management, see the [NeMo Run Guide](../guides/index).
 
 ::::{toctree}
 :hidden:
@@ -60,4 +68,5 @@ For comprehensive guides on configuration, execution, and management, see the [A
 cli
 faqs
 troubleshooting
+glossary
 ::::

@@ -24,6 +24,8 @@ The CLI system transforms Python functions into command-line tools with:
 
 ## Core Concepts
 
+For detailed definitions of CLI terms and concepts, see the [Glossary](glossary.md).
+
 ### Entry Points
 
 Entry points are Python functions decorated with `@run.cli.entrypoint` that become accessible as CLI commands. They support:

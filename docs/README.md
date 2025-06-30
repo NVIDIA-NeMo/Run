@@ -68,7 +68,7 @@ docs/
 │   ├── process-data/
 │   └── save-export/
 ├── product-c-analytics/     # Product C documentation
-├── admin/                   # Administrative guides
+├── deployment/              # Administrative guides
 │   ├── deployment/
 │   └── integrations/
 └── reference/              # Reference documentation
