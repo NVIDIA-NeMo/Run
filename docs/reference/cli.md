@@ -70,9 +70,13 @@ def train_model(
     epochs: int = 10
 ):
     """Train a machine learning model with specified parameters."""
-    print(f"Training {model_name} with lr={learning_rate}, batch_size={batch_size}")
-    # Your training logic here
-    return {"accuracy": 0.95, "loss": 0.1}
+    try:
+        print(f"Training {model_name} with lr={learning_rate}, batch_size={batch_size}")
+        # Your training logic here
+        return {"accuracy": 0.95, "loss": 0.1}
+    except Exception as e:
+        print(f"Training failed: {e}")
+        return {"accuracy": 0.0, "loss": float('inf')}
 
 @run.cli.entrypoint
 def evaluate_model(
@@ -81,9 +85,14 @@ def evaluate_model(
     metrics: list[str] = ["accuracy", "precision", "recall"]
 ):
     """Evaluate a trained model on test data."""
-    print(f"Evaluating {model_path} on {test_data}")
-    print(f"Metrics: {metrics}")
-    # Your evaluation logic here
+    try:
+        print(f"Evaluating {model_path} on {test_data}")
+        print(f"Metrics: {metrics}")
+        # Your evaluation logic here
+        return {"accuracy": 0.92, "precision": 0.89, "recall": 0.91}
+    except Exception as e:
+        print(f"Evaluation failed: {e}")
+        return {"accuracy": 0.0, "precision": 0.0, "recall": 0.0}
 ```
 
 ### CLI Argument Syntax

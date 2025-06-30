@@ -43,7 +43,9 @@ task_config = run.Config(MyTrainingFunction, learning_rate=0.001, batch_size=32)
 executor = run.SlurmExecutor(partition="gpu", nodes=2, gpus_per_node=4)
 
 # Create execution unit
-experiment = run.submit(task_config, executor)
+with run.Experiment("my-experiment") as experiment:
+    experiment.add(task_config, executor=executor)
+    experiment.run()
 ```
 
 ### Experiment Management
@@ -52,28 +54,30 @@ NeMo Run provides comprehensive experiment management through the `run.Experimen
 
 ```python
 # Create experiment with multiple tasks
-experiment = run.Experiment()
+with run.Experiment("multi-task-experiment") as experiment:
+    # Add tasks with different configurations
+    experiment.add(
+        run.Config(MyModel, model_size="small"),
+        executor=run.LocalExecutor(),
+        name="small-model"
+    )
 
-# Add tasks with different configurations
-experiment.add_task(
-    run.Config(MyModel, model_size="small"),
-    run.LocalExecutor()
-)
+    experiment.add(
+        run.Config(MyModel, model_size="large"),
+        executor=run.SlurmExecutor(partition="gpu", nodes=4),
+        name="large-model"
+    )
 
-experiment.add_task(
-    run.Config(MyModel, model_size="large"),
-    run.SlurmExecutor(partition="gpu", nodes=4)
-)
+    # Launch all tasks
+    experiment.run()
 
-# Launch all tasks
-experiment.launch()
-
-# Monitor progress
-for task in experiment.tasks:
-    print(f"Task {task.id}: {task.status}")
-    if task.completed:
-        logs = run.get_logs(task)
-        print(f"Exit code: {logs.exit_code}")
+    # Monitor progress
+    for job in experiment.jobs:
+        print(f"Job {job.id}: {job.state}")
+        if job.state == run.AppState.SUCCEEDED:
+            print(f"Job {job.id} completed successfully")
+        elif job.state == run.AppState.FAILED:
+            print(f"Job {job.id} failed")
 ```
 
 ## Code Packaging

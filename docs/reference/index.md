@@ -16,7 +16,7 @@ The reference section provides detailed documentation for NeMo Run, including co
 
 ## Reference Materials
 
-::::{grid} 1 1 1 2 2
+::::{grid} 1 1 1 3
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Reference
@@ -27,6 +27,14 @@ The reference section provides detailed documentation for NeMo Run, including co
 Transform Python functions into CLI tools with rich argument parsing, factory functions, and executor integration.
 :::
 
+:::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` API Reference
+:link: ../guides/ray#api-reference
+:link-type: doc
+:link-alt: API Reference
+
+Comprehensive API documentation for Ray clusters, jobs, and distributed computing components.
+:::
+
 :::{grid-item-card} {octicon}`question;1.5em;sd-mr-1` FAQs
 :link: faqs
 :link-type: doc
@@ -34,6 +42,11 @@ Transform Python functions into CLI tools with rich argument parsing, factory fu
 
 Common questions about NeMo Run usage, configuration, execution, and troubleshooting.
 :::
+
+::::
+
+::::{grid} 1 1 1 2
+:gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`tools;1.5em;sd-mr-1` Troubleshooting
 :link: troubleshooting

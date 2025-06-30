@@ -39,7 +39,13 @@ model_config = run.Config(
 )
 
 # Build the configuration to instantiate the object
-model = fdl.build(model_config)
+import fiddle as fdl
+try:
+    model = fdl.build(model_config)
+    print("✅ Model configuration built successfully")
+except Exception as e:
+    print(f"❌ Failed to build model configuration: {e}")
+    raise
 ```
 
 #### `run.Partial`
@@ -56,7 +62,13 @@ train_fn = run.Partial(
 )
 
 # Later, you can call it with additional arguments
-result = fdl.build(train_fn)(data_path="/path/to/data")
+import fiddle as fdl
+try:
+    result = fdl.build(train_fn)(data_path="/path/to/data")
+    print(f"✅ Training completed with result: {result}")
+except Exception as e:
+    print(f"❌ Training failed: {e}")
+    raise
 ```
 
 ### Configuration Patterns

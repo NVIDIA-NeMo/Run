@@ -18,7 +18,7 @@ Run these commands to quickly assess your NeMo Run installation:
 
 ```bash
 # Check NeMo Run installation
-python -c "import nemo_run; print(nemo_run.__version__)"
+python -c "import nemo_run; print(nemo_run.__version__ if hasattr(nemo_run, '__version__') else 'Version not available')"
 
 # Check environment variables
 echo $NEMORUN_HOME
@@ -464,7 +464,7 @@ pip --version
 echo $NEMORUN_HOME
 
 # NeMo Run information
-python -c "import nemo_run; print(f'Version: {nemo_run.__version__}')"
+python -c "import nemo_run; print(f'Version: {nemo_run.__version__ if hasattr(nemo_run, \"__version__\") else \"Version not available\"}')"
 
 # Environment information
 env | grep NEMORUN

@@ -12,6 +12,14 @@ This guide covers the installation of NeMo Run and its optional dependencies for
 
 Before installing NeMo Run, ensure you have the following prerequisites:
 
+### Version Compatibility
+
+NeMo Run is compatible with:
+- **Python**: 3.8, 3.9, 3.10, 3.11, 3.12
+- **PyTorch**: 2.0+ (for ML workloads)
+- **Fiddle**: 0.4+ (for configuration management)
+- **TorchX**: 0.5+ (for distributed execution)
+
 ### System Requirements
 
 - **Python**: 3.8 or higher
@@ -53,10 +61,10 @@ Verify the installation by checking the version and importing the package:
 
 ```bash
 # Check installed version
-python -c "import nemo_run; print(nemo_run.__version__)"
+python -c "import nemo_run; print(nemo_run.__version__ if hasattr(nemo_run, '__version__') else 'Version not available')"
 
 # Test basic import
-python -c "import nemo_run; print('NeMo Run installed successfully')"
+python -c "import nemo_run as run; print('✅ NeMo Run installed successfully')"
 ```
 
 ## Optional Dependencies
@@ -336,13 +344,35 @@ python --version
 pip --version
 
 # Check NeMo Run installation
-python -c "import nemo_run; print(f'NeMo Run version: {nemo_run.__version__}')"
+python -c "import nemo_run; print(f'NeMo Run version: {nemo_run.__version__ if hasattr(nemo_run, \"__version__\") else \"Version not available\"}')"
 
 # Check CLI availability
 python -c "from nemo_run.__main__ import app; print('CLI available')"
 
 # Check executor imports
 python -c "from nemo_run.core.execution import LocalExecutor, SlurmExecutor; print('Executors available')"
+```
+
+## Testing Your Installation
+
+After installation, test your setup with these commands:
+
+```bash
+# Test basic import and functionality
+python -c "
+import nemo_run as run
+print('✅ NeMo Run imported successfully')
+
+# Test configuration creation
+config = run.Config(lambda x: x, x=42)
+print('✅ Configuration created successfully')
+
+# Test executor creation
+executor = run.LocalExecutor()
+print('✅ Executor created successfully')
+
+print('🎉 All tests passed!')
+"
 ```
 
 ## Next Steps

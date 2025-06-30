@@ -38,7 +38,11 @@ pip install --upgrade pip
 pip install git+https://github.com/NVIDIA-NeMo/Run.git
 
 # Verify installation
-python -c "import nemo_run as run; print('✅ NeMo Run installed successfully')"
+try:
+    import nemo_run as run
+    print('✅ NeMo Run installed successfully')
+except ImportError as e:
+    print(f'❌ NeMo Run installation failed: {e}')
 ```
 
 ### 3. Optional: Install Cloud Dependencies
@@ -196,14 +200,17 @@ with run.Experiment("quickstart-experiment") as experiment:
     # Get results from the experiment
     results = []
     for i, job in enumerate(experiment.jobs):
-        if job.state == run.AppState.SUCCEEDED:
-            # For local execution, we can get the result directly
-            # In a real scenario, you'd access logs and artifacts
-            print(f"✅ Configuration {i+1} completed successfully")
-            print(f"   Job ID: {job.id}")
-            print(f"   Status: {job.state}")
-        else:
-            print(f"❌ Configuration {i+1} failed with status: {job.state}")
+        try:
+            if job.state == run.AppState.SUCCEEDED:
+                # For local execution, we can get the result directly
+                # In a real scenario, you'd access logs and artifacts
+                print(f"✅ Configuration {i+1} completed successfully")
+                print(f"   Job ID: {job.id}")
+                print(f"   Status: {job.state}")
+            else:
+                print(f"❌ Configuration {i+1} failed with status: {job.state}")
+        except Exception as e:
+            print(f"❌ Configuration {i+1} error: {e}")
 
 print("\n🎉 Your first NeMo Run experiment is complete!")
 ```
@@ -221,12 +228,16 @@ results = []
 for i, config in enumerate(configs):
     print(f"\n🚀 Running configuration {i+1}/{len(configs)}")
 
-    # Run the task directly
-    result = run.run(config, executor=run.LocalExecutor())
-    results.append(result)
+    try:
+        # Run the task directly
+        result = run.run(config, executor=run.LocalExecutor())
+        results.append(result)
 
-    print(f"✅ Configuration {i+1} completed")
-    print(f"   Result: {result}")
+        print(f"✅ Configuration {i+1} completed")
+        print(f"   Result: {result}")
+    except Exception as e:
+        print(f"❌ Configuration {i+1} failed: {e}")
+        results.append(None)
 
 print("\n🎉 All configurations completed!")
 ```
@@ -322,6 +333,14 @@ source nemo-run-env/bin/activate
 pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
+**Configuration Errors**: If you encounter serialization errors
+
+```python
+# Wrap non-serializable objects in run.Config
+import pathlib
+config = run.Config(MyClass, data_path=run.Config(pathlib.Path, "/tmp/data"))
+```
+
 **CUDA Issues**: If you encounter CUDA-related errors
 
 ```python
@@ -335,6 +354,19 @@ torch.cuda.is_available = lambda: False
 ```python
 # Use smaller batch sizes or model sizes
 config = run.Config(train_fn, batch_size=16, model_size=64)
+```
+
+**Experiment Errors**: If experiments fail to run
+
+```python
+# Add proper error handling
+try:
+    with run.Experiment("test") as exp:
+        exp.add(config, executor=run.LocalExecutor())
+        exp.run()
+except Exception as e:
+    print(f"Experiment failed: {e}")
+    # Add cleanup code here
 ```
 
 ## What You've Learned

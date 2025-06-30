@@ -12,6 +12,8 @@ Welcome to the NeMo Run guides. These comprehensive guides will help you master 
 
 ## Guides
 
+Explore the topics below to learn how to set up, customize, and optimize your machine learning experiments with NeMo Run.
+
 ::::{grid} 1 1 2 2
 :gutter: 1 1 1 2
 
