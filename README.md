@@ -128,9 +128,9 @@ For detailed information, see our [Why Use NeMo Run guide](docs/about/why-nemo-r
 
 The `hello_world` tutorial series provides a comprehensive introduction to NeMo Run:
 
-- **[Part 1](examples/hello-world/hello_world.ipynb)** - Basic configuration and execution
-- **[Part 2](examples/hello-world/hello_experiments.ipynb)** - Experiment management
-- **[Part 3](examples/hello-world/hello_scripts.py)** - Script-based execution
+- **[Part 1](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_world.ipynb)** - Basic configuration and execution
+- **[Part 2](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_experiments.ipynb)** - Experiment management
+- **[Part 3](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_scripts.py)** - Script-based execution
 
 ## 🏛️ Design Philosophy
 

@@ -228,7 +228,7 @@ get-started/tutorials
 
 ::::{toctree}
 :hidden:
-:caption: Guides
+:caption: About NeMo Run Guides
 :maxdepth: 2
 guides/index
 guides/configuration

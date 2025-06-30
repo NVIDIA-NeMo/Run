@@ -40,7 +40,7 @@ The `hello_world` tutorial series provides a comprehensive introduction to NeMo 
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Part 1: Hello World
-:link: <https://github.com/NVIDIA-NeMo/Run/tree/main/examples/hello-world/hello_world.ipynb>
+:link: <https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_world.ipynb>
 :link-type: url
 :link-alt: Hello World tutorial part 1
 
@@ -55,7 +55,7 @@ Learn the fundamentals of NeMo Run configuration and execution:
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Part 2: Hello Experiments
-:link: <https://github.com/NVIDIA-NeMo/Run/tree/main/examples/hello-world/hello_experiments.ipynb>
+:link: <https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_experiments.ipynb>
 :link-type: url
 :link-alt: Hello World tutorial part 2
 
@@ -70,7 +70,7 @@ Master experiment lifecycle management:
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Part 3: Hello Scripts
-:link: <https://github.com/NVIDIA-NeMo/Run/tree/main/examples/hello-world/hello_scripts.py>
+:link: <https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_scripts.py>
 :link-type: url
 :link-alt: Hello World tutorial part 3
 
