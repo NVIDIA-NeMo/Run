@@ -225,9 +225,11 @@ class DGXCloudExecutor(Executor):
         if self.nodes < 1:
             raise ValueError("Node count must be at least 1")
 
-        if len(name)>=35: 
-            logger.warning("Training name can only be max 35 characters. Shortening name to 35 characters...")
-            name=name[:34]
+        if len(name) >= 35:
+            logger.warning(
+                "Training name can only be max 35 characters. Shortening name to 35 characters..."
+            )
+            name = name[:34]
 
         # Common payload elements
         common_payload = {
