@@ -78,18 +78,18 @@ Learn why NeMo Run is the preferred choice for ML experiment management.
 
 ## Get Started
 
-::::{grid} 1 1 1 2
+::::{grid} 1 1 1 2 2
 :gutter: 1 1 1 2
 
-:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
-:link: get-started/quickstart
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Get Started with NeMo Run
+:link: get-started/index
 :link-type: doc
-:link-alt: Quickstart Guide
+:link-alt: Get Started with NeMo Run
 
-Set up your first NeMo Run experiment in minutes
+Overview and quick start options for NeMo Run
 :::
 
-:::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
+:::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Install NeMo Run
 :link: get-started/install
 :link-type: doc
 :link-alt: Installation guide
@@ -97,21 +97,28 @@ Set up your first NeMo Run experiment in minutes
 Install NeMo Run and optional dependencies for your environment
 :::
 
-:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Tutorials
+:::{grid-item-card} {octicon}`zap;1.5em;sd-mr-1` Quickstart
+:link: get-started/quickstart
+:link-type: doc
+:link-alt: Quickstart Guide
+
+Complete guide to install and run your first ML experiment in minutes
+:::
+
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Tutorials and Learning Resources
 :link: get-started/tutorials
 :link-type: doc
 :link-alt: Tutorial collection
 
 Learn NeMo Run with hands-on tutorials and examples
 :::
-
 ::::
 
 ---
 
 ## Guides
 
-::::{grid} 1 1 1 3
+::::{grid} 1 1 1 2 2
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
@@ -138,6 +145,21 @@ Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud envi
 Manage and monitor your experiments with comprehensive tracking and reproducibility.
 :::
 
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Clusters and Jobs
+:link: guides/ray
+:link-type: doc
+:link-alt: Ray Clusters and Jobs
+
+Deploy and manage Ray clusters and jobs for scalable distributed computing.
+:::
+
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging Strategies
+:link: guides/packaging
+:link-type: doc
+:link-alt: Packaging Strategies
+
+Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
+:::
 ::::
 
 ---
@@ -146,7 +168,7 @@ Manage and monitor your experiments with comprehensive tracking and reproducibil
 
 ---
 
-## Reference
+## References
 
 ::::{grid} 1 1 1 2 2
 :gutter: 1 1 1 2
@@ -202,27 +224,27 @@ about/why-nemo-run
 :maxdepth: 2
 get-started/index
 get-started/install
+get-started/quickstart
 get-started/tutorials
 ::::
 
 ::::{toctree}
 :hidden:
-:caption: NeMo Run Guide
+:caption: Guides
 :maxdepth: 2
 guides/index
 guides/configuration
 guides/execution
 guides/management
-guides/ray
 guides/packaging
-guides/deploy
+guides/ray
 ::::
 
 
 
 ::::{toctree}
 :hidden:
-:caption: Reference
+:caption: References
 :maxdepth: 2
 reference/index
 reference/cli

@@ -6,7 +6,7 @@ categories: ["get-started"]
 
 (quickstart)=
 
-# Quickstart Guide for AI Developers
+# Quickstart
 
 Get up and running with NeMo Run in under 10 minutes. This guide will walk you through installation, basic configuration, and your first ML experiment.
 
@@ -270,6 +270,7 @@ Epoch 2: Loss = 0.0987
 ### Explore Advanced Features
 
 1. **Remote Execution**: Try running on different backends
+
    ```python
    # Docker execution
    executor = run.DockerExecutor(image="pytorch/pytorch:latest")
@@ -279,6 +280,7 @@ Epoch 2: Loss = 0.0987
    ```
 
 2. **Experiment Tracking**: Add metrics and logging
+
    ```python
    # In your training function, you can return metrics
    return {
@@ -290,6 +292,7 @@ Epoch 2: Loss = 0.0987
    ```
 
 3. **Hyperparameter Tuning**: Create parameter sweeps
+
    ```python
    # Grid search
    with run.Experiment("hyperparameter-sweep") as exp:
@@ -312,6 +315,7 @@ Epoch 2: Loss = 0.0987
 ### Common Issues
 
 **Import Error**: `ModuleNotFoundError: No module named 'nemo_run'`
+
 ```bash
 # Ensure virtual environment is activated
 source nemo-run-env/bin/activate
@@ -319,6 +323,7 @@ pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
 **CUDA Issues**: If you encounter CUDA-related errors
+
 ```python
 # Force CPU execution
 import torch
@@ -326,6 +331,7 @@ torch.cuda.is_available = lambda: False
 ```
 
 **Memory Issues**: For large models or datasets
+
 ```python
 # Use smaller batch sizes or model sizes
 config = run.Config(train_fn, batch_size=16, model_size=64)

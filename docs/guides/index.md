@@ -6,7 +6,7 @@ categories: ["guides"]
 
 (guides)=
 
-# NeMo Run Guide
+# NeMo Run Guides
 
 Welcome to the NeMo Run guides. These comprehensive guides will help you master the core features and capabilities of NeMo Run for ML experiment management.
 
@@ -55,14 +55,6 @@ Deploy and manage Ray clusters and jobs for scalable distributed computing.
 Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
 :::
 
-:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy NeMo Run
-:link: deploy
-:link-type: doc
-:link-alt: Deploy NeMo Run
-
-Deploy, configure, and maintain NeMo Run in production environments.
-:::
-
 ::::
 
 ## Get Started
@@ -73,10 +65,7 @@ If you're new to NeMo Run, we recommend following these guides in order:
 2. **Execution** - Learn how to run your configured experiments
 3. **Management** - Discover how to track and manage your experiments
 4. **Packaging Strategies** - Learn how to package your code for remote execution
-5. **Deploy NeMo Run** - Learn how to deploy and maintain NeMo Run in production
-6. **Ray Clusters and Jobs** - Learn distributed computing with Ray (optional)
-
-
+5. **Ray Clusters and Jobs** - Learn distributed computing with Ray (optional)
 
 ## What You'll Learn
 
@@ -101,14 +90,3 @@ Before diving into these guides, make sure you have:
 - Check the [FAQs](../reference/faqs) for common questions
 - Explore the [About section](../about/index) for conceptual information
 - Review the [tutorials](../get-started/tutorials) for hands-on examples
-
-::::{toctree}
-:hidden:
-:maxdepth: 2
-configuration
-execution
-management
-ray
-packaging
-deploy
-::::

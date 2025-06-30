@@ -6,7 +6,7 @@ categories: ["reference"]
 
 (reference)=
 
-# About NeMo Run Reference Documentation
+# NeMo Run References
 
 This section contains comprehensive reference documentation for NeMo Run.
 
@@ -24,7 +24,7 @@ The reference section provides detailed documentation for NeMo Run, including co
 :link-type: doc
 :link-alt: CLI Reference
 
-Complete command-line interface documentation with all commands, options, and examples.
+Transform Python functions into CLI tools with rich argument parsing, factory functions, and executor integration.
 :::
 
 :::{grid-item-card} {octicon}`question;1.5em;sd-mr-1` FAQs
@@ -32,7 +32,7 @@ Complete command-line interface documentation with all commands, options, and ex
 :link-type: doc
 :link-alt: Frequently Asked Questions
 
-Find answers to common questions about NeMo Run usage and troubleshooting.
+Common questions about NeMo Run usage, configuration, execution, and troubleshooting.
 :::
 
 :::{grid-item-card} {octicon}`tools;1.5em;sd-mr-1` Troubleshooting
@@ -40,7 +40,7 @@ Find answers to common questions about NeMo Run usage and troubleshooting.
 :link-type: doc
 :link-alt: Troubleshooting Guide
 
-Solutions for common issues, error messages, and debugging techniques.
+Solutions for common issues, error messages, debugging techniques, and performance optimization.
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Glossary
@@ -48,7 +48,7 @@ Solutions for common issues, error messages, and debugging techniques.
 :link-type: doc
 :link-alt: NeMo Run Glossary
 
-Comprehensive definitions of terms and concepts used throughout NeMo Run documentation.
+Technical glossary of NeMo Run-specific concepts, ML infrastructure terms, and implementation details.
 :::
 
 ::::
@@ -60,13 +60,4 @@ Comprehensive definitions of terms and concepts used throughout NeMo Run documen
 - **Error Messages**: Explanations and resolutions for error codes
 - **Best Practices**: Recommended approaches for various use cases
 
-For comprehensive guides on configuration, execution, and management, see the [NeMo Run Guide](../guides/index).
-
-::::{toctree}
-:hidden:
-:maxdepth: 2
-cli
-faqs
-troubleshooting
-glossary
-::::
+For comprehensive guides on configuration, execution, and management, see the [NeMo Run Guides](../guides/index).
