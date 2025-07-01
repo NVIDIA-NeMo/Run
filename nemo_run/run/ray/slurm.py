@@ -152,6 +152,8 @@ class SlurmRayRequest:
         if not job_details.folder:
             job_details.folder = os.path.join(slurm_job_dir, "logs")
 
+        logs_dir: str = job_details.folder  # Single source of truth for log-dir inside this SBATCH
+
         parameters["job_name"] = job_details.job_name
 
         stdout = str(job_details.stdout)
@@ -222,7 +224,7 @@ class SlurmRayRequest:
         vars_to_fill = {
             "sbatch_flags": sbatch_flags,
             "cluster_dir": self.cluster_dir,
-            "log_dir": os.path.join(self.cluster_dir, "logs"),
+            "log_dir": logs_dir,
             "uv_cache_dir": os.path.join(self.cluster_dir, "uv_cache"),
             "num_retries": max(1, self.executor.retries),
             "env_vars": env_vars,
@@ -260,12 +262,12 @@ class SlurmRayRequest:
                     srun_args.extend(self.executor.srun_args or [])
                     group_env_vars.append([])
 
-                stdout_path = os.path.join(self.cluster_dir, "logs", f"ray-overlap-{idx}.out")
+                stdout_path = os.path.join(logs_dir, f"ray-overlap-{idx}.out")
                 stderr_flags = []
                 if not self.executor.stderr_to_stdout:
                     stderr_flags = [
                         "--error",
-                        os.path.join(self.cluster_dir, "logs", f"ray-overlap-{idx}.err"),
+                        os.path.join(logs_dir, f"ray-overlap-{idx}.err"),
                     ]
 
                 srun_cmd = " ".join(
@@ -1182,9 +1184,9 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                 if isinstance(self.executor.tunnel, SSHTunnel):
                     # Rsync workdir honouring .gitignore
                     self.executor.tunnel.connect()
-                    assert self.executor.tunnel.session is not None, (
-                        "Tunnel session is not connected"
-                    )
+                    assert (
+                        self.executor.tunnel.session is not None
+                    ), "Tunnel session is not connected"
                     rsync(
                         self.executor.tunnel.session,
                         workdir,
@@ -1239,9 +1241,9 @@ Useful Commands (to be run on the login node of the Slurm cluster)
 
                 if isinstance(self.executor.tunnel, SSHTunnel):
                     self.executor.tunnel.connect()
-                    assert self.executor.tunnel.session is not None, (
-                        "Tunnel session is not connected"
-                    )
+                    assert (
+                        self.executor.tunnel.session is not None
+                    ), "Tunnel session is not connected"
                     rsync(
                         self.executor.tunnel.session,
                         os.path.join(local_code_extraction_path, ""),
