@@ -138,7 +138,8 @@ def package(
             fn_or_script, serialize_configs=True
         )
         metadata = fn_or_script.metadata
-        env = env | fn_or_script.env
+        if fn_or_script.env:
+            env = env | fn_or_script.env
 
     launcher = executor.get_launcher()
     if executor.supports_launcher_transform():
