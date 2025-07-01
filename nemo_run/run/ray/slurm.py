@@ -1184,9 +1184,9 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                 if isinstance(self.executor.tunnel, SSHTunnel):
                     # Rsync workdir honouring .gitignore
                     self.executor.tunnel.connect()
-                    assert (
-                        self.executor.tunnel.session is not None
-                    ), "Tunnel session is not connected"
+                    assert self.executor.tunnel.session is not None, (
+                        "Tunnel session is not connected"
+                    )
                     rsync(
                         self.executor.tunnel.session,
                         workdir,
@@ -1241,9 +1241,9 @@ Useful Commands (to be run on the login node of the Slurm cluster)
 
                 if isinstance(self.executor.tunnel, SSHTunnel):
                     self.executor.tunnel.connect()
-                    assert (
-                        self.executor.tunnel.session is not None
-                    ), "Tunnel session is not connected"
+                    assert self.executor.tunnel.session is not None, (
+                        "Tunnel session is not connected"
+                    )
                     rsync(
                         self.executor.tunnel.session,
                         os.path.join(local_code_extraction_path, ""),
