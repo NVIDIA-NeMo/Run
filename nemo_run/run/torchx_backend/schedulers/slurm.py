@@ -194,7 +194,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         if not os.path.exists(dst_path):
             os.makedirs(os.path.dirname(dst_path), exist_ok=True)
             with open(dst_path, "w") as f:
-                f.write(req.materialize())
+                f.write(str(req.materialize()))
 
         # Run sbatch script
         req.launch_cmd += [dst_path]
