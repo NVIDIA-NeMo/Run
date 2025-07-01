@@ -302,6 +302,7 @@ nemo experiment cancel {exp_id} 0
         jobs: list[Job | JobGroup] | None = None,
         base_dir: str | None = None,
         clean_mode: bool = False,
+        enable_goodbye_message: bool = True,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -317,6 +318,7 @@ nemo experiment cancel {exp_id} 0
             _reconstruct: Generally, the user does not need to specify this flag.
                 This is only set to True when using run.Experiment.from_dir.
             clean_mode: If True, disables all console output (logs, progress bars, etc.). Defaults to False.
+            enable_goodbye_message: if True, prints goodbye message after submitting job. Defaults to True.
         """
         configure_logging(level=log_level)
         self._reconstruct = _reconstruct
@@ -325,6 +327,7 @@ nemo experiment cancel {exp_id} 0
 
         self._title = title
         self._id = id or f"{title}_{int(time.time())}"
+        self._enable_goodbye_message = enable_goodbye_message
 
         base_dir = str(base_dir or get_nemorun_home())
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
@@ -1181,16 +1184,17 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                         theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
                     )
                 )
-                self.console.print(
-                    Syntax(
-                        self.GOODBYE_MESSAGE_BASH.format(
-                            exp_id=self._id,
-                            tasks=list(map(lambda job: job.id, self.jobs)),
-                        ),
-                        "shell",
-                        theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
+                if self._enable_goodbye_message:
+                    self.console.print(
+                        Syntax(
+                            self.GOODBYE_MESSAGE_BASH.format(
+                                exp_id=self._id,
+                                tasks=list(map(lambda job: job.id, self.jobs)),
+                            ),
+                            "shell",
+                            theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
+                        )
                     )
-                )
 
     def _repr_svg_(self):
         return self.to_config()._repr_svg_()
