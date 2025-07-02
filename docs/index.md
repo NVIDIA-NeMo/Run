@@ -78,7 +78,7 @@ Learn why NeMo Run is the preferred choice for ML experiment management.
 
 ## Get Started
 
-::::{grid} 1 1 1 2 2
+::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Get Started with NeMo Run
@@ -118,7 +118,7 @@ Learn NeMo Run with hands-on tutorials and examples
 
 ## Guides
 
-::::{grid} 1 1 1 2 2
+::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
@@ -164,13 +164,9 @@ Deploy your code using Git archives, pattern matching, or hybrid packaging strat
 
 ---
 
-
-
----
-
 ## References
 
-::::{grid} 1 1 1 2 2
+::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Reference
@@ -239,8 +235,6 @@ guides/management
 guides/packaging
 guides/ray
 ::::
-
-
 
 ::::{toctree}
 :hidden:
