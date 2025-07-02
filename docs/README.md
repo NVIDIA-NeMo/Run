@@ -11,28 +11,35 @@ This is a comprehensive Sphinx documentation template designed for technical wri
 This template showcases advanced Sphinx documentation patterns and features:
 
 (️-complex-structure)=
+
 ### 🏗️ **Complex Structure**
+
 - Multi-level navigation with toctrees
 - Product-based content organization (Product A, B, C)
 - Hierarchical information architecture
 
 ### 🎨 **Modern Design**
+
 - Grid-based layouts with responsive cards
 - Rich visual elements (icons, badges, images)
 - Professional styling with the Furo theme
 
 ### 🔗 **Advanced Navigation**
+
 - Cross-references and internal linking
 - Conditional content rendering
 - Multi-section organization
 
 (️-sphinx-extensions)=
+
 ### 🛠️ **Sphinx Extensions**
+
 - MyST Markdown with advanced features
 - Sphinx Design for grid layouts
 - Custom extensions for specialized functionality
 
 ### 📊 **Content Patterns**
+
 - Concept documentation with detailed explanations
 - Tutorial and how-to guide structures
 - Reference documentation organization
@@ -61,7 +68,7 @@ docs/
 │   ├── process-data/
 │   └── save-export/
 ├── product-c-analytics/     # Product C documentation
-├── admin/                   # Administrative guides
+├── deployment/              # Administrative guides
 │   ├── deployment/
 │   └── integrations/
 └── reference/              # Reference documentation
@@ -86,6 +93,7 @@ docs/
 ## Features Demonstrated
 
 ### Grid Layouts
+
 The template uses `sphinx-design` for responsive grid layouts:
 
 ```markdown
@@ -104,6 +112,7 @@ Description text
 ```
 
 ### Conditional Content
+
 Content can be conditionally included based on build configuration:
 
 ```markdown
@@ -114,6 +123,7 @@ This content only appears in non-GA builds
 ```
 
 ### Cross-References
+
 Comprehensive linking system with labeled references:
 
 ```markdown
@@ -123,7 +133,7 @@ Comprehensive linking system with labeled references:
 Link to this section: {ref}`my-reference-label`
 ```
 
-## Building the Documentation
+## Build the Documentation
 
 ```bash
 # Install dependencies
@@ -174,14 +184,14 @@ This template provides a solid foundation for creating professional, maintainabl
     - [Grid Layouts](#grid-layouts)
     - [Conditional Content](#conditional-content)
     - [Cross-References](#cross-references)
-  - [Building the Documentation](#building-the-documentation)
+  - [Build the Documentation](#build-the-documentation)
   - [Customization Tips](#customization-tips)
   - [Requirements](#requirements)
 - [Documentation Development](#documentation-development)
   - [Set Up the Documentation Environment](#set-up-the-documentation-environment)
   - [Build the Documentation](#build-the-documentation)
     - [Build Variants](#build-variants)
-  - [Live Building](#live-building)
+  - [Build Live](#build-live)
   - [Conditional Content for Different Build Types](#conditional-content-for-different-build-types)
     - [1. File-Level Exclusion (Recommended for Entire Sections)](#1-file-level-exclusion-recommended-for-entire-sections)
     - [2. Grid Card Conditional Rendering](#2-grid-card-conditional-rendering)
@@ -203,7 +213,6 @@ This template provides a solid foundation for creating professional, maintainabl
       - [Ansible with Mixed Syntax](#ansible-with-mixed-syntax)
       - [Benefits](#benefits)
 
-
 ## Set Up the Documentation Environment
 
 Before building or serving the documentation, set up the docs environment using the Makefile:
@@ -223,8 +232,8 @@ To build the NeMo Curator documentation, run:
 make docs-html
 ```
 
-* The resulting HTML files are generated in a `_build/html` folder under the project `docs/` folder.
-* The generated Python API docs are placed in `apidocs` under the `docs/` folder.
+- The resulting HTML files are generated in a `_build/html` folder under the project `docs/` folder.
+- The generated Python API docs are placed in `apidocs` under the `docs/` folder.
 
 ### Build Variants
 
@@ -234,7 +243,7 @@ The documentation supports different build variants:
 - `make docs-html-ga` - GA (General Availability) build (excludes EA-only content)
 - `make docs-html-ea` - EA (Early Access) build (includes all content)
 
-## Live Building
+## Build Live
 
 To serve the documentation with live updates as you edit, run:
 
@@ -261,8 +270,9 @@ only: not ga
 ```
 
 **Supported conditions:**
+
 - `only: not ga` - Exclude from GA builds (EA-only content)
-- `only: ga` - Include only in GA builds  
+- `only: ga` - Include only in GA builds
 - `only: not ea` - Exclude from EA builds
 - `only: internal` - Include only in internal builds
 
@@ -274,7 +284,7 @@ Hide specific grid cards from certain builds:
 
 ```markdown
 :::{grid-item-card} Video Curation Features
-:link: video-overview  
+:link: video-overview
 :link-type: ref
 :only: not ga
 Content for EA-only features
@@ -295,7 +305,7 @@ Control navigation entries conditionally:
 :only: not ga
 
 ea-feature1.md
-ea-feature2.md  
+ea-feature2.md
 ::::
 
 # Inline entry conditions (hides individual entries)
@@ -322,7 +332,7 @@ another-standard-doc.md
 # Test default build (includes all content)
 make docs-html
 
-# Test GA build (excludes EA-only content)  
+# Test GA build (excludes EA-only content)
 make docs-html-ga
 
 # Verify content is properly hidden/shown in each build
@@ -384,7 +394,7 @@ extensions = [
 # Define reusable variables
 myst_substitutions = {
     "product_name": "NeMo Curator",
-    "product_name_short": "Curator", 
+    "product_name_short": "Curator",
     "company": "NVIDIA",
     "version": release,  # Uses the release variable from conf.py
     "current_year": "2025",
@@ -399,6 +409,7 @@ myst_substitutions = {
 ### Usage
 
 #### Basic MyST Substitutions in Text
+
 Use `{{ variable }}` syntax in regular markdown text:
 
 ```markdown
@@ -427,6 +438,7 @@ The extension intelligently protects template languages from unwanted substituti
 #### Protected Languages
 
 These languages are treated carefully to preserve their native `{{ }}` syntax:
+
 - `yaml`, `yml` (Kubernetes, Docker Compose)
 - `helm`, `gotmpl`, `go-template` (Helm charts)
 - `jinja`, `jinja2`, `j2` (Ansible, Python templates)
@@ -437,6 +449,7 @@ These languages are treated carefully to preserve their native `{{ }}` syntax:
 #### Pattern Protection
 
 The extension automatically detects and preserves common template patterns:
+
 - `{{ .Values.something }}` (Helm values)
 - `{{ ansible_variable }}` (Ansible variables)
 - `{{ item.property }}` (Template loops)
@@ -453,7 +466,7 @@ image:
   repository: nvcr.io/nvidia/nemo-curator
   tag: {{ .Values.image.tag | default "latest" }}        # ← Helm template (preserved)
 
-# Documentation URLs using MyST substitutions  
+# Documentation URLs using MyST substitutions
 downloads:
   releaseUrl: "https://github.com/NVIDIA/NeMo-Curator/releases/download/v{{ version }}/nemo-curator.tar.gz"  # ← MyST substitution
   docsUrl: "{{ docs_url }}"                              # ← MyST substitution
@@ -461,22 +474,22 @@ downloads:
 
 service:
   name: {{ include "nemo-curator.fullname" . }}          # ← Helm template (preserved)
-  
+
 env:
   - name: CURATOR_VERSION
     value: "{{ .Chart.AppVersion }}"                     # ← Helm template (preserved)
-  - name: DOCS_VERSION  
+  - name: DOCS_VERSION
     value: "{{ version }}"                               # ← MyST substitution
 ```
 
-#### Ansible with Mixed Syntax  
+#### Ansible with Mixed Syntax
 
 ```yaml
 # MyST substitutions for documentation
 - name: "Install {{ product_name }} version {{ version }}"     # ← MyST substitution
   shell: |
     wget {{ github_repo }}/releases/download/v{{ version }}/nemo-curator.tar.gz  # ← MyST substitution
-    
+
   # Ansible templates preserved
   when: "{{ ansible_distribution }} == 'Ubuntu'"              # ← Ansible template (preserved)
   notify: "{{ handlers.restart_service }}"                    # ← Ansible template (preserved)

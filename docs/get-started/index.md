@@ -1,44 +1,56 @@
 ---
-description: "Get started quickly with our platform by following these essential setup steps and choosing the right feature set for your needs."
+description: "Get started quickly with NeMo Run by following these essential setup steps and tutorials."
 tags: ["quickstart", "setup", "beginner", "onboarding"]
 categories: ["getting-started"]
 ---
 
-(gs-overview)=
-# Get Started with Product
+(get-started)=
+# Get Started with NeMo Run
 
-Intro section
+Welcome to NeMo Run! This guide will help you get up and running quickly with ML experiment management.
 
 ## Before You Start
 
-- Link
-- Stuff A
-- Stuff B
+- Ensure you have Python 3.8+ installed
+- Have pip configured for package installation
+- Access to computing resources (local, cloud, or cluster)
 
 ---
 
 ## Quickstart Options
 
-Intro sentence.
+Choose your path to get started with NeMo Run:
 
-::::{grid} 1 1 1 2
+::::{grid} 1 1 1 3
 :gutter: 1 1 1 2
 
-:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Feature Set A Quickstart
-:link: gs-feature-set-a
-:link-type: ref
-:link-alt: screenreader alt for link 
-Get started with ...
+:::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
+:link: install
+:link-type: doc
+:link-alt: Installation guide
+Install NeMo Run and optional dependencies for your environment
 
 +++
-{bdg-secondary}`tag`
+{bdg-primary}`Start Here`
 :::
 
-:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Feature Set B Quickstart
-:link: gs-feature-set-b
-:only: not ga
-:link-type: ref
-:link-alt: screenreader alt for link 
-Get started with ... no tags example
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quickstart Guide
+:link: quickstart
+:link-type: doc
+:link-alt: Quickstart Guide
+Complete guide to install and run your first ML experiment in minutes
+
++++
+{bdg-secondary}`Next Steps`
+:::
+
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Tutorials
+:link: tutorials
+:link-type: doc
+:link-alt: Tutorial collection
+Learn NeMo Run with hands-on tutorials and examples
+
++++
+{bdg-secondary}`Advanced Learning`
 :::
 ::::
