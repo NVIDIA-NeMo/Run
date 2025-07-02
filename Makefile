@@ -92,11 +92,19 @@ endif
 
 docs-html:
 	@echo "Building HTML documentation..."
+ifeq ($(OS),Windows_NT)
+	cd docs && ..\\.venv-docs\\Scripts\\python.exe -m sphinx -b html $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+else
 	cd docs && $(DOCS_PYTHON_IN_DOCS) -m sphinx -b html $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+endif
 
 docs-publish:
 	@echo "Building HTML documentation for publication (fail on warnings)..."
+ifeq ($(OS),Windows_NT)
+	cd docs && ..\\.venv-docs\\Scripts\\python.exe -m sphinx --fail-on-warning --builder html $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+else
 	cd docs && $(DOCS_PYTHON_IN_DOCS) -m sphinx --fail-on-warning --builder html $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+endif
 
 docs-clean:
 	@echo "Cleaning built documentation..."
@@ -104,7 +112,11 @@ docs-clean:
 
 docs-live:
 	@echo "Starting live-reload server (sphinx-autobuild)..."
+ifeq ($(OS),Windows_NT)
+	cd docs && ..\\.venv-docs\\Scripts\\python.exe -m sphinx_autobuild $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+else
 	cd docs && $(DOCS_PYTHON_IN_DOCS) -m sphinx_autobuild $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+endif
 
 docs-env:
 	@echo "Setting up docs virtual environment with uv..."
