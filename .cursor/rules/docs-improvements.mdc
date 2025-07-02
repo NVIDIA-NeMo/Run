@@ -1,0 +1,59 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Documentation Improvements Rules
+
+## 1. Information Architecture & Organization
+- Structure documentation hierarchically with clear sections (e.g., About, Get Started, Guides, Reference).
+- Organize content by user needs and experience levels.
+- Use progressive disclosure: present information from overview to detailed implementation.
+- Provide multiple navigation paths for different user types.
+
+## 2. Content Expansion & Depth
+- Ensure comprehensive coverage of all relevant topics.
+- Expand existing guides and add new content areas as needed (e.g., troubleshooting, glossary, tutorials).
+- Include detailed installation, quickstart, and feature guides.
+
+## 3. Technical Documentation Quality
+- Use advanced documentation tools and configurations (e.g., Sphinx with custom extensions).
+- Include rich metadata, frontmatter, and SEO optimization.
+- Add interactive elements (tabs, dropdowns, admonitions) and code examples with syntax highlighting.
+
+## 4. User Experience Enhancements
+- Apply modern, responsive layouts (e.g., grid-based, card navigation).
+- Integrate icons and visual hierarchy for better navigation.
+- Ensure consistent formatting and clear call-to-actions.
+
+## 5. Technical Capabilities
+- Document configuration systems, validation rules, and CLI integration in detail.
+- Provide environment-specific guidance and resource management strategies.
+- Cover packaging, deployment, and reproducibility best practices.
+
+## 6. Developer Experience
+- Offer comprehensive installation and setup instructions for all environments.
+- Include hands-on tutorials and quickstart guides with real-world examples.
+- Integrate troubleshooting guidance throughout.
+
+## 7. Reference Documentation
+- Maintain complete and up-to-date CLI and API references with usage examples.
+- Document common issues, error messages, and debugging techniques.
+- Provide clear support and feedback channels.
+
+## 8. Content Quality
+- Align documentation with source code and ensure technical accuracy.
+- Use clear, accessible language and consistent terminology.
+- Present information logically and progressively.
+
+## 9. Technical Infrastructure
+- Use advanced build tools, custom extensions, and optimized output.
+- Implement structured metadata, cross-references, and version tracking.
+
+## 10. Maintenance & Quality Assurance
+- Regularly verify documentation against source code.
+- Conduct user testing and peer reviews.
+- Establish processes for feedback integration, link validation, and content audits.
+
+## 11. Future Enhancements
+- Plan for interactive examples, video content, community contributions, and localization.
