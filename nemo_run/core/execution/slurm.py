@@ -61,6 +61,7 @@ class SlurmJobDetails:
 
     job_name: Optional[str] = None
     folder: Optional[str] = None
+    ray_log_prefix: str = "ray-"
 
     @property
     def stderr(self) -> Path:

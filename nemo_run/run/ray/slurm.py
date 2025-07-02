@@ -221,6 +221,7 @@ class SlurmRayRequest:
 
             return " ".join(_srun_flags)
 
+        ray_log_prefix = job_details.ray_log_prefix
         vars_to_fill = {
             "sbatch_flags": sbatch_flags,
             "cluster_dir": self.cluster_dir,
@@ -235,6 +236,7 @@ class SlurmRayRequest:
             "command": self.command,
             "command_workdir": self.workdir,
             "gres_specification": get_gres_specification(),
+            "ray_log_prefix": ray_log_prefix,
         }
 
         if self.command_groups:
@@ -262,12 +264,12 @@ class SlurmRayRequest:
                     srun_args.extend(self.executor.srun_args or [])
                     group_env_vars.append([])
 
-                stdout_path = os.path.join(logs_dir, f"ray-overlap-{idx}.out")
+                stdout_path = os.path.join(logs_dir, f"{ray_log_prefix}overlap-{idx}.out")
                 stderr_flags = []
                 if not self.executor.stderr_to_stdout:
                     stderr_flags = [
                         "--error",
-                        os.path.join(logs_dir, f"ray-overlap-{idx}.err"),
+                        os.path.join(logs_dir, f"{ray_log_prefix}overlap-{idx}.err"),
                     ]
 
                 srun_cmd = " ".join(

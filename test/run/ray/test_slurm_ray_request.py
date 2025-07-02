@@ -637,3 +637,64 @@ class TestSlurmRayRequest:
         default_logs = os.path.join(cluster_dir, "logs")
         assert f"export LOG_DIR={default_logs}" in script
         assert f"#SBATCH --output={default_logs}/" in script
+
+    def test_default_ray_log_prefix(self):
+        """Ensure that default ``ray_log_prefix`` is respected in generated scripts."""
+        executor = SlurmExecutor(account="test_account")
+        # Default should be "ray-"
+        assert executor.job_details.ray_log_prefix == "ray-"
+
+        # Attach a mock tunnel so that ``materialize`` works without ssh
+        tunnel_mock = Mock(spec=SSHTunnel)
+        tunnel_mock.job_dir = "/tmp/test_jobs"
+        executor.tunnel = tunnel_mock
+
+        req = SlurmRayRequest(
+            name="default-prefix",
+            cluster_dir="/tmp/test_jobs/default-prefix",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[["head"], ["echo", "hi"]],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = req.materialize()
+
+        # Head / worker / overlap log paths must include the default prefix
+        assert "ray-head.log" in script
+        assert "ray-worker-" in script
+        assert "ray-overlap-" in script
+        assert "ray-job.log" in script
+
+    def test_custom_ray_log_prefix(self):
+        """Validate that a custom ``ray_log_prefix`` propagates to all log file names."""
+        executor = SlurmExecutor(account="test_account")
+        # Override the prefix
+        custom_prefix = "mycustom-"
+        executor.job_details.ray_log_prefix = custom_prefix
+
+        # Mock tunnel
+        tunnel_mock = Mock(spec=SSHTunnel)
+        tunnel_mock.job_dir = "/tmp/test_jobs"
+        executor.tunnel = tunnel_mock
+
+        req = SlurmRayRequest(
+            name="custom-prefix-cluster",
+            cluster_dir="/tmp/test_jobs/custom-prefix-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[["head"], ["echo", "hi"]],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = req.materialize()
+
+        # All log files generated inside the script should use the custom prefix
+        expected_patterns = [
+            f"{custom_prefix}head.log",
+            f"{custom_prefix}worker-",
+            f"{custom_prefix}overlap-1.out",
+            f"{custom_prefix}job.log",
+        ]
+        for pattern in expected_patterns:
+            assert pattern in script, f"Log path missing expected prefix pattern: {pattern}"
