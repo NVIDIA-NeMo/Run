@@ -14,7 +14,19 @@ alwaysApply: false
 ## 2. Content Expansion & Depth
 - Ensure comprehensive coverage of all relevant topics.
 - Expand existing guides and add new content areas as needed (e.g., troubleshooting, glossary, tutorials).
-- Include detailed installation, quickstart, and feature guides.
+- Include detailed installation, QuickStart, and feature guides.
+
+## 3. User Experience & Accessibility
+- Design documentation for different user personas (developers, data scientists, DevOps).
+- Ensure content is accessible to users with varying technical backgrounds.
+- Provide clear examples, code snippets, and visual aids.
+- Include step-by-step instructions for complex processes.
+
+## 4. Maintenance & Updates
+- Establish regular review cycles for documentation accuracy.
+- Keep documentation synchronized with code changes and releases.
+- Implement feedback mechanisms for user suggestions and issues.
+- Maintain version control and change tracking for documentation.
 
 ## 5. Technical Capabilities
 - Document configuration systems, validation rules, and CLI integration in detail.
@@ -23,7 +35,7 @@ alwaysApply: false
 
 ## 6. Developer Experience
 - Offer comprehensive installation and setup instructions for all environments.
-- Include hands-on tutorials and quickstart guides with real-world examples.
+- Include hands-on tutorials and QuickStart guides with real-world examples.
 - Integrate troubleshooting guidance throughout.
 
 ## 7. Reference Documentation
