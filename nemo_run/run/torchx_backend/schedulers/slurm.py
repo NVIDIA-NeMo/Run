@@ -190,12 +190,6 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             cmd.append(f"--dependency={slurm_executor.dependency_type}:{':'.join(slurm_deps)}")
             req.launch_cmd = cmd
 
-        # Create the sbatch script if it does not exist
-        if not os.path.exists(dst_path):
-            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-            with open(dst_path, "w") as f:
-                f.write(str(req.materialize()))
-
         # Run sbatch script
         req.launch_cmd += [dst_path]
         job_id = self.tunnel.run(" ".join(req.launch_cmd)).stdout.strip()
