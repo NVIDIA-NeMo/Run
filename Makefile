@@ -1,10 +1,53 @@
 # Makefile targets for Sphinx documentation (all targets prefixed with 'docs-')
 
-.PHONY: docs-html docs-clean docs-live docs-env docs-publish \
+# Default target shows help
+.DEFAULT_GOAL := help
+
+.PHONY: help docs-html docs-clean docs-live docs-env docs-publish \
         docs-html-internal docs-html-ga docs-html-ea docs-html-draft \
         docs-live-internal docs-live-ga docs-live-ea docs-live-draft \
         docs-publish-internal docs-publish-ga docs-publish-ea docs-publish-draft \
         docs-pinecone-test docs-pinecone-upload docs-pinecone-upload-dry docs-pinecone-update
+
+# Cross-platform help target
+help: ## Show this help message
+	@echo ""
+	@echo "📚 Documentation Build System"
+	@echo "=============================="
+	@echo ""
+	@echo "Main targets:"
+	@echo "  docs-env                      Set up documentation environment"
+	@echo "  docs-html [DOCS_ENV=<env>]    Build HTML documentation"
+	@echo "  docs-live [DOCS_ENV=<env>]    Start live-reload server"
+	@echo "  docs-publish [DOCS_ENV=<env>] Build for publication (fail on warnings)"
+	@echo "  docs-clean                    Clean built documentation"
+	@echo ""
+	@echo "Environment variants:"
+	@echo "  docs-html-internal            Build with internal tag"
+	@echo "  docs-html-ga                  Build with GA tag"
+	@echo "  docs-html-ea                  Build with EA tag"
+	@echo "  docs-html-draft               Build with draft tag"
+	@echo "  docs-live-internal            Live server with internal tag"
+	@echo "  docs-live-ga                  Live server with GA tag"
+	@echo "  docs-live-ea                  Live server with EA tag"
+	@echo "  docs-live-draft               Live server with draft tag"
+	@echo "  docs-publish-internal         Publish build with internal tag"
+	@echo "  docs-publish-ga               Publish build with GA tag"
+	@echo "  docs-publish-ea               Publish build with EA tag"
+	@echo "  docs-publish-draft            Publish build with draft tag"
+	@echo ""
+	@echo "Pinecone integration:"
+	@echo "  docs-pinecone-test            Test Pinecone connection"
+	@echo "  docs-pinecone-upload-dry      Dry run upload to Pinecone"
+	@echo "  docs-pinecone-upload          Upload docs to Pinecone"
+	@echo "  docs-pinecone-update          Build docs and update Pinecone"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make docs-env                 # Set up environment first"
+	@echo "  make docs-html                # Build basic HTML docs"
+	@echo "  make docs-html DOCS_ENV=ga    # Build with GA tag"
+	@echo "  make docs-live DOCS_ENV=draft # Live server with draft tag"
+	@echo ""
 
 # Usage:
 #   make docs-html DOCS_ENV=internal   # Build docs for internal use
@@ -24,20 +67,22 @@ ifeq ($(OS),Windows_NT)
     VENV_ACTIVATE_PS = .venv-docs\Scripts\Activate.ps1
     RM_CMD = if exist docs\_build rmdir /s /q docs\_build
     ECHO_BLANK = @echo.
+    SCRIPT_RUNNER = $(DOCS_PYTHON)
 else
     VENV_PYTHON = .venv-docs/bin/python
     VENV_ACTIVATE = source .venv-docs/bin/activate
     RM_CMD = cd docs && rm -rf _build
     ECHO_BLANK = @echo ""
+    SCRIPT_RUNNER = $(DOCS_PYTHON)
 endif
 
-# Pass DOCS_ENV to sphinx-build if set
-
-# Cross-platform uv run command
+# Cross-platform Python command from docs environment
 ifeq ($(OS),Windows_NT)
-    UV_RUN = uv run --active
+    DOCS_PYTHON = ../.venv-docs/Scripts/python.exe
+    DOCS_PYTHON_IN_DOCS = ..\\.venv-docs\\Scripts\\python.exe
 else
-    UV_RUN = VIRTUAL_ENV=../.venv-docs uv run
+    DOCS_PYTHON = ../.venv-docs/bin/python
+    DOCS_PYTHON_IN_DOCS = ../.venv-docs/bin/python
 endif
 
 # Makefile targets for Sphinx documentation (all targets prefixed with 'docs-')
@@ -47,11 +92,11 @@ endif
 
 docs-html:
 	@echo "Building HTML documentation..."
-	cd docs && $(UV_RUN) python -m sphinx -b html $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+	cd docs && $(DOCS_PYTHON_IN_DOCS) -m sphinx -b html $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
 
 docs-publish:
 	@echo "Building HTML documentation for publication (fail on warnings)..."
-	cd docs && $(UV_RUN) python -m sphinx --fail-on-warning --builder html $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+	cd docs && $(DOCS_PYTHON_IN_DOCS) -m sphinx --fail-on-warning --builder html $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
 
 docs-clean:
 	@echo "Cleaning built documentation..."
@@ -59,7 +104,7 @@ docs-clean:
 
 docs-live:
 	@echo "Starting live-reload server (sphinx-autobuild)..."
-	cd docs && $(UV_RUN) python -m sphinx_autobuild $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
+	cd docs && $(DOCS_PYTHON_IN_DOCS) -m sphinx_autobuild $(if $(DOCS_ENV),-t $(DOCS_ENV)) . _build/html
 
 docs-env:
 	@echo "Setting up docs virtual environment with uv..."
@@ -179,16 +224,16 @@ docs-live-draft:
 
 docs-pinecone-test:
 	@echo "Testing Pinecone connection and setup..."
-	$(VENV_PYTHON) scripts/test_pinecone_setup.py
+	$(SCRIPT_RUNNER) scripts/rag/test_pinecone_setup.py
 
 docs-pinecone-upload-dry:
 	@echo "Dry run: Testing Pinecone upload without sending data..."
-	$(VENV_PYTHON) scripts/send_to_pinecone_llama.py --dry-run
+	$(SCRIPT_RUNNER) scripts/rag/send_to_pinecone_simple.py --dry-run
 
 docs-pinecone-upload:
 	@echo "Uploading documentation to Pinecone..."
-	$(VENV_PYTHON) scripts/send_to_pinecone_simple.py $(PINECONE_ARGS)
+	$(SCRIPT_RUNNER) scripts/rag/send_to_pinecone_simple.py $(PINECONE_ARGS)
 
 docs-pinecone-update: docs-html
 	@echo "Building docs and updating Pinecone index..."
-	$(VENV_PYTHON) scripts/send_to_pinecone_simple.py $(PINECONE_ARGS)
+	$(SCRIPT_RUNNER) scripts/rag/send_to_pinecone_simple.py $(PINECONE_ARGS)
