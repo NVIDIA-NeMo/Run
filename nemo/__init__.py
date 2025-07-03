@@ -8,8 +8,9 @@ import sys
 import importlib.abc
 import importlib.machinery
 
+
 class _NemoFinder(importlib.abc.MetaPathFinder):
-    """Custom finder for nemo.run.* imports - only handles this package's namespace."""
+    """Custom finder for nemo.run.* imports"""
 
     def __init__(self, namespace, actual_package):
         self._handled_modules = set()
@@ -77,5 +78,6 @@ def _register_nemo_finder():
         sys.meta_path.insert(0, _NemoFinder("nemo.run", "nemo_run"))
         return True
     return False
+
 
 _register_nemo_finder()
