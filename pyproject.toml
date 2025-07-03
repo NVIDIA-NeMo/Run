@@ -92,6 +92,12 @@ docs = [
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["nemo_run", "nemo"]
+
+[tool.hatch.build.targets.wheel.namespace-packages]
+nemo = true
+
 [tool.uv]
 managed = true
 prerelease = "allow"
@@ -141,9 +147,6 @@ directory = "coverage_html_report"
 
 [tool.hatch.metadata]
 allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["nemo_run"]
 
 [tool.hatch.version]
 path  = "nemo_run/package_info.py"
