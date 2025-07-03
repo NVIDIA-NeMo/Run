@@ -1,50 +1,207 @@
 ---
-description: Applies documentation improvement rules.
+description:
 globs:
 alwaysApply: false
 ---
 # Documentation Improvements Rules
 
-## 1. Information Architecture & Organization
-- Structure documentation hierarchically with clear sections (e.g., About, Get Started, Guides, Reference).
-- Organize content by user needs and experience levels.
-- Use progressive disclosure: present information from overview to detailed implementation.
-- Provide multiple navigation paths for different user types.
+## Overview
 
-## 2. Content Expansion & Depth
-- Ensure comprehensive coverage of all relevant topics.
-- Expand existing guides and add new content areas as needed (e.g., troubleshooting, glossary, tutorials).
-- Include detailed installation, QuickStart, and feature guides.
+These rules are based on the successful transformation of NeMo Run documentation from a basic structure to a comprehensive, professional documentation system. Apply these principles when creating or improving technical documentation.
 
-## 3. User Experience & Accessibility
-- Design documentation for different user personas (developers, data scientists, DevOps).
-- Ensure content is accessible to users with varying technical backgrounds.
-- Provide clear examples, code snippets, and visual aids.
-- Include step-by-step instructions for complex processes.
+## Information Architecture & Organization
 
-## 4. Maintenance & Updates
-- Establish regular review cycles for documentation accuracy.
-- Keep documentation synchronized with code changes and releases.
-- Implement feedback mechanisms for user suggestions and issues.
-- Maintain version control and change tracking for documentation.
+### Structure Guidelines
 
-## 5. Technical Capabilities
-- Document configuration systems, validation rules, and CLI integration in detail.
-- Provide environment-specific guidance and resource management strategies.
-- Cover packaging, deployment, and reproducibility best practices.
+- **Use Hierarchical Information Architecture**: Organize content into clear sections (About, Get Started, Guides, Reference)
+- **Implement User-Centric Organization**: Structure content by user needs and experience levels
+- **Apply Progressive Disclosure**: Present information in logical progression from overview to detailed implementation
+- **Create Multiple Entry Points**: Provide different navigation paths for different user types
 
-## 6. Developer Experience
-- Offer comprehensive installation and setup instructions for all environments.
-- Include hands-on tutorials and QuickStart guides with real-world examples.
-- Integrate troubleshooting guidance throughout.
+### Directory Structure Best Practices
 
-## 7. Reference Documentation
-- Maintain complete and up-to-date CLI and API references with usage examples.
-- Document common issues, error messages, and debugging techniques.
-- Provide clear support and feedback channels.
+```
+docs/
+├── about/           # Overview and value proposition
+├── get-started/     # Installation and quick start
+├── guides/          # Detailed implementation guides
+└── reference/       # API, CLI, and troubleshooting
+```
 
-## 8. Content Quality
-- Align documentation with source code and ensure technical accuracy.
-- Use clear, accessible language and consistent terminology.
-- Present information logically and progressively.
-- Regularly verify documentation against source code.
+## Content Development Standards
+
+### Content Depth Requirements
+
+- **Minimum Content Volume**: Aim for comprehensive coverage (200KB+ for major projects)
+- **Expand Existing Content**: Target 150-200% growth in key areas
+- **Add Missing Content**: Include troubleshooting, installation, quickstart, and glossary sections
+- **Technical Depth**: Provide detailed technical capabilities and implementation guidance
+
+### Content Quality Standards
+
+- **Source Code Verification**: Ensure documentation aligns with actual implementation
+- **API Consistency**: Maintain consistent documentation of APIs and interfaces
+- **Version Compatibility**: Include clear version requirements and compatibility information
+- **Best Practices**: Incorporate industry-standard recommendations
+
+### Writing Quality Guidelines
+
+- **Clear Language**: Explain technical concepts in accessible language
+- **Consistent Terminology**: Use standardized terminology throughout documentation
+- **Logical Flow**: Present information in logical, progressive order
+- **Actionable Content**: Provide clear, actionable instructions and guidance
+
+## Technical Documentation Infrastructure
+
+### Sphinx Configuration Standards
+
+- **Advanced Extensions**: Implement custom Sphinx extensions for enhanced functionality
+- **MyST Parser**: Use Markdown support with advanced features
+- **Theme Customization**: Apply professional themes with custom styling
+- **Build Optimization**: Optimize build process and output
+
+### Metadata & SEO Requirements
+
+- **Structured Metadata**: Include comprehensive frontmatter with descriptions and tags
+- **Search Optimization**: Optimize content for search engines
+- **Cross-References**: Implement internal linking and cross-referencing
+- **Version Tracking**: Use automated version management and tracking
+
+## User Experience Enhancements
+
+### Visual Design Standards
+
+- **Grid-Based Layouts**: Use modern card-based navigation
+- **Interactive Elements**: Implement tabbed content, collapsible sections, and dropdowns
+- **Icon Integration**: Use icons for visual hierarchy and navigation
+- **Responsive Design**: Ensure mobile-friendly layouts and navigation
+
+### Content Presentation Guidelines
+
+- **Progressive Disclosure**: Present information in logical layers
+- **Multiple Entry Points**: Create different paths for different user types
+- **Clear Call-to-Actions**: Include explicit next steps and navigation guidance
+- **Consistent Formatting**: Maintain standardized structure across all documents
+
+## Technical Capabilities Documentation
+
+### Configuration System Documentation
+
+- **Type-Safe Configuration**: Document configuration classes and their usage
+- **Configuration Examples**: Provide extensive code examples showing real-world usage
+- **Validation Rules**: Document custom validation and transformation capabilities
+- **CLI Integration**: Include comprehensive coverage of command-line parameter handling
+
+### Multi-Environment Execution Documentation
+
+- **Comprehensive Backend Coverage**: Document all execution environments
+- **Environment-Specific Guidance**: Provide tailored instructions for different platforms
+- **Resource Management**: Include advanced resource allocation and optimization strategies
+- **Cost Optimization**: Document cloud cost management and optimization techniques
+
+### Packaging Strategies Documentation
+
+- **Multiple Packaging Options**: Document all available packagers and their use cases
+- **Deployment Best Practices**: Provide guidelines for different deployment scenarios
+- **Code Reproducibility**: Include strategies for ensuring reproducible experiments
+- **Performance Optimization**: Document packaging strategies for optimal performance
+
+## Developer Experience Standards
+
+### Installation & Setup Documentation
+
+- **Comprehensive Installation Guide**: Provide detailed setup instructions for all environments
+- **Optional Dependencies**: Include clear guidance on when and how to install optional components
+- **Environment-Specific Instructions**: Provide tailored setup for different platforms
+- **Verification Steps**: Include clear instructions for verifying successful installation
+
+### Quickstart & Tutorials Standards
+
+- **Hands-On Learning**: Create step-by-step tutorials with working examples
+- **Progressive Complexity**: Build tutorials from simple to complex scenarios
+- **Real-World Examples**: Use practical examples that demonstrate real usage patterns
+- **Troubleshooting Integration**: Include built-in troubleshooting guidance
+
+## Reference Documentation Requirements
+
+### CLI Reference Standards
+
+- **Comprehensive Coverage**: Document complete command-line interface
+- **Usage Examples**: Provide practical examples for all commands and options
+- **Parameter Documentation**: Include detailed explanation of all parameters and flags
+- **Integration Examples**: Show CLI integration with other tools
+
+### Troubleshooting & Support Documentation
+
+- **Common Issues**: Cover frequently encountered problems comprehensively
+- **Error Messages**: Provide detailed explanation of error messages and resolution steps
+- **Debugging Techniques**: Include advanced debugging and diagnostic techniques
+- **Support Resources**: Provide clear guidance on getting additional help
+
+## Content Expansion Guidelines
+
+### Required New Content Areas
+
+- **Packaging Strategies**: Comprehensive guide for code packaging and deployment
+- **Troubleshooting Guide**: Detailed troubleshooting for common issues
+- **Technical Glossary**: Terminology reference for technical terms
+- **Installation Guide**: Detailed setup instructions for all environments
+- **Quickstart Guide**: Hands-on tutorial for getting started quickly
+- **Key Features**: Comprehensive technical overview of capabilities
+
+### Content Volume Targets
+
+- **Total Documentation**: Aim for 200KB+ of comprehensive documentation
+- **Configuration Guide**: Target 18KB+ with detailed examples
+- **Execution Guide**: Target 22KB+ with environment-specific guidance
+- **Management Guide**: Target 18KB+ with comprehensive management strategies
+- **Reference Documentation**: Target 23KB+ for CLI and API references
+
+## Implementation Checklist
+
+### Before Creating Documentation
+
+- [ ] Analyze existing documentation structure and identify gaps
+- [ ] Define target user personas and their information needs
+- [ ] Plan hierarchical information architecture
+- [ ] Identify required content areas and volume targets
+- [ ] Set up advanced Sphinx configuration with custom extensions
+
+### During Documentation Development
+
+- [ ] Implement progressive disclosure in content organization
+- [ ] Create multiple entry points for different user types
+- [ ] Include comprehensive code examples and real-world usage
+- [ ] Add structured metadata and SEO optimization
+- [ ] Implement interactive elements and responsive design
+
+### After Documentation Creation
+
+- [ ] Verify documentation against source code for accuracy
+- [ ] Test navigation and user experience across different devices
+- [ ] Validate internal links and cross-references
+- [ ] Review content for consistency and clarity
+- [ ] Gather user feedback and iterate on improvements
+
+## Success Metrics
+
+### Content Quality Metrics
+
+- **Completeness**: 90%+ coverage of all features and capabilities
+- **Accuracy**: 100% alignment with source code implementation
+- **Clarity**: User testing shows 85%+ comprehension rate
+- **Usability**: Navigation success rate of 90%+ for target user personas
+
+### Technical Infrastructure Metrics
+
+- **Build Performance**: Documentation builds in under 2 minutes
+- **Search Functionality**: 95%+ search result relevance
+- **Mobile Responsiveness**: 100% mobile compatibility
+- **SEO Performance**: Top 3 search results for key terms
+
+### User Experience Metrics
+
+- **Time to First Success**: Users achieve their first goal within 5 minutes
+- **Navigation Efficiency**: Users find information within 3 clicks
+- **Content Engagement**: 70%+ of users read beyond the landing page
+- **Support Reduction**: 50%+ reduction in support requests for documented topics
