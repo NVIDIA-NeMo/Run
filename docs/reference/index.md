@@ -28,7 +28,7 @@ Transform Python functions into CLI tools with rich argument parsing, factory fu
 :::
 
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` API Reference
-:link: ../guides/ray#api-reference
+:link: ../guides/ray
 :link-type: doc
 :link-alt: API Reference
 
