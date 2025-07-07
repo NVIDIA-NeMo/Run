@@ -1006,30 +1006,45 @@ class SlurmBatchRequest:
             else:
                 het_group_flag = []
 
-            srun_cmd = " ".join(
-                list(
-                    map(
-                        lambda arg: arg if isinstance(arg, noquote) else shlex.quote(arg),
-                        [
-                            "srun",
-                            *het_group_flag,
-                            "--output",
-                            cmd_stdout,
-                            *cmd_stderr,
-                            *_container_flags,
-                            *_srun_args,
-                        ],
-                    )
+            def join_with_newline(args):
+                res = []
+                for item in args:
+                    if item.startswith('--'):
+                        if len(res) > 0 and not res[-1].strip().endswith('\\'):
+                            res[-1] = res[-1].strip() + " \\"
+                        res.append('\n    ' + item)
+                        if '=' in item:
+                            res[-1] += " \\"
+                    else:
+                        prefix_space = ""
+                        if len(res) > 0 and res[-1].rstrip().endswith('\\'):
+                            res[-1] += '\n'
+                            prefix_space = "   "
+                        res.append(prefix_space + item)
+                return ' '.join(res)
+
+            srun_cmd = join_with_newline(
+                map(
+                    lambda arg: arg if isinstance(arg, noquote) else shlex.quote(arg),
+                    [
+                        "srun",
+                        *het_group_flag,
+                        "--output",
+                        cmd_stdout,
+                        *cmd_stderr,
+                        *_container_flags,
+                        *_srun_args,
+                    ],
                 )
             )
-            command = " ".join(command_group)
+            command = join_with_newline(command_group)
 
             if self.executor.run_as_group:
                 srun_command = f"{srun_cmd} {command} & pids[{group_ind}]=$!"
                 if group_ind != len(self.command_groups) - 1:
                     srun_command += f"\n\nsleep {self.executor.wait_time_for_group_job}\n"
             else:
-                srun_command = f"{srun_cmd} {command}"
+                srun_command = join_with_newline((srun_cmd, command))
 
             srun_commands.append(srun_command)
 
