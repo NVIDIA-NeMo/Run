@@ -35,9 +35,8 @@ from fiddle._src import daglish, diffing
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.progress import Task as RichTask
-from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState
 
@@ -225,11 +224,13 @@ nemo experiment cancel {exp_id} 0
     def catalog(
         cls: Type["Experiment"],
         title: str = "",
+        exp_dir_infix: str | None = None,
     ) -> list[str]:
         """
         List all experiments inside get_nemorun_home(), optionally with the provided title.
         """
-        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
+        exp_dir_infix = exp_dir_infix or os.path.join("experiments", title)
+        parent_dir = os.path.join(get_nemorun_home(), exp_dir_infix)
         return _get_sorted_dirs(parent_dir)
 
     @classmethod
@@ -263,12 +264,13 @@ nemo experiment cancel {exp_id} 0
     def from_id(
         cls: Type["Experiment"],
         id: str,
+        exp_dir_infix: str | None = None,
     ) -> "Experiment":
         """
         Reconstruct an experiment with the specified id.
         """
-        title, _, _ = id.rpartition("_")
-        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
+        exp_dir_infix = exp_dir_infix or os.path.join("experiments", id.rpartition("_")[0])
+        parent_dir = os.path.join(get_nemorun_home(), exp_dir_infix)
         exp_dir = os.path.join(parent_dir, id)
 
         assert os.path.isdir(exp_dir), f"Experiment {id} not found."
@@ -280,11 +282,13 @@ nemo experiment cancel {exp_id} 0
     def from_title(
         cls: Type["Experiment"],
         title: str,
+        exp_dir_infix: str | None = None,
     ) -> "Experiment":
         """
         Reconstruct an experiment with the specified title.
         """
-        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
+        exp_dir_infix = exp_dir_infix or os.path.join("experiments", title)
+        parent_dir = os.path.join(get_nemorun_home(), exp_dir_infix)
         exp_dir = _get_latest_dir(parent_dir)
 
         assert os.path.isdir(exp_dir), f"Experiment {id} not found."
@@ -303,6 +307,7 @@ nemo experiment cancel {exp_id} 0
         base_dir: str | None = None,
         clean_mode: bool = False,
         enable_goodbye_message: bool = True,
+        exp_dir_infix: str | None = None,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -330,7 +335,8 @@ nemo experiment cancel {exp_id} 0
         self._enable_goodbye_message = enable_goodbye_message
 
         base_dir = str(base_dir or get_nemorun_home())
-        self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
+        self._exp_dir_infix = exp_dir_infix or os.path.join("experiments", title)
+        self._exp_dir = os.path.join(base_dir, self._exp_dir_infix, self._id)
 
         self.log_level = log_level
         self._runner = get_runner(component_defaults=None, experiment=self)
@@ -359,6 +365,7 @@ nemo experiment cancel {exp_id} 0
             executor=self.executor.to_config(),
             log_level=self.log_level,
             clean_mode=self.clean_mode,
+            exp_dir_infix=self._exp_dir_infix,
         )
 
     def _save_experiment(self, exist_ok: bool = False):
@@ -997,7 +1004,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
         old_id, old_exp_dir, old_launched = self._id, self._exp_dir, self._launched
         self._id = f"{self._title}_{int(time.time())}"
-        self._exp_dir = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
+        self._exp_dir = os.path.join(get_nemorun_home(), self._exp_dir_infix, self._id)
         self._launched = False
         self._live_progress = None
 
@@ -1047,7 +1054,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 f"[bold magenta]Failed resetting Experiment {self._id} due to error: {e}"
             )
             # Double check exp dir is unchanged
-            new_path = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
+            new_path = os.path.join(get_nemorun_home(), self._exp_dir_infix, self._id)
             if self._exp_dir == new_path and new_path != old_exp_dir:
                 shutil.rmtree(self._exp_dir)
 
