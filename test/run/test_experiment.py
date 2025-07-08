@@ -80,6 +80,8 @@ def test_experiment_creation(temp_dir):
     assert exp._id.startswith("test-exp_")
     assert os.path.dirname(exp._exp_dir) == os.path.join(temp_dir, "experiments", "test-exp")
     assert isinstance(exp.executor, LocalExecutor)
+    # Verify the default exp_dir_infix
+    assert exp._exp_dir_infix == os.path.join("experiments", "test-exp")
 
 
 def test_experiment_with_custom_id(temp_dir):
@@ -1390,3 +1392,321 @@ def test_tasks_property_correct_deserialization(mock_serializer, mock_get_runner
                 # Verify serializer was called with the right arguments
                 serializer_instance.deserialize.assert_called_with("serialized_task_data")
                 assert len(tasks) == 1
+
+
+# Tests for exp_dir_infix functionality
+def test_experiment_with_custom_exp_dir_infix(temp_dir):
+    """Test creating an experiment with a custom exp_dir_infix."""
+    custom_infix = "custom/path/structure"
+    exp = Experiment("test-exp", exp_dir_infix=custom_infix)
+
+    assert exp._exp_dir_infix == custom_infix
+    assert exp._exp_dir == os.path.join(temp_dir, custom_infix, exp._id)
+
+    # Verify the directory structure matches the custom infix
+    exp_dir_parts = exp._exp_dir.split(os.sep)
+    temp_dir_parts = temp_dir.split(os.sep)
+
+    # The path should be: temp_dir/custom/path/structure/experiment_id
+    assert exp_dir_parts[len(temp_dir_parts) :] == ["custom", "path", "structure", exp._id]
+
+
+def test_experiment_with_none_exp_dir_infix(temp_dir):
+    """Test that None exp_dir_infix defaults to experiments/title."""
+    exp = Experiment("test-exp", exp_dir_infix=None)
+
+    assert exp._exp_dir_infix == os.path.join("experiments", "test-exp")
+    assert exp._exp_dir == os.path.join(temp_dir, "experiments", "test-exp", exp._id)
+
+
+def test_to_config_includes_exp_dir_infix(temp_dir):
+    """Test that to_config includes the exp_dir_infix."""
+    custom_infix = "ml/experiments/nlp"
+    exp = Experiment("test-exp", exp_dir_infix=custom_infix)
+
+    config = exp.to_config()
+
+    # Check that exp_dir_infix is in the config arguments
+    assert "exp_dir_infix" in config.__arguments__
+    assert config.__arguments__["exp_dir_infix"] == custom_infix
+
+
+@patch("nemo_run.run.experiment.get_runner")
+def test_catalog_with_custom_exp_dir_infix(mock_get_runner, temp_dir):
+    """Test catalog with custom exp_dir_infix."""
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = mock_runner
+
+    # Create experiments with custom infix
+    custom_infix = "projects/research"
+    title = "test-catalog"
+
+    # Create directory structure
+    parent_dir = os.path.join(temp_dir, custom_infix)
+    os.makedirs(parent_dir, exist_ok=True)
+
+    # Create multiple experiment directories
+    exp_ids = []
+    for i in range(3):
+        exp_id = f"{title}_{i}"
+        exp_ids.append(exp_id)
+        exp_dir = os.path.join(parent_dir, exp_id)
+        os.makedirs(exp_dir, exist_ok=True)
+
+        # Create config file
+        with open(os.path.join(exp_dir, Experiment._CONFIG_FILE), "w") as f:
+            json.dump({"title": title, "id": exp_id}, f)
+
+    # Test catalog with custom infix
+    experiments = Experiment.catalog("", exp_dir_infix=custom_infix)
+
+    assert len(experiments) == 3
+    for exp_id in exp_ids:
+        assert exp_id in experiments
+
+
+def test_catalog_with_none_exp_dir_infix(temp_dir):
+    """Test catalog with None exp_dir_infix uses default."""
+    title = "test-catalog"
+
+    # Create directory structure with default path
+    parent_dir = os.path.join(temp_dir, "experiments", title)
+    os.makedirs(parent_dir, exist_ok=True)
+
+    # Create an experiment directory
+    exp_id = f"{title}_1"
+    exp_dir = os.path.join(parent_dir, exp_id)
+    os.makedirs(exp_dir, exist_ok=True)
+
+    # Test catalog with None infix
+    experiments = Experiment.catalog(title, exp_dir_infix=None)
+
+    # Should return the experiment we created
+    assert exp_id in experiments
+
+
+@patch("nemo_run.run.experiment.get_runner")
+def test_from_id_with_custom_exp_dir_infix(mock_get_runner, temp_dir):
+    """Test from_id with custom exp_dir_infix."""
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = mock_runner
+
+    custom_infix = "ml/checkpoints"
+    title = "test-exp"
+    exp_id = f"{title}_12345"
+
+    # Create experiment with custom infix
+    with Experiment(title, id=exp_id, exp_dir_infix=custom_infix) as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        exp.add(task, name="test-job")
+        exp._prepare()
+
+    # Reconstruct with custom infix
+    reconstructed = Experiment.from_id(exp_id, exp_dir_infix=custom_infix)
+
+    assert reconstructed._id == exp_id
+    assert reconstructed._title == title
+    assert reconstructed._exp_dir_infix == custom_infix
+    assert reconstructed._exp_dir == os.path.join(temp_dir, custom_infix, exp_id)
+
+
+def test_from_id_with_none_exp_dir_infix(temp_dir):
+    """Test from_id with None exp_dir_infix uses default behavior."""
+    title = "test-exp"
+    exp_id = f"{title}_12345"
+
+    # Create directory structure with default path
+    parent_dir = os.path.join(temp_dir, "experiments", title)
+    exp_dir = os.path.join(parent_dir, exp_id)
+    os.makedirs(exp_dir, exist_ok=True)
+
+    # Mock the deserialization to return a simple config
+    with patch(
+        "nemo_run.core.serialization.zlib_json.ZlibJSONSerializer.deserialize"
+    ) as mock_deserialize:
+        mock_deserialize.return_value = run.Config(
+            Experiment, title=title, id=exp_id, executor=run.Config(LocalExecutor), log_level="INFO"
+        )
+
+        # Write config file
+        with open(os.path.join(exp_dir, Experiment._CONFIG_FILE), "w") as f:
+            f.write("dummy_config")
+
+        # Create empty tasks file
+        with open(os.path.join(exp_dir, Experiment._TASK_FILE), "w") as f:
+            json.dump([], f)
+
+        # Reconstruct with None infix
+        reconstructed = Experiment.from_id(exp_id, exp_dir_infix=None)
+
+        assert reconstructed._exp_dir_infix == os.path.join("experiments", title)
+
+
+@patch("nemo_run.run.experiment.get_runner")
+def test_from_title_with_custom_exp_dir_infix(mock_get_runner, temp_dir):
+    """Test from_title with custom exp_dir_infix."""
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = mock_runner
+
+    custom_infix = "team/projects"
+    title = "test-exp"
+
+    # Create multiple experiments with custom infix
+    exp_ids = []
+    for i in range(2):
+        exp_id = f"{title}_{i}"
+        exp_ids.append(exp_id)
+
+        with Experiment(title, id=exp_id, exp_dir_infix=custom_infix) as exp:
+            task = run.Partial(dummy_function, x=1, y=2)
+            exp.add(task, name="test-job")
+            exp._prepare()
+
+        # Add a small delay to ensure different creation times
+        time.sleep(0.1)
+
+    # Reconstruct the latest experiment
+    reconstructed = Experiment.from_title(title, exp_dir_infix=custom_infix)
+
+    # Should get the second (latest) experiment
+    assert reconstructed._id == exp_ids[1]
+    assert reconstructed._title == title
+    assert reconstructed._exp_dir_infix == custom_infix
+
+
+def test_from_title_with_none_exp_dir_infix(temp_dir):
+    """Test from_title with None exp_dir_infix uses default."""
+    title = "test-exp"
+
+    # Create directory structure with default path
+    parent_dir = os.path.join(temp_dir, "experiments", title)
+    os.makedirs(parent_dir, exist_ok=True)
+
+    # Create an experiment directory
+    exp_id = f"{title}_1"
+    exp_dir = os.path.join(parent_dir, exp_id)
+    os.makedirs(exp_dir, exist_ok=True)
+
+    # Mock the _from_config method
+    with patch.object(Experiment, "_from_config") as mock_from_config:
+        mock_exp = MagicMock()
+        mock_exp._id = exp_id
+        mock_exp._title = title
+        mock_exp._exp_dir_infix = os.path.join("experiments", title)
+        mock_from_config.return_value = mock_exp
+
+        # Reconstruct with None infix
+        reconstructed = Experiment.from_title(title, exp_dir_infix=None)
+
+        assert reconstructed._exp_dir_infix == os.path.join("experiments", title)
+
+
+@patch("nemo_run.run.experiment.get_runner")
+def test_reset_preserves_exp_dir_infix(mock_get_runner, temp_dir):
+    """Test that reset preserves the exp_dir_infix."""
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = mock_runner
+
+    custom_infix = "gpu/experiments"
+    title = "test-exp"
+
+    # Create an experiment with custom infix
+    with Experiment(title, exp_dir_infix=custom_infix) as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        exp.add(task, name="test-job")
+        exp._prepare()
+        old_id = exp._id
+        old_exp_dir = exp._exp_dir
+
+    # Mark as done
+    Path(os.path.join(old_exp_dir, Experiment._DONE_FILE)).touch()
+
+    # Reconstruct and reset
+    exp_reconstructed = Experiment.from_id(old_id, exp_dir_infix=custom_infix)
+
+    with patch("time.time", return_value=int(time.time()) + 100):
+        exp_reset = exp_reconstructed.reset()
+
+    # Verify the reset experiment preserves the custom infix
+    assert exp_reset._exp_dir_infix == custom_infix
+    assert exp_reset._id != old_id
+    assert exp_reset._exp_dir == os.path.join(temp_dir, custom_infix, exp_reset._id)
+
+
+def test_exp_dir_infix_with_slashes(temp_dir):
+    """Test exp_dir_infix with multiple directory levels."""
+    custom_infix = "org/team/project/experiments"
+    exp = Experiment("test-exp", exp_dir_infix=custom_infix)
+
+    # Verify the path is constructed correctly
+    expected_path = os.path.join(temp_dir, "org", "team", "project", "experiments", exp._id)
+    assert exp._exp_dir == expected_path
+
+
+def test_exp_dir_infix_empty_string(temp_dir):
+    """Test exp_dir_infix with empty string places experiments at root."""
+    exp = Experiment("test-exp", exp_dir_infix="")
+
+    # Empty string should place experiments directly in the base directory
+    assert exp._exp_dir_infix == ""
+    assert exp._exp_dir == os.path.join(temp_dir, exp._id)
+
+
+@patch("nemo_run.run.experiment.get_runner")
+def test_from_config_preserves_exp_dir_infix(mock_get_runner, temp_dir):
+    """Test that _from_config preserves exp_dir_infix from saved config."""
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = mock_runner
+
+    custom_infix = "saved/experiments"
+    title = "test-exp"
+    exp_id = f"{title}_12345"
+
+    # Create experiment directory
+    exp_dir = os.path.join(temp_dir, custom_infix, exp_id)
+    os.makedirs(exp_dir, exist_ok=True)
+
+    # Create config with custom infix
+    config = run.Config(
+        Experiment,
+        title=title,
+        id=exp_id,
+        executor=run.Config(LocalExecutor),
+        log_level="INFO",
+        clean_mode=False,
+        exp_dir_infix=custom_infix,
+    )
+
+    # Use the actual serializer to create proper serialized data
+    from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
+
+    serializer = ZlibJSONSerializer()
+    serialized_config = serializer.serialize(config)
+
+    # Write config file
+    with open(os.path.join(exp_dir, Experiment._CONFIG_FILE), "w") as f:
+        f.write(serialized_config)
+
+    # Create empty tasks file
+    with open(os.path.join(exp_dir, Experiment._TASK_FILE), "w") as f:
+        json.dump([], f)
+
+    # Reconstruct from config
+    reconstructed = Experiment._from_config(exp_dir)
+
+    assert reconstructed._exp_dir_infix == custom_infix
+    assert reconstructed._exp_dir == exp_dir
+
+
+def test_experiment_with_base_dir_and_exp_dir_infix(temp_dir):
+    """Test experiment with both base_dir and exp_dir_infix."""
+    custom_base = tempfile.mkdtemp()
+    try:
+        custom_infix = "research/nlp"
+        exp = Experiment("test-exp", base_dir=custom_base, exp_dir_infix=custom_infix)
+
+        # Verify the path uses both custom base and infix
+        assert exp._exp_dir == os.path.join(custom_base, custom_infix, exp._id)
+        assert exp._exp_dir_infix == custom_infix
+    finally:
+        shutil.rmtree(custom_base)
