@@ -229,7 +229,8 @@ nemo experiment cancel {exp_id} 0
         """
         List all experiments inside get_nemorun_home(), optionally with the provided title.
         """
-        exp_dir_infix = exp_dir_infix or os.path.join("experiments", title)
+        if exp_dir_infix is None:
+            exp_dir_infix = os.path.join("experiments", title)
         parent_dir = os.path.join(get_nemorun_home(), exp_dir_infix)
         return _get_sorted_dirs(parent_dir)
 
@@ -269,7 +270,8 @@ nemo experiment cancel {exp_id} 0
         """
         Reconstruct an experiment with the specified id.
         """
-        exp_dir_infix = exp_dir_infix or os.path.join("experiments", id.rpartition("_")[0])
+        if exp_dir_infix is None:
+            exp_dir_infix = os.path.join("experiments", id.rpartition("_")[0])
         parent_dir = os.path.join(get_nemorun_home(), exp_dir_infix)
         exp_dir = os.path.join(parent_dir, id)
 
@@ -287,7 +289,8 @@ nemo experiment cancel {exp_id} 0
         """
         Reconstruct an experiment with the specified title.
         """
-        exp_dir_infix = exp_dir_infix or os.path.join("experiments", title)
+        if exp_dir_infix is None:
+            exp_dir_infix = os.path.join("experiments", title)
         parent_dir = os.path.join(get_nemorun_home(), exp_dir_infix)
         exp_dir = _get_latest_dir(parent_dir)
 
@@ -335,7 +338,11 @@ nemo experiment cancel {exp_id} 0
         self._enable_goodbye_message = enable_goodbye_message
 
         base_dir = str(base_dir or get_nemorun_home())
-        self._exp_dir_infix = exp_dir_infix or os.path.join("experiments", title)
+        if exp_dir_infix is None:
+            self._exp_dir_infix = os.path.join("experiments", title)
+        else:
+            self._exp_dir_infix = exp_dir_infix
+
         self._exp_dir = os.path.join(base_dir, self._exp_dir_infix, self._id)
 
         self.log_level = log_level
