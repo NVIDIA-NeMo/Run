@@ -42,5 +42,5 @@ torchrun /opt/NeMo-Aligner/examples/nlp/gpt/train_gpt_sft.py \
    exp_manager.explicit_log_dir=${OUTPUT_DIR} \
    exp_manager.checkpoint_callback_params.save_nemo_on_train_end=True \
    exp_manager.checkpoint_callback_params.save_top_k=1 \
-   exp_manager.checkpoint_callback_params.monitor=val_loss \
+   exp_manager.checkpoint_callback_params.monitor=val_loss
 
