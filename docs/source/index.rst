@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-NeMo-Run documentation
+NeMo-Run Documentation
 ======================
 
 NeMo-Run is a powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments. NeMo Run has three core responsibilities:
@@ -22,19 +22,21 @@ This is also the typical order Nemo Run users will follow to setup and launch ex
    API Reference <api/nemo_run/index>
    faqs
 
-Installation
-------------
+Install the Project
+-------------------
 To install the project, use the following command:
 
 ``pip install git+https://github.com/NVIDIA-NeMo/Run.git``
 
-To install Skypilot, we have optional features available.
+To install Skypilot with optional features, use one of the following commands:
 
-``pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot]``
-will install Skypilot w Kubernetes
+- To install Skypilot with Kubernetes support:
 
-``pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot-all]``
-will install Skypilot w all clouds
+  ``pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot]``
+
+- To install Skypilot with support for all cloud platforms:
+
+  ``pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot-all]``
 
 You can also manually install Skypilot from https://skypilot.readthedocs.io/en/latest/getting-started/installation.html
 
@@ -50,7 +52,7 @@ Make sure you have `pip` installed and configured properly.
 Tutorials
 ---------
 
-The ``hello_world`` tutorial series provides a comprehensive introduction to NeMo Run, demonstrating its capabilities through a simple example. The tutorial covers:
+The ``hello_world`` tutorial series provides a comprehensive introduction to NeMo-Run, demonstrating its capabilities through a simple example. The tutorial covers:
 
 - Configuring Python functions using ``Partial`` and ``Config`` classes.
 - Executing configured functions locally and on remote clusters.
@@ -59,6 +61,6 @@ The ``hello_world`` tutorial series provides a comprehensive introduction to NeM
 
 You can find the tutorial series below:
 
-1. `Part 1 <../../../examples/hello-world/hello_world.ipynb>`_
-2. `Part 2 <../../../examples/hello-world/hello_experiments.ipynb>`_
-3. `Part 3 <../../../examples/hello-world/hello_scripts.py>`_
+1. `Part 1: Hello World <../../../examples/hello-world/hello_world.ipynb>`_
+2. `Part 2: Hello Experiments <../../../examples/hello-world/hello_experiments.ipynb>`_
+3. `Part 3: Hello Scripts <../../../examples/hello-world/hello_scripts.py>`_
