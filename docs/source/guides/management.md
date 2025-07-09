@@ -1,8 +1,8 @@
-# Management
+# Manage NeMo-Run
 
 The central component for management of tasks in NeMo-Run is the `Experiment` class. It allows you to define, launch, and manage complex workflows consisting of multiple tasks. This guide provides an overview of the `Experiment` class, its methods, and how to use it effectively.
 
-## **Creating an Experiment**
+## Creating an Experiment
 
 To create an experiment, you can instantiate the `Experiment` class by passing in a descriptive title:
 
@@ -14,7 +14,7 @@ When executed, it will automatically generate a unique experiment ID for you, wh
 
 > [!NOTE] > `Experiment` is a context manager and `Experiment.add` and `Experiment.run` methods can currently only be used after entering the context manager.
 
-## **Adding Tasks**
+## Adding Tasks
 
 You can add tasks to an experiment using the `add` method. This method supports tasks of the following kind:
 
@@ -50,7 +50,7 @@ with run.Experiment("dag-experiment", log_level="INFO") as exp:
    )
 ```
 
-## **Launching an Experiment**
+## Launching an Experiment
 
 Once you have added all tasks to an experiment, you can launch it using the `run` method. This method takes several optional arguments, including `detach`, `sequential`, and `tail_logs` and `direct`:
 
@@ -65,7 +65,7 @@ with exp:
     exp.run(detach=True, sequential=False, tail_logs=True, direct=False)
 ```
 
-## **Experiment Status**
+## Experiment Status
 
 You can check the status of an experiment using the `status` method:
 
@@ -97,7 +97,7 @@ Task 2: simple.add.add_object
 - Local Directory: /home/your_user/.nemo_run/experiments/experiment_with_scripts/experiment_with_scripts_1730761155/simple.add.add_object
 ```
 
-## **Canceling a Task**
+## Canceling a Task
 
 You can cancel a task using the `cancel` method:
 
@@ -105,7 +105,7 @@ You can cancel a task using the `cancel` method:
 exp.cancel("task_id")
 ```
 
-## **Viewing Logs**
+## Viewing Logs
 
 You can view the logs of a task using the `logs` method:
 
@@ -113,7 +113,7 @@ You can view the logs of a task using the `logs` method:
 exp.logs("task_id")
 ```
 
-## **Experiment output**
+## Experiment output
 
 Once an experiment is run, NeMo-Run displays information on ways to inspect and reproduce past experiments. This allows you to check logs, sync artifacts (in the future), cancel running tasks, and rerun an old experiment.
 
