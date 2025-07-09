@@ -18,7 +18,7 @@ This is also the typical order Nemo Run users will follow to setup and launch ex
 .. toctree::
    :maxdepth: 1
 
-   guides/index.rst
+   guides/index
    API Reference <api/nemo_run/index>
    faqs
 

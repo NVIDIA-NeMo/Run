@@ -3,6 +3,7 @@ Guides
 
 ```{toctree}
 :maxdepth: 2
+:hidden:
 
 why-use-nemo-run
 configuration

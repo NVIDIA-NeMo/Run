@@ -79,3 +79,27 @@ napoleon_use_rtype = True
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "nvidia_sphinx_theme"
+html_theme_options = {
+    "switcher": {
+        "json_url": "../versions1.json",
+        "version_match": release,
+    },
+    "extra_head": {
+        """
+    <script src="https://assets.adobedtm.com/5d4962a43b79/c1061d2c5e7b/launch-191c2462b890.min.js" ></script>
+    """
+    },
+    "extra_footer": {
+        """
+    <script type="text/javascript">if (typeof _satellite !== "undefined") {_satellite.pageBottom();}</script>
+    """
+    },
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/NVIDIA-NeMo/Run",
+            "icon": "fa-brands fa-github",
+        }
+    ],
+}
+html_extra_path = ["project.json", "versions1.json"]
