@@ -374,7 +374,7 @@ cd /nemo_run/code
         )
         file_mounts = self.file_mounts or {}
         file_mounts["/nemo_run"] = self.job_dir
-        task.set_file_mounts(self.file_mounts)
+        task.set_file_mounts(file_mounts)
         task.set_resources(self.to_resources())
 
         if env_vars:
