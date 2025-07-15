@@ -178,7 +178,7 @@ Use the SSH Tunnel when launching from your local machine, or the Local Tunnel i
 
 ##### Job Dependencies
 
-`SlurmExecutor` supports defining dependencies between [jobs](management.md#adding-tasks), allowing you to create workflows where jobs run in a specific order. Additionally, you can specify the `dependency_type` parameter:
+`SlurmExecutor` supports defining dependencies between [jobs](management.md#add-tasks), allowing you to create workflows where jobs run in a specific order. Additionally, you can specify the `dependency_type` parameter:
 
 ```python
 executor = run.SlurmExecutor(
