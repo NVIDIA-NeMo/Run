@@ -82,7 +82,13 @@ class LeptonExecutor(Executor):
             full_command = ["sh", "-c", cmd]
             return full_command
 
-    def move_data(self, sleep: float = 10, timeout: int = 600, poll_interval: int = 5, unknowns_grace_period: int = 60) -> None:
+    def move_data(
+        self,
+        sleep: float = 10,
+        timeout: int = 600,
+        poll_interval: int = 5,
+        unknowns_grace_period: int = 60,
+    ) -> None:
         """
         Moves job directory into remote storage and deletes the workload after completion.
         """
@@ -127,26 +133,34 @@ class LeptonExecutor(Executor):
         while True:
             if time.time() - start_time > timeout:
                 raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds.")
-                
+
             current_job = client.job.get(job_id)
             current_job_status = current_job.status.state
-            
             if count > 0:
-                if current_job_status == LeptonJobState.Completed or current_job_status == LeptonJobState.Failed:
+                if (
+                    current_job_status == LeptonJobState.Completed
+                    or current_job_status == LeptonJobState.Failed
+                ):
                     break
                 elif current_job_status == LeptonJobState.Unknown:
                     if unknown_start_time is None:
                         unknown_start_time = time.time()
-                        logging.warning(f"Job {job_id} entered Unknown state, giving it {unknowns_grace_period} seconds to recover...")
+                        logging.warning(
+                            f"Job {job_id} entered Unknown state, giving it {unknowns_grace_period} seconds to recover..."
+                        )
 
                     elif time.time() - unknown_start_time > unknowns_grace_period:
-                        logging.error(f"Job {job_id} has been in Unknown state for more than {unknowns_grace_period} seconds")
+                        logging.error(
+                            f"Job {job_id} has been in Unknown state for more than {unknowns_grace_period} seconds"
+                        )
                         break
                 else:
                     if unknown_start_time is not None:
-                        logging.info(f"Job {job_id} recovered from Unknown state to {current_job_status}")
+                        logging.info(
+                            f"Job {job_id} recovered from Unknown state to {current_job_status}"
+                        )
                         unknown_start_time = None
-            
+
             count += 1
             time.sleep(poll_interval)
 
