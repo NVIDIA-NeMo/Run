@@ -132,9 +132,7 @@ class LeptonExecutor(Executor):
             current_job_status = current_job.status.state
             
             if count > 0:
-                if current_job_status == LeptonJobState.Completed:
-                    break
-                elif current_job_status == LeptonJobState.Failed:
+                if current_job_status == LeptonJobState.Completed or current_job_status == LeptonJobState.Failed:
                     break
                 elif current_job_status == LeptonJobState.Unknown:
                     if unknown_start_time is None:
