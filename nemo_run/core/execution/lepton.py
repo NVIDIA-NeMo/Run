@@ -82,69 +82,84 @@ class LeptonExecutor(Executor):
             full_command = ["sh", "-c", cmd]
             return full_command
 
-    def move_data(self, sleep: float = 10, timeout: int = 600, poll_interval: int = 5) -> None:
-        """
-        Moves job directory into remote storage and deletes the workload after completion.
-        """
-        client = APIClient()
-        cmd = self.copy_directory_data_command(self.job_dir, self.lepton_job_dir)
-        node_group_id = self._node_group_id(client)
-        valid_node_ids = self._valid_node_ids(node_group_id, client)
+    def move_data(self, sleep: float = 10, timeout: int = 600, poll_interval: int = 5, unknowns_grace_period: int = 60) -> None:
+    """
+    Moves job directory into remote storage and deletes the workload after completion.
+    """
+    client = APIClient()
+    cmd = self.copy_directory_data_command(self.job_dir, self.lepton_job_dir)
+    node_group_id = self._node_group_id(client)
+    valid_node_ids = self._valid_node_ids(node_group_id, client)
 
-        job_spec = LeptonJobUserSpec(
-            resource_shape="cpu.small",
-            affinity=LeptonResourceAffinity(
-                allowed_dedicated_node_groups=[node_group_id.metadata.id_],
-                allowed_nodes_in_node_group=valid_node_ids,
-            ),
-            container=LeptonContainer(
-                image="busybox:1.37.0",
-                command=cmd,
-            ),
-            completions=1,
-            parallelism=1,
-            mounts=[Mount(**mount) for mount in self.mounts],
-        )
+    job_spec = LeptonJobUserSpec(
+        resource_shape="cpu.small",
+        affinity=LeptonResourceAffinity(
+            allowed_dedicated_node_groups=[node_group_id.metadata.id_],
+            allowed_nodes_in_node_group=valid_node_ids,
+        ),
+        container=LeptonContainer(
+            image="busybox:1.37.0",
+            command=cmd,
+        ),
+        completions=1,
+        parallelism=1,
+        mounts=[Mount(**mount) for mount in self.mounts],
+    )
 
-        custom_name = f"data-mover-{int(datetime.now().timestamp())}"
+    custom_name = f"data-mover-{int(datetime.now().timestamp())}"
 
-        job = LeptonJob(
-            metadata=Metadata(
-                id=custom_name,
-                name=custom_name,
-                visibility=LeptonVisibility("private"),
-            ),
-            spec=job_spec,
-        )
+    job = LeptonJob(
+        metadata=Metadata(
+            id=custom_name,
+            name=custom_name,
+            visibility=LeptonVisibility("private"),
+        ),
+        spec=job_spec,
+    )
 
-        response = client.job.create(job)
-        job_id = response.metadata.id_
+    response = client.job.create(job)
+    job_id = response.metadata.id_
 
-        start_time = time.time()
-        count = 0
+    start_time = time.time()
+    unknown_start_time = None
+    count = 0
 
-        while True:
-            if time.time() - start_time > timeout:
-                raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds.")
-            current_job = client.job.get(job_id)
-            current_job_status = current_job.status.state
-            if count > 0 and current_job_status in [
-                LeptonJobState.Completed,
-                LeptonJobState.Failed,
-                LeptonJobState.Unknown,
-            ]:
+    while True:
+        if time.time() - start_time > timeout:
+            raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds.")
+            
+        current_job = client.job.get(job_id)
+        current_job_status = current_job.status.state
+        
+        if count > 0:
+            if current_job_status == LeptonJobState.Completed:
                 break
-            count += 1
-            time.sleep(poll_interval)
+            elif current_job_status == LeptonJobState.Failed:
+                break
+            elif current_job_status == LeptonJobState.Unknown:
+                if unknown_start_time is None:
+                    unknown_start_time = time.time()
+                    logging.warning(f"Job {job_id} entered Unknown state, giving it {unknowns_grace_period} seconds to recover...")
 
-        if current_job_status != LeptonJobState.Completed:
-            raise RuntimeError(f"Job {job_id} failed with status: {current_job_status}")
+                elif time.time() - unknown_start_time > unknowns_grace_period:
+                    logging.error(f"Job {job_id} has been in Unknown state for more than {unknowns_grace_period} seconds")
+                    break
+            else:
+                if unknown_start_time is not None:
+                    logging.info(f"Job {job_id} recovered from Unknown state to {current_job_status}")
+                    unknown_start_time = None
+        
+        count += 1
+        time.sleep(poll_interval)
 
-        delete_success = client.job.delete(job_id)
-        if delete_success:
-            logging.info(f"Successfully deleted job {job_id}")
-        else:
-            logging.error(f"Failed to delete job {job_id}")
+    if current_job_status != LeptonJobState.Completed:
+        raise RuntimeError(f"Job {job_id} failed with status: {current_job_status}")
+
+    delete_success = client.job.delete(job_id)
+    if delete_success:
+        logging.info(f"Successfully deleted job {job_id}")
+    else:
+        logging.error(f"Failed to delete job {job_id}")
 
     def _node_group_id(self, client: APIClient) -> DedicatedNodeGroup:
         """
