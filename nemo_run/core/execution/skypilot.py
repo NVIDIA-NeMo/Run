@@ -330,18 +330,6 @@ class SkypilotExecutor(Executor):
             het_group_host_var=self.HET_GROUP_HOST_VAR,
         )
 
-    def _setup_launcher(self):
-        super()._setup_launcher()
-        launcher = self.launcher
-        # Dynamic rendezvous has an error in Skypilot Kubernetes currently
-        if (
-            launcher
-            and isinstance(launcher, (Torchrun, FaultTolerance))
-            and self.cloud == "kubernetes"
-        ):
-            launcher.rdzv_backend = "static"
-            launcher.rdzv_port = 49500
-
     def to_task(
         self,
         name: str,
