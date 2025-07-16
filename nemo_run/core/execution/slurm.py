@@ -590,7 +590,10 @@ class SlurmExecutor(Executor):
     def package(self, packager: Packager, job_name: str):
         assert self.experiment_id, "Executor not assigned to an experiment."
 
-        if job_name in self.tunnel.packaging_jobs and not packager.symlink_from_remote_dir:
+        if (
+            get_packaging_job_key(self.experiment_id, job_name) in self.tunnel.packaging_jobs
+            and not packager.symlink_from_remote_dir
+        ):
             logger.info(
                 f"Packaging for job {job_name} in tunnel {self.tunnel.key} already done. Skipping subsequent packagings.\n"
                 "This may cause issues if you have multiple tasks with the same name but different packagers, as only the first packager will be used."

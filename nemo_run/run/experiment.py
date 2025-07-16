@@ -303,6 +303,7 @@ nemo experiment cancel {exp_id} 0
         clean_mode: bool = False,
         enable_goodbye_message: bool = True,
         threadpool_workers: int = 16,
+        skip_status_at_exit: bool = False,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -329,6 +330,7 @@ nemo experiment cancel {exp_id} 0
         self._id = id or f"{title}_{int(time.time())}"
         self._enable_goodbye_message = enable_goodbye_message
         self._threadpool_workers = threadpool_workers
+        self._skip_status_at_exit = skip_status_at_exit
 
         base_dir = str(base_dir or get_nemorun_home())
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
@@ -362,6 +364,7 @@ nemo experiment cancel {exp_id} 0
             clean_mode=self.clean_mode,
             threadpool_workers=self._threadpool_workers,
             enable_goodbye_message=self._enable_goodbye_message,
+            skip_status_at_exit=self._skip_status_at_exit,
         )
 
     def _save_experiment(self, exist_ok: bool = False):
@@ -426,19 +429,8 @@ nemo experiment cancel {exp_id} 0
     def _prepare(self, exist_ok: bool = False):
         self._save_experiment(exist_ok=exist_ok)
 
-        # Parallelize IO-heavy job preparation
-        def _set_context(ctx: contextvars.Context):
-            for var, value in ctx.items():
-                var.set(value)
-
-        ctx = contextvars.copy_context()
-        with ThreadPoolExecutor(
-            initializer=_set_context, initargs=(ctx,), max_workers=self._threadpool_workers
-        ) as pool:
-            futures = [pool.submit(job.prepare) for job in self.jobs]
-            for future in as_completed(futures):
-                # Ensure exceptions are raised to caller immediately
-                future.result()
+        for job in self.jobs:
+            job.prepare()
 
         self._save_jobs()
 
@@ -1211,7 +1203,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     "Ephemeral logs and artifacts may be lost.",
                 )
 
-                if self._launched:
+                if self._launched and not self._skip_status_at_exit:
                     self.status()
                 return
 
@@ -1220,20 +1212,23 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     self.console.rule(
                         f"[bold magenta]Direct run Experiment {self._id}",
                     )
-                    self.status()
+                    if not self._skip_status_at_exit:
+                        self.status()
                     return
 
                 if hasattr(self, "_waited") and self._waited:
                     self.console.rule(
                         f"[bold magenta]Done waiting for Experiment {self._id}",
                     )
-                    self.status()
+                    if not self._skip_status_at_exit:
+                        self.status()
                     return
 
                 self.console.rule(
                     f"[bold magenta]Waiting for Experiment {self._id} to finish",
                 )
-                self.status()
+                if not self._skip_status_at_exit:
+                    self.status()
 
                 self._wait_for_jobs(jobs=self.jobs)
         finally:
