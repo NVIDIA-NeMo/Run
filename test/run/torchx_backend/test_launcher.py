@@ -62,7 +62,7 @@ def test_launch_dryrun(mock_runner, mock_executor, mock_executable):
     mock_runner.dryrun.assert_called_once_with(
         mock_executable, "test_executor", cfg=mock_executor, parent_run_id=None
     )
-    assert result == (None, None)
+    assert result == (None, dryrun_info)
 
 
 def test_launch_non_dryrun(mock_runner, mock_executor, mock_executable):
@@ -78,7 +78,11 @@ def test_launch_non_dryrun(mock_runner, mock_executor, mock_executable):
     )
 
     mock_runner.run.assert_called_once_with(
-        mock_executable, "test_executor", cfg=mock_executor, parent_run_id=None
+        mock_executable,
+        "test_executor",
+        cfg=mock_executor,
+        parent_run_id=None,
+        dryrun_info=None,
     )
     assert result[0] == mock_app_handle
 

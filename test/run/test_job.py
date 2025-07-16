@@ -169,6 +169,7 @@ def test_job_launch_dryrun(simple_task, docker_executor, mock_runner):
     )
 
     with patch("nemo_run.run.job.launch") as mock_launch:
+        mock_launch.return_value = (None, "dryrun")
         job.prepare()
         job.launch(wait=False, runner=mock_runner, dryrun=True)
         mock_launch.assert_called_once()
@@ -537,6 +538,8 @@ def test_job_group_launch_dryrun(simple_task, docker_executor, mock_runner):
     job_group._executables = [(MagicMock(), docker_executor)]
 
     with patch("nemo_run.run.job.launch") as mock_launch:
+        mock_launch.return_value = (None, "dryrun")
+
         job_group.launch(wait=False, runner=mock_runner, dryrun=True)
         # Now we have just one executable, which gets launch called once
         assert mock_launch.call_count == 1
