@@ -35,9 +35,8 @@ from fiddle._src import daglish, diffing
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.progress import Task as RichTask
-from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState
 
@@ -904,11 +903,29 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
         try:
             result_dict = {}
-            job_infos = []
-            for i, job in enumerate(self.jobs):
-                job_info, job_dict = _get_job_info_and_dict(i, job)
-                job_infos.append(Group(*job_info))
-                result_dict[job.id] = job_dict
+            job_infos: list[Group | None] = [None] * len(self.jobs)
+
+            # Parallelize IO-bound status retrieval across jobs
+            def _collect(arg):
+                idx, job = arg
+                job_info, job_dict = _get_job_info_and_dict(idx, job)
+                return idx, job.id, job_info, job_dict
+
+            # Propagate context variables to worker threads so helpers that rely on them keep working
+            def _set_context(ctx: contextvars.Context):
+                for var, value in ctx.items():
+                    var.set(value)
+
+            ctx = contextvars.copy_context()
+            with ThreadPoolExecutor(initializer=_set_context, initargs=(ctx,)) as pool:
+                futures = [pool.submit(_collect, (idx, job)) for idx, job in enumerate(self.jobs)]
+                for future in as_completed(futures):
+                    idx, job_id, job_info, job_dict = future.result()
+                    job_infos[idx] = Group(*job_info)
+                    result_dict[job_id] = job_dict
+
+            # Remove potential None slots (should not occur)
+            job_infos = [ji for ji in job_infos if ji is not None]
 
             if return_dict:
                 return result_dict
