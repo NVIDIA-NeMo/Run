@@ -3,7 +3,7 @@ import traceback
 from dataclasses import dataclass, field
 from typing import Optional, Union, cast
 
-from torchx.specs.api import AppDef, AppState, is_terminal
+from torchx.specs.api import AppDef, AppDryRunInfo, AppState, is_terminal
 
 import nemo_run.exceptions
 from nemo_run.config import Config, ConfigurableMixin, Partial, Script
@@ -62,6 +62,10 @@ class Job(ConfigurableMixin):
     plugins: Optional[list[ExperimentPlugin]] = None
     tail_logs: bool = False
     dependencies: list[str] = field(default_factory=list)
+    name: str = ""
+
+    def __post_init__(self):
+        self._dryrun_info: Optional[AppDryRunInfo] = None
 
     def serialize(self) -> tuple[str, str]:
         cfg = self.to_config()
@@ -120,7 +124,7 @@ class Job(ConfigurableMixin):
             return
 
         if dryrun:
-            launch(
+            _, dryrun_info = launch(
                 executable=self._executable,
                 executor_name=executor_str,
                 executor=self.executor,
@@ -130,6 +134,7 @@ class Job(ConfigurableMixin):
                 log=self.tail_logs,
                 runner=runner,
             )
+            self._dryrun_info = dryrun_info
             return
 
         self.handle, status = launch(
@@ -140,6 +145,7 @@ class Job(ConfigurableMixin):
             wait=wait,
             log=self.tail_logs,
             runner=runner,
+            dryrun_info=self._dryrun_info,
         )
         self.state = status.state if status else AppState.UNKNOWN
         self.launched = True
@@ -223,6 +229,7 @@ class JobGroup(ConfigurableMixin):
     plugins: Optional[list[ExperimentPlugin]] = None
     tail_logs: bool = False
     dependencies: list[str] = field(default_factory=list)
+    name: str = ""
 
     def __post_init__(self):
         executors = [self.executors] if isinstance(self.executors, Executor) else self.executors
@@ -251,6 +258,8 @@ class JobGroup(ConfigurableMixin):
             self._merge = False
             if len(executors) == 1:
                 self.executors = executors * len(self.tasks)
+
+        self._dryrun_info: Optional[AppDryRunInfo] = None
 
     @property
     def state(self) -> AppState:
@@ -346,7 +355,7 @@ class JobGroup(ConfigurableMixin):
             executor_str = get_executor_str(executor)
 
             if dryrun:
-                launch(
+                _, dryrun_info = launch(
                     executable=executable,
                     executor_name=executor_str,
                     executor=executor,
@@ -356,6 +365,7 @@ class JobGroup(ConfigurableMixin):
                     log=self.tail_logs,
                     runner=runner,
                 )
+                self._dryrun_info = dryrun_info
             else:
                 handle, status = launch(
                     executable=executable,
@@ -365,6 +375,7 @@ class JobGroup(ConfigurableMixin):
                     wait=wait,
                     log=self.tail_logs,
                     runner=runner,
+                    dryrun_info=self._dryrun_info,
                 )
                 self.handles.append(handle)
                 self.states.append(status.state if status else AppState.UNKNOWN)

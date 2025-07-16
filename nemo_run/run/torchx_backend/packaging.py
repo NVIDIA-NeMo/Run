@@ -135,7 +135,8 @@ def package(
         metadata = {}
     else:
         role_args, args, m, no_python, script, entrypoint = _get_details_from_script(
-            fn_or_script, serialize_configs=True
+            fn_or_script,
+            serialize_configs=os.environ.get("NEMORUN_SKIP_SERIALIZE_CONFIGS", "0") == "0",
         )
         metadata = fn_or_script.metadata
         if fn_or_script.env:

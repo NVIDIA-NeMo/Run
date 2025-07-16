@@ -302,6 +302,7 @@ nemo experiment cancel {exp_id} 0
         base_dir: str | None = None,
         clean_mode: bool = False,
         enable_goodbye_message: bool = True,
+        threadpool_workers: int = 16,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -327,6 +328,7 @@ nemo experiment cancel {exp_id} 0
         self._title = title
         self._id = id or f"{title}_{int(time.time())}"
         self._enable_goodbye_message = enable_goodbye_message
+        self._threadpool_workers = threadpool_workers
 
         base_dir = str(base_dir or get_nemorun_home())
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
@@ -358,6 +360,8 @@ nemo experiment cancel {exp_id} 0
             executor=self.executor.to_config(),
             log_level=self.log_level,
             clean_mode=self.clean_mode,
+            threadpool_workers=self._threadpool_workers,
+            enable_goodbye_message=self._enable_goodbye_message,
         )
 
     def _save_experiment(self, exist_ok: bool = False):
@@ -421,8 +425,20 @@ nemo experiment cancel {exp_id} 0
 
     def _prepare(self, exist_ok: bool = False):
         self._save_experiment(exist_ok=exist_ok)
-        for job in self.jobs:
-            job.prepare()
+
+        # Parallelize IO-heavy job preparation
+        def _set_context(ctx: contextvars.Context):
+            for var, value in ctx.items():
+                var.set(value)
+
+        ctx = contextvars.copy_context()
+        with ThreadPoolExecutor(
+            initializer=_set_context, initargs=(ctx,), max_workers=self._threadpool_workers
+        ) as pool:
+            futures = [pool.submit(job.prepare) for job in self.jobs]
+            for future in as_completed(futures):
+                # Ensure exceptions are raised to caller immediately
+                future.result()
 
         self._save_jobs()
 
@@ -768,7 +784,15 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             self.detach = detach
 
         for level in order:
-            for _, node in enumerate(level):
+            # Launch jobs in this level concurrently since they are independent
+
+            def _set_context(ctx: contextvars.Context):
+                for var, value in ctx.items():
+                    var.set(value)
+
+            ctx = contextvars.copy_context()
+
+            def _launch(node: str):
                 job: Job | JobGroup = job_map[node]
                 self.console.log(f"[bold cyan]Launching job {job.id} for experiment {self._title}")
                 if tail_logs:
@@ -786,14 +810,24 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                             deps.append(handle)
 
                         job.executor.dependencies = deps  # type: ignore
+
                     job.launch(wait=False, runner=self._runner)
+                    return job
 
                 except Exception as e:
                     self.console.log(f"Error running job {job.id}: {e}")
                     raise e
 
+            launched_jobs: list[Job | JobGroup] = []
+            with ThreadPoolExecutor(
+                initializer=_set_context, initargs=(ctx,), max_workers=self._threadpool_workers
+            ) as pool:
+                futures = [pool.submit(_launch, node) for node in level]
+                for future in as_completed(futures):
+                    launched_jobs.append(future.result())
+
             if wait:
-                self._wait_for_jobs(jobs=[job_map[node] for node in level])
+                self._wait_for_jobs(jobs=launched_jobs)
 
         self._save_jobs()
         self._launched = any(map(lambda job: job.launched, self.jobs))
@@ -839,6 +873,20 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 finally:
                     job.cleanup()
 
+    def _initialize_tunnels(self, extract_from_executors: bool = False):
+        if extract_from_executors:
+            for job in self.jobs:
+                if (
+                    isinstance(job.executor, SlurmExecutor)
+                    and job.executor.tunnel.key not in self.tunnels
+                ):
+                    self.tunnels[job.executor.tunnel.key] = job.executor.tunnel
+
+        for tunnel in self.tunnels.values():
+            if isinstance(tunnel, SSHTunnel):
+                tunnel.connect()
+                assert tunnel.session, f"SSH tunnel {tunnel.key} failed to connect."
+
     def status(self, return_dict: bool = False) -> Optional[dict[str, str]]:
         """
         Prints a table specifying the status of all tasks.
@@ -879,6 +927,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 "status": job.status(runner=self._runner),
                 "executor": job.executor.info(),
                 "job_id": app_id,
+                "handle": job.handle,
                 "local_dir": job.executor.job_dir,
             }
 
@@ -901,6 +950,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             job_info.extend(directory_info)
             return job_info, job_dict
 
+        self._initialize_tunnels(extract_from_executors=True)
         try:
             result_dict = {}
             job_infos: list[Group | None] = [None] * len(self.jobs)
@@ -917,7 +967,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     var.set(value)
 
             ctx = contextvars.copy_context()
-            with ThreadPoolExecutor(initializer=_set_context, initargs=(ctx,)) as pool:
+            with ThreadPoolExecutor(
+                initializer=_set_context, initargs=(ctx,), max_workers=self._threadpool_workers
+            ) as pool:
                 futures = [pool.submit(_collect, (idx, job)) for idx, job in enumerate(self.jobs)]
                 for future in as_completed(futures):
                     idx, job_id, job_info, job_dict = future.result()

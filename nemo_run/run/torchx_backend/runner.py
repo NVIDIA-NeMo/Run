@@ -75,15 +75,17 @@ class Runner(TorchXRunner):
         cfg: Optional[Executor] = None,
         workspace: Optional[str] = None,
         parent_run_id: Optional[str] = None,
+        dryrun_info: Optional[AppDryRunInfo] = None,
     ) -> AppHandle:
         with log_event(api="run", workspace=workspace) as ctx:
-            dryrun_info = self.dryrun(
-                app,
-                scheduler,
-                cfg=cfg,
-                workspace=workspace,
-                parent_run_id=parent_run_id,
-            )
+            if dryrun_info is None:
+                dryrun_info = self.dryrun(
+                    app,
+                    scheduler,
+                    cfg=cfg,
+                    workspace=workspace,
+                    parent_run_id=parent_run_id,
+                )
             handle = self.schedule(dryrun_info)
             ctx._torchx_event.scheduler = none_throws(dryrun_info._scheduler)
             ctx._torchx_event.app_image = none_throws(dryrun_info._app).roles[0].image
