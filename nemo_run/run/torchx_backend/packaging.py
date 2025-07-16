@@ -47,6 +47,7 @@ def package(
     env: Optional[dict[str, str]] = None,
     mounts: Optional[list[str]] = None,
     serialize_to_file: bool = False,
+    serialize_metadata_for_scripts: bool = True,
 ):
     default_cmd = ["-m", "nemo_run.core.runners.fdl_runner"]
 
@@ -136,7 +137,7 @@ def package(
     else:
         role_args, args, m, no_python, script, entrypoint = _get_details_from_script(
             fn_or_script,
-            serialize_configs=os.environ.get("NEMORUN_SKIP_SERIALIZE_CONFIGS", "0") == "0",
+            serialize_configs=serialize_metadata_for_scripts,
         )
         metadata = fn_or_script.metadata
         if fn_or_script.env:

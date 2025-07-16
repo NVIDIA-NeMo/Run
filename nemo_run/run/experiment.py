@@ -304,6 +304,7 @@ nemo experiment cancel {exp_id} 0
         enable_goodbye_message: bool = True,
         threadpool_workers: int = 16,
         skip_status_at_exit: bool = False,
+        serialize_metadata_for_scripts: bool = True,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -331,6 +332,7 @@ nemo experiment cancel {exp_id} 0
         self._enable_goodbye_message = enable_goodbye_message
         self._threadpool_workers = threadpool_workers
         self._skip_status_at_exit = skip_status_at_exit
+        self._serialize_metadata_for_scripts = serialize_metadata_for_scripts
 
         base_dir = str(base_dir or get_nemorun_home())
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
@@ -365,6 +367,7 @@ nemo experiment cancel {exp_id} 0
             threadpool_workers=self._threadpool_workers,
             enable_goodbye_message=self._enable_goodbye_message,
             skip_status_at_exit=self._skip_status_at_exit,
+            serialize_metadata_for_scripts=self._serialize_metadata_for_scripts,
         )
 
     def _save_experiment(self, exist_ok: bool = False):
@@ -430,7 +433,7 @@ nemo experiment cancel {exp_id} 0
         self._save_experiment(exist_ok=exist_ok)
 
         for job in self.jobs:
-            job.prepare()
+            job.prepare(serialize_metadata_for_scripts=self._serialize_metadata_for_scripts)
 
         self._save_jobs()
 

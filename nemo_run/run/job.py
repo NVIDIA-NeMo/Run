@@ -96,10 +96,14 @@ class Job(ConfigurableMixin):
             regex=regex,
         )
 
-    def prepare(self):
+    def prepare(self, serialize_metadata_for_scripts: bool = True):
         self.executor.create_job_dir()
         self._executable = package(
-            self.id, self.task, executor=self.executor, serialize_to_file=True
+            self.id,
+            self.task,
+            executor=self.executor,
+            serialize_to_file=True,
+            serialize_metadata_for_scripts=serialize_metadata_for_scripts,
         )
 
     def launch(
@@ -316,7 +320,7 @@ class JobGroup(ConfigurableMixin):
             regex=regex,
         )
 
-    def prepare(self):
+    def prepare(self, serialize_metadata_for_scripts: bool = True):
         self.executor.create_job_dir()
         self._executables: list[tuple[AppDef, Executor]] = []
         for i, task in enumerate(self.tasks):
@@ -327,6 +331,7 @@ class JobGroup(ConfigurableMixin):
                 task,
                 executor=executor,
                 serialize_to_file=True,
+                serialize_metadata_for_scripts=serialize_metadata_for_scripts,
             )
             self._executables.append((executable, executor))
 
