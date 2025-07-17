@@ -294,6 +294,7 @@ class SlurmExecutor(Executor):
         gpus_per_node: Optional[int] = None
         gpus_per_task: Optional[int] = None
         container_mounts: list[str] = field(default_factory=list)
+        container_env: Optional[list[str]] = None
         env_vars: dict[str, str] = field(default_factory=dict)
         srun_args: Optional[list[str]] = None
         job_details: SlurmJobDetails = field(default_factory=SlurmJobDetails)
@@ -323,6 +324,7 @@ class SlurmExecutor(Executor):
     open_mode: str = "append"
     container_image: Optional[str] = None
     container_mounts: list[str] = field(default_factory=list)
+    container_env: Optional[list[str]] = None
     additional_parameters: Optional[dict[str, Any]] = None
     srun_args: Optional[list[str]] = None
     heterogeneous: bool = False
@@ -385,6 +387,7 @@ class SlurmExecutor(Executor):
                 ntasks_per_node=main_executor.ntasks_per_node,
                 container_image=copy.deepcopy(main_executor.container_image),
                 container_mounts=copy.deepcopy(main_executor.container_mounts),
+                container_env=copy.deepcopy(main_executor.container_env),
                 env_vars=copy.deepcopy(main_executor.env_vars),
                 gpus_per_node=main_executor.gpus_per_node,
                 gpus_per_task=main_executor.gpus_per_task,
@@ -404,6 +407,7 @@ class SlurmExecutor(Executor):
                     ntasks_per_node=executor.ntasks_per_node,
                     container_image=copy.deepcopy(executor.container_image),
                     container_mounts=copy.deepcopy(executor.container_mounts),
+                    container_env=copy.deepcopy(executor.container_env),
                     env_vars=copy.deepcopy(executor.env_vars),
                     gpus_per_node=executor.gpus_per_node,
                     gpus_per_task=executor.gpus_per_task,
@@ -860,7 +864,7 @@ class SlurmBatchRequest:
 
             for i in range(len(self.executor.resource_group)):
                 resource_req = self.executor.resource_group[i]
-                if resource_req.het_group_index:
+                if resource_req.het_group_index is not None:
                     assert self.executor.resource_group[i - 1].het_group_index is not None, (
                         "het_group_index must be set for all requests in resource_group"
                     )
@@ -924,7 +928,10 @@ class SlurmBatchRequest:
             memory_measure_out = srun_stdout
 
         def get_container_flags(
-            base_mounts: list[str], src_job_dir: str, container_image: Optional[str]
+            base_mounts: list[str],
+            src_job_dir: str,
+            container_image: Optional[str],
+            container_env: Optional[list[str]] = None,
         ) -> list[str]:
             _container_flags = ["--container-image", container_image] if container_image else []
 
@@ -940,6 +947,8 @@ class SlurmBatchRequest:
                 "--container-workdir",
                 f"/{RUNDIR_NAME}/code",
             ]
+            if container_env:
+                _container_flags += ["--container-env", ",".join(container_env)]
 
             return _container_flags
 
@@ -978,6 +987,7 @@ class SlurmBatchRequest:
                         job_directory_name,
                     ),
                     container_image=resource_req.container_image,
+                    container_env=resource_req.container_env,
                 )
                 _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
                 _srun_args.extend(resource_req.srun_args or [])
@@ -993,6 +1003,7 @@ class SlurmBatchRequest:
                         job_directory_name,
                     ),
                     container_image=self.executor.container_image,
+                    container_env=self.executor.container_env,
                 )
                 _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
                 _srun_args.extend(self.executor.srun_args or [])

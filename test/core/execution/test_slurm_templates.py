@@ -682,3 +682,177 @@ class TestSlurmBatchRequest:
         sbatch_script = het_request.materialize()
         for i in range(len(het_request.jobs)):
             assert f"#SBATCH --job-name={custom_name}-{i}" in sbatch_script
+
+    def test_exclusive_parameter_boolean(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+
+        # Test exclusive=True
+        dummy_slurm_request.executor.exclusive = True
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --exclusive" in sbatch_script
+
+        # Test exclusive=None (should not appear)
+        dummy_slurm_request.executor.exclusive = None
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --exclusive" not in sbatch_script
+
+    def test_exclusive_parameter_string(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+
+        # Test exclusive="user"
+        dummy_slurm_request.executor.exclusive = "user"
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --exclusive=user" in sbatch_script
+
+    def test_segment_parameter(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.executor.segment = 1
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --segment=1" in sbatch_script
+
+    def test_network_parameter(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.executor.network = "ib"
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --network=ib" in sbatch_script
+
+    def test_setup_lines_included(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        setup_commands = "module load cuda/12.0\nexport CUSTOM_VAR=value"
+        dummy_slurm_request.executor.setup_lines = setup_commands
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "module load cuda/12.0" in sbatch_script
+        assert "export CUSTOM_VAR=value" in sbatch_script
+
+    def test_container_env_variables(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.executor.container_image = "test_image"
+        dummy_slurm_request.executor.container_env = ["VAR1", "VAR2", "VAR3"]
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "--container-env VAR1,VAR2,VAR3" in sbatch_script
+
+    def test_rundir_special_name_replacement(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        from nemo_run.config import RUNDIR_SPECIAL_NAME
+
+        dummy_slurm_request.executor.container_mounts = [
+            f"{RUNDIR_SPECIAL_NAME}/data:/data",
+            "/regular/mount:/mount",
+        ]
+        dummy_slurm_request.executor.container_image = "test_image"
+        sbatch_script = dummy_slurm_request.materialize()
+
+        # Should replace RUNDIR_SPECIAL_NAME with the actual job directory
+        assert "/root/sample_job/data:/data" in sbatch_script
+        assert "/regular/mount:/mount" in sbatch_script
+
+    def test_het_group_indices(self, het_slurm_request_with_artifact):
+        het_slurm_request, _ = het_slurm_request_with_artifact
+
+        # Set custom het_group_indices
+        het_slurm_request.executor.het_group_indices = [0, 0]  # Both jobs in same het group
+        het_slurm_request.executor.resource_group[0].het_group_index = 0
+        het_slurm_request.executor.resource_group[1].het_group_index = 0
+
+        sbatch_script = het_slurm_request.materialize()
+
+        # Should have --het-group=0 for both commands
+        assert "--het-group=0" in sbatch_script
+        # Should only have one set of SBATCH flags since both are in same group
+        assert sbatch_script.count("#SBATCH --account=your_account") == 1
+
+    def test_het_group_indices_multiple_groups(self, het_slurm_request_with_artifact):
+        het_slurm_request, _ = het_slurm_request_with_artifact
+
+        # Add a third resource group
+        het_slurm_request.executor.resource_group.append(
+            SlurmExecutor.ResourceRequest(
+                packager=GitArchivePackager(),
+                nodes=2,
+                ntasks_per_node=4,
+                container_image="image_3",
+                gpus_per_node=4,
+                env_vars={"CUSTOM_ENV_3": "value3"},
+                container_mounts=[],
+            )
+        )
+        het_slurm_request.jobs.append("sample_job-2")
+        het_slurm_request.command_groups.append(["bash ./scripts/third_job.sh"])
+
+        # Set het_group_indices: job 0 and 1 in group 0, job 2 in group 1
+        het_slurm_request.executor.het_group_indices = [0, 0, 1]
+        het_slurm_request.executor.resource_group[0].het_group_index = 0
+        het_slurm_request.executor.resource_group[1].het_group_index = 0
+        het_slurm_request.executor.resource_group[2].het_group_index = 1
+
+        sbatch_script = het_slurm_request.materialize()
+
+        # Should have two sets of SBATCH flags (one for each het group)
+        assert sbatch_script.count("#SBATCH hetjob") == 1  # Only between different groups
+        assert "--het-group=0" in sbatch_script
+        assert "--het-group=1" in sbatch_script
+
+    def test_stderr_to_stdout_false(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.executor.stderr_to_stdout = False
+
+        sbatch_script = dummy_slurm_request.materialize()
+
+        # Should have separate error file
+        assert "#SBATCH --error=" in sbatch_script
+        assert (
+            "--error /root/sample_job/log-account-account.sample_job_%j_${SLURM_RESTART_COUNT:-0}.err"
+            in sbatch_script
+        )
+
+    def test_wait_time_for_group_job_zero(self, group_slurm_request_with_artifact):
+        group_slurm_request, _ = group_slurm_request_with_artifact
+        group_slurm_request.executor.wait_time_for_group_job = 0
+        group_slurm_request.executor.run_as_group = True
+
+        sbatch_script = group_slurm_request.materialize()
+
+        # Should still have the & pids pattern but no sleep
+        assert "& pids[0]=$!" in sbatch_script
+        assert "& pids[1]=$!" in sbatch_script
+        assert "sleep 0" in sbatch_script  # Sleep 0 is included
+
+    def test_resource_group_with_different_srun_args(
+        self, group_resource_req_slurm_request_with_artifact
+    ):
+        group_req, _ = group_resource_req_slurm_request_with_artifact
+
+        # Set different srun_args for each resource group
+        group_req.executor.resource_group[0].srun_args = ["--cpu-bind=cores"]
+        group_req.executor.resource_group[1].srun_args = ["--mpi=pmix", "--cpu-bind=none"]
+
+        sbatch_script = group_req.materialize()
+
+        # Check that each srun command has its specific args
+        assert "--cpu-bind=cores" in sbatch_script
+        assert "--mpi=pmix --cpu-bind=none" in sbatch_script
+
+    def test_signal_parameter(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.executor.signal = "USR1@60"
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --signal=USR1@60" in sbatch_script
+
+    def test_container_workdir_override(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.executor.container_image = "test_image"
+        sbatch_script = dummy_slurm_request.materialize()
+
+        # Default workdir should be /nemo_run/code
+        assert "--container-workdir /nemo_run/code" in sbatch_script
+
+    def test_memory_measure_with_multiple_jobs(self, group_slurm_request_with_artifact):
+        group_req, _ = group_slurm_request_with_artifact
+        group_req.executor.memory_measure = True
+        group_req.executor.run_as_group = True
+
+        sbatch_script = group_req.materialize()
+
+        # Should have nvidia-smi monitoring
+        assert "nvidia-smi" in sbatch_script
+        assert "--overlap" in sbatch_script
