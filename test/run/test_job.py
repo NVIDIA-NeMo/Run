@@ -678,3 +678,32 @@ def test_job_group_cleanup_exception(simple_task, docker_executor):
             job_group.cleanup()
             assert mock_cleanup.call_count == 2
             mock_console.log.assert_called()
+
+
+def test_job_dryrun_info_stored_and_reused(simple_task, docker_executor, mock_runner):
+    """Ensure Job stores dryrun info and passes it on subsequent launch."""
+    job = Job(
+        id="test-job",
+        task=simple_task,
+        executor=docker_executor,
+    )
+
+    # Side effects: first dryrun returns (None, "plan"), second actual run returns handle+status
+    first_return = (None, "plan")
+    second_return = ("test-handle", MagicMock(state=AppState.SUCCEEDED))
+
+    with patch("nemo_run.run.job.launch", side_effect=[first_return, second_return]) as mock_launch:
+        # Prepare once
+        job.prepare()
+
+        # 1) Dry run
+        job.launch(wait=False, runner=mock_runner, dryrun=True)
+        assert job._dryrun_info == "plan"
+
+        # 2) Actual launch should receive dryrun_info kwarg equal to stored value
+        job.launch(wait=False, runner=mock_runner)
+        # Two calls total
+        assert mock_launch.call_count == 2
+        # Extract kwargs of second call
+        _, second_kwargs = mock_launch.call_args
+        assert second_kwargs["dryrun_info"] == "plan"

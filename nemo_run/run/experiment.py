@@ -882,7 +882,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 tunnel.connect()
                 assert tunnel.session, f"SSH tunnel {tunnel.key} failed to connect."
 
-    def status(self, return_dict: bool = False) -> Optional[dict[str, str]]:
+    def status(self, return_dict: bool = False) -> Optional[dict[str, dict[str, str]]]:
         """
         Prints a table specifying the status of all tasks.
 
