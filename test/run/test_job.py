@@ -169,6 +169,7 @@ def test_job_launch_dryrun(simple_task, docker_executor, mock_runner):
     )
 
     with patch("nemo_run.run.job.launch") as mock_launch:
+        mock_launch.return_value = (None, "dryrun")
         job.prepare()
         job.launch(wait=False, runner=mock_runner, dryrun=True)
         mock_launch.assert_called_once()
@@ -537,6 +538,8 @@ def test_job_group_launch_dryrun(simple_task, docker_executor, mock_runner):
     job_group._executables = [(MagicMock(), docker_executor)]
 
     with patch("nemo_run.run.job.launch") as mock_launch:
+        mock_launch.return_value = (None, "dryrun")
+
         job_group.launch(wait=False, runner=mock_runner, dryrun=True)
         # Now we have just one executable, which gets launch called once
         assert mock_launch.call_count == 1
@@ -675,3 +678,62 @@ def test_job_group_cleanup_exception(simple_task, docker_executor):
             job_group.cleanup()
             assert mock_cleanup.call_count == 2
             mock_console.log.assert_called()
+
+
+def test_job_dryrun_info_stored_and_reused(simple_task, docker_executor, mock_runner):
+    """Ensure Job stores dryrun info and passes it on subsequent launch."""
+    job = Job(
+        id="test-job",
+        task=simple_task,
+        executor=docker_executor,
+    )
+
+    # Side effects: first dryrun returns (None, "plan"), second actual run returns handle+status
+    first_return = (None, "plan")
+    second_return = ("test-handle", MagicMock(state=AppState.SUCCEEDED))
+
+    with patch("nemo_run.run.job.launch", side_effect=[first_return, second_return]) as mock_launch:
+        # Prepare once
+        job.prepare()
+
+        # 1) Dry run
+        job.launch(wait=False, runner=mock_runner, dryrun=True)
+        assert job._dryrun_info == "plan"
+
+        # 2) Actual launch should receive dryrun_info kwarg equal to stored value
+        job.launch(wait=False, runner=mock_runner)
+        # Two calls total
+        assert mock_launch.call_count == 2
+        # Extract kwargs of second call
+        _, second_kwargs = mock_launch.call_args
+        assert second_kwargs["dryrun_info"] == "plan"
+
+
+# Additional tests for serialize_metadata_for_scripts flag
+
+
+def test_job_prepare_serialize_metadata_flag(simple_task, docker_executor):
+    """Job.prepare should forward serialize_metadata_for_scripts to package()."""
+    job = Job(id="j1", task=simple_task, executor=docker_executor)
+
+    with patch("nemo_run.run.job.package") as mock_package:
+        job.prepare(serialize_metadata_for_scripts=False)
+        mock_package.assert_called_once()
+        # get call kwargs to ensure flag propagated
+        _, kwargs = mock_package.call_args
+        assert kwargs["serialize_metadata_for_scripts"] is False
+
+
+def test_job_group_prepare_serialize_metadata_flag(simple_task, docker_executor):
+    """JobGroup.prepare should forward serialize_metadata_for_scripts to package() for each task."""
+    group = JobGroup(id="g1", tasks=[simple_task, simple_task], executors=docker_executor)
+    group._merge = False
+    group.executors = [docker_executor] * 2
+
+    with patch("nemo_run.run.job.package") as mock_package:
+        group.prepare(serialize_metadata_for_scripts=False)
+        # Called for each task (2)
+        assert mock_package.call_count == 2
+        # Verify at least one call had flag False
+        for _args, kwargs in mock_package.call_args_list:
+            assert kwargs["serialize_metadata_for_scripts"] is False

@@ -1390,3 +1390,124 @@ def test_tasks_property_correct_deserialization(mock_serializer, mock_get_runner
                 # Verify serializer was called with the right arguments
                 serializer_instance.deserialize.assert_called_with("serialized_task_data")
                 assert len(tasks) == 1
+
+
+def test_experiment_threadpool_workers_param(temp_dir):
+    """Ensure custom threadpool_workers is correctly set and persisted to config."""
+    workers = 8
+    exp = Experiment("test-exp", threadpool_workers=workers)
+    assert exp._threadpool_workers == workers
+    cfg = exp.to_config()
+    # The Config object exposes the value as an attribute
+    assert getattr(cfg, "threadpool_workers") == workers
+
+
+@patch("nemo_run.run.experiment.get_runner")
+def test_experiment_prepare_passes_serialize_metadata(mock_get_runner, temp_dir):
+    """Verify that Experiment._prepare forwards serialize_metadata_for_scripts to Job.prepare."""
+    mock_get_runner.return_value = MagicMock()
+
+    with Experiment(
+        "test-exp",
+        serialize_metadata_for_scripts=False,
+        base_dir=temp_dir,
+    ) as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        exp.add(task, name="test-job")
+
+        captured_flag = {}
+
+        def _mock_prepare(self, serialize_metadata_for_scripts=True):
+            # Record flag
+            captured_flag["flag"] = serialize_metadata_for_scripts
+            # Ensure _executable attr exists to satisfy later assertions
+            setattr(self, "_executable", MagicMock())
+
+        with patch.object(Job, "prepare", _mock_prepare):
+            # dryrun triggers _prepare internally
+            exp.dryrun(log=False, delete_exp_dir=True)
+
+        # Verify flag captured is False
+        assert captured_flag.get("flag") is False
+
+
+@patch("nemo_run.run.experiment.get_runner")
+def test_experiment_skip_status_at_exit(mock_get_runner, temp_dir):
+    """Ensure status() is not called when skip_status_at_exit=True."""
+    mock_get_runner.return_value = MagicMock()
+
+    with Experiment(
+        "test-exp",
+        skip_status_at_exit=True,
+        base_dir=temp_dir,
+    ) as exp:
+        # experiment not launched, but we still verify status isn't invoked
+        # Ensure experiment directory exists to avoid FileNotFound
+        os.makedirs(exp._exp_dir, exist_ok=True)
+
+        with patch.object(exp, "status") as mock_status:
+            pass  # Leaving the context triggers __exit__
+        mock_status.assert_not_called()
+
+
+def test_experiment_status_includes_handle(temp_dir):
+    """status(return_dict=True) should include handle field added in diff."""
+    with Experiment("test-exp", base_dir=temp_dir) as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        job_id = exp.add(task, name="job-status")
+        # set job launched and handle
+        exp.jobs[0].launched = True
+        exp.jobs[0].handle = "handle-123"
+        exp.jobs[0].status = MagicMock(return_value=AppState.SUCCEEDED)
+
+        status_dict = exp.status(return_dict=True)
+        assert status_dict
+        assert status_dict[job_id]["handle"] == "handle-123"
+
+
+def test_initialize_tunnels_extract_from_executors(temp_dir):
+    """_initialize_tunnels(extract_from_executors=True) should add tunnels from slurm executors and call connect."""
+
+    # Fake Tunnel
+    class FakeTunnel:
+        def __init__(self):
+            self.key = "t1"
+            self.session = None
+            self.connected = False
+
+        def connect(self):
+            self.connected = True
+            self.session = "sess"
+
+        def to_config(self):
+            return run.Config(FakeTunnel)
+
+    # Fake SlurmExecutor
+    class FakeSlurmExecutor(LocalExecutor):
+        def __init__(self):
+            super().__init__()
+            self.tunnel = FakeTunnel()
+
+        # override clone to avoid deep copy issues
+        def clone(self):
+            return self
+
+        def to_config(self):
+            # Minimal config stub acceptable for tests
+            return run.Config(FakeSlurmExecutor)
+
+    with patch("nemo_run.run.experiment.SlurmExecutor", FakeSlurmExecutor):
+        with Experiment("test-exp", base_dir=temp_dir) as exp:
+            # Create a Job manually to avoid executor.clone
+            from nemo_run.run.job import Job
+
+            job = Job(
+                id="slurm-job",
+                task=run.Partial(dummy_function, x=1, y=2),
+                executor=FakeSlurmExecutor(),
+            )
+            exp.jobs = [job]  # replace jobs list directly
+
+            # Should pull tunnel and connect
+            exp._initialize_tunnels(extract_from_executors=True)
+            assert "t1" in exp.tunnels

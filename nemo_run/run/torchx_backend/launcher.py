@@ -45,6 +45,7 @@ def launch(
     parent_run_id: Optional[str] = None,
     runner: Runner | None = None,
     log_dryrun: bool = ...,
+    dryrun_info: specs.AppDryRunInfo | None = None,
 ) -> tuple[None, None]: ...
 
 
@@ -59,6 +60,7 @@ def launch(
     parent_run_id: Optional[str] = None,
     runner: Runner | None = None,
     log_dryrun: bool = ...,
+    dryrun_info: specs.AppDryRunInfo | None = None,
 ) -> tuple[str, specs.AppStatus]: ...
 
 
@@ -73,6 +75,7 @@ def launch(
     parent_run_id: Optional[str] = None,
     runner: Runner | None = None,
     log_dryrun: bool = False,
+    dryrun_info: specs.AppDryRunInfo | None = None,
 ) -> tuple[str | None, specs.AppStatus | None]: ...
 
 
@@ -86,7 +89,8 @@ def launch(
     parent_run_id: Optional[str] = None,
     runner: Runner | None = None,
     log_dryrun: bool = False,
-) -> tuple[str | None, specs.AppStatus | None]:
+    dryrun_info: specs.AppDryRunInfo | None = None,
+) -> tuple[str | None, specs.AppStatus | specs.AppDryRunInfo | None]:
     runner = runner or get_runner()
 
     if dryrun:
@@ -100,13 +104,14 @@ def launch(
             CONSOLE.log("\n=== APPLICATION ===\n")
             CONSOLE.log(dryrun_info)
 
-        return None, None
+        return None, dryrun_info
     else:
         app_handle = runner.run(
             executable,
             executor_name,
             cfg=executor,  # type: ignore
             parent_run_id=parent_run_id,
+            dryrun_info=dryrun_info,
         )
         logger.info(f"Launched app: {app_handle}")
         app_status = specs.AppStatus(state=specs.AppState.SUBMITTED)
