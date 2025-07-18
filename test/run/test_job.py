@@ -707,3 +707,33 @@ def test_job_dryrun_info_stored_and_reused(simple_task, docker_executor, mock_ru
         # Extract kwargs of second call
         _, second_kwargs = mock_launch.call_args
         assert second_kwargs["dryrun_info"] == "plan"
+
+
+# Additional tests for serialize_metadata_for_scripts flag
+
+
+def test_job_prepare_serialize_metadata_flag(simple_task, docker_executor):
+    """Job.prepare should forward serialize_metadata_for_scripts to package()."""
+    job = Job(id="j1", task=simple_task, executor=docker_executor)
+
+    with patch("nemo_run.run.job.package") as mock_package:
+        job.prepare(serialize_metadata_for_scripts=False)
+        mock_package.assert_called_once()
+        # get call kwargs to ensure flag propagated
+        _, kwargs = mock_package.call_args
+        assert kwargs["serialize_metadata_for_scripts"] is False
+
+
+def test_job_group_prepare_serialize_metadata_flag(simple_task, docker_executor):
+    """JobGroup.prepare should forward serialize_metadata_for_scripts to package() for each task."""
+    group = JobGroup(id="g1", tasks=[simple_task, simple_task], executors=docker_executor)
+    group._merge = False
+    group.executors = [docker_executor] * 2
+
+    with patch("nemo_run.run.job.package") as mock_package:
+        group.prepare(serialize_metadata_for_scripts=False)
+        # Called for each task (2)
+        assert mock_package.call_count == 2
+        # Verify at least one call had flag False
+        for _args, kwargs in mock_package.call_args_list:
+            assert kwargs["serialize_metadata_for_scripts"] is False

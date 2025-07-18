@@ -1448,3 +1448,66 @@ def test_experiment_skip_status_at_exit(mock_get_runner, temp_dir):
         with patch.object(exp, "status") as mock_status:
             pass  # Leaving the context triggers __exit__
         mock_status.assert_not_called()
+
+
+def test_experiment_status_includes_handle(temp_dir):
+    """status(return_dict=True) should include handle field added in diff."""
+    with Experiment("test-exp", base_dir=temp_dir) as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        job_id = exp.add(task, name="job-status")
+        # set job launched and handle
+        exp.jobs[0].launched = True
+        exp.jobs[0].handle = "handle-123"
+        exp.jobs[0].status = MagicMock(return_value=AppState.SUCCEEDED)
+
+        status_dict = exp.status(return_dict=True)
+        assert status_dict
+        assert status_dict[job_id]["handle"] == "handle-123"
+
+
+def test_initialize_tunnels_extract_from_executors(temp_dir):
+    """_initialize_tunnels(extract_from_executors=True) should add tunnels from slurm executors and call connect."""
+
+    # Fake Tunnel
+    class FakeTunnel:
+        def __init__(self):
+            self.key = "t1"
+            self.session = None
+            self.connected = False
+
+        def connect(self):
+            self.connected = True
+            self.session = "sess"
+
+        def to_config(self):
+            return run.Config(FakeTunnel)
+
+    # Fake SlurmExecutor
+    class FakeSlurmExecutor(LocalExecutor):
+        def __init__(self):
+            super().__init__()
+            self.tunnel = FakeTunnel()
+
+        # override clone to avoid deep copy issues
+        def clone(self):
+            return self
+
+        def to_config(self):
+            # Minimal config stub acceptable for tests
+            return run.Config(FakeSlurmExecutor)
+
+    with patch("nemo_run.run.experiment.SlurmExecutor", FakeSlurmExecutor):
+        with Experiment("test-exp", base_dir=temp_dir) as exp:
+            # Create a Job manually to avoid executor.clone
+            from nemo_run.run.job import Job
+
+            job = Job(
+                id="slurm-job",
+                task=run.Partial(dummy_function, x=1, y=2),
+                executor=FakeSlurmExecutor(),
+            )
+            exp.jobs = [job]  # replace jobs list directly
+
+            # Should pull tunnel and connect
+            exp._initialize_tunnels(extract_from_executors=True)
+            assert "t1" in exp.tunnels
