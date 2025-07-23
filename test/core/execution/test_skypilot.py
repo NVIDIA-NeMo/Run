@@ -68,6 +68,7 @@ def mock_skypilot_imports():
         "sky.core": sky_core_mock,
         "sky.skylet.job_lib": job_lib_mock,
         "sky.utils.common_utils": common_utils_mock,
+        "sky.resources": MagicMock(),
     }
 
     # Also mock the sky_exceptions module with our mock exception
@@ -139,6 +140,33 @@ class TestSkypilotExecutor:
                 container_image="nvcr.io/nvidia/nemo:latest",
                 cloud="kubernetes",
                 packager=non_git_packager,
+            )
+
+    def test_init_with_infra_and_cloud_fails(self, mock_skypilot_imports):
+        with pytest.raises(
+            AssertionError, match="Cannot specify both `infra` and `cloud` parameters."
+        ):
+            SkypilotExecutor(
+                infra="my-infra",
+                cloud="aws",
+            )
+
+    def test_init_with_infra_and_region_fails(self, mock_skypilot_imports):
+        with pytest.raises(
+            AssertionError, match="Cannot specify both `infra` and `region` parameters."
+        ):
+            SkypilotExecutor(
+                infra="my-infra",
+                region="us-west-2",
+            )
+
+    def test_init_with_infra_and_zone_fails(self, mock_skypilot_imports):
+        with pytest.raises(
+            AssertionError, match="Cannot specify both `infra` and `zone` parameters."
+        ):
+            SkypilotExecutor(
+                infra="my-infra",
+                zone="us-west-2a",
             )
 
     def test_parse_app(self, mock_skypilot_imports):
@@ -227,6 +255,18 @@ class TestSkypilotExecutor:
         config = mock_resources.from_yaml_config.call_args[0][0]
         assert config["cloud"] is None
         assert config["any_of"][1]["region"] is None
+
+    @patch("sky.resources.Resources")
+    def test_to_resources_with_infra_and_network_tier(self, mock_resources, mock_skypilot_imports):
+        executor = SkypilotExecutor(infra="k8s/my-context", network_tier="best")
+
+        executor.to_resources()
+
+        mock_resources.from_yaml_config.assert_called_once()
+
+        config = mock_resources.from_yaml_config.call_args[0][0]
+        assert config["infra"] == "k8s/my-context"
+        assert config["network_tier"] == "best"
 
     @patch("sky.core.status")
     @patch("sky.core.queue")
