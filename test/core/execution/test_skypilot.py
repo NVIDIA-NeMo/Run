@@ -561,3 +561,29 @@ class TestSkypilotExecutor:
 
                 # Verify the returned task is our mock
                 assert result == mock_task_instance
+
+    def test_parse_infra_for_volume_config(self, mock_skypilot_imports):
+        """Test the _parse_infra_for_volume_config helper method."""
+
+        # Test k8s infra
+        executor_k8s = SkypilotExecutor(infra="k8s/my-context")
+        config = executor_k8s._parse_infra_for_volume_config()
+        assert config["cloud"] == "kubernetes"
+        assert config["region"] == "kubernetes"
+        assert config["zone"] == "kubernetes"
+
+        # Test AWS infra with region and zone
+        executor_aws = SkypilotExecutor(infra="aws/us-east-1/us-east-1a")
+        config = executor_aws._parse_infra_for_volume_config()
+        assert config["cloud"] == "aws"
+        assert config["region"] == "us-east-1"
+        assert config["zone"] == "us-east-1a"
+
+        # Test fallback to individual parameters
+        executor_fallback = SkypilotExecutor(
+            cloud="gcp", region="us-central1", zone="us-central1-a"
+        )
+        config = executor_fallback._parse_infra_for_volume_config()
+        assert config["cloud"] == "gcp"
+        assert config["region"] == "us-central1"
+        assert config["zone"] == "us-central1-a"
