@@ -35,8 +35,8 @@ _SKYPILOT_AVAILABLE: bool = False
 try:
     import sky
     import sky.task as skyt
-    from sky.utils import status_lib
     from sky import backends
+    from sky.utils import status_lib
 
     _SKYPILOT_AVAILABLE = True
 except ImportError:
@@ -62,7 +62,8 @@ class SkypilotExecutor(Executor):
             gpus="A10G",
             gpus_per_node=devices,
             container_image="nvcr.io/nvidia/nemo:dev",
-            cloud="kubernetes",
+            infra="k8s/my-context",
+            network_tier="best",
             cluster_name="nemo_tester",
             file_mounts={
                 "nemo_run.whl": "nemo_run.whl"
@@ -105,6 +106,8 @@ class SkypilotExecutor(Executor):
     idle_minutes_to_autostop: Optional[int] = None
     torchrun_nproc_per_node: Optional[int] = None
     cluster_config_overrides: Optional[dict[str, Any]] = None
+    infra: Optional[str] = None
+    network_tier: Optional[str] = None
     packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     def __post_init__(self):
@@ -114,6 +117,13 @@ class SkypilotExecutor(Executor):
         assert isinstance(self.packager, GitArchivePackager), (
             "Only GitArchivePackager is currently supported for SkypilotExecutor."
         )
+        if self.infra is not None:
+            assert self.cloud is None, "Cannot specify both `infra` and `cloud` parameters."
+            assert self.region is None, "Cannot specify both `infra` and `region` parameters."
+            assert self.zone is None, "Cannot specify both `infra` and `zone` parameters."
+            logger.info(
+                "`cloud` is deprecated and will be removed in a future version. Use `infra` instead."
+            )
 
     @classmethod
     def parse_app(cls: Type["SkypilotExecutor"], app_id: str) -> tuple[str, str, int]:
@@ -173,6 +183,8 @@ class SkypilotExecutor(Executor):
             "memory",
             "instance_type",
             "use_spot",
+            "infra",
+            "network_tier",
             "image_id",
             "disk_size",
             "disk_tier",
