@@ -172,7 +172,7 @@ executor = KubeRayExecutor(
     # Environment configuration
     env_vars={
         "UV_PROJECT_ENVIRONMENT": "/home/ray/venvs/driver",
-        "NEMO_RL_VENV_DIR": "/home/ray/venvs",
+        "NEMO_RUN_VENV_DIR": "/home/ray/venvs",
         "HF_HOME": "/workspace/hf_cache",
         "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
     },

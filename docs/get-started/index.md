@@ -1,56 +1,44 @@
 ---
-description: "Get started quickly with NeMo Run by following these essential setup steps and tutorials."
-tags: ["quickstart", "setup", "beginner", "onboarding"]
+description: "Get started quickly with NeMo Run for ML experiment management."
 categories: ["getting-started"]
+tags: ["quickstart", "setup", "ai-developer"]
+personas: ["mle-focused", "data-scientist-focused"]
+difficulty: "intermediate"
+content_type: "guide"
+modality: "text-only"
 ---
 
 (get-started)=
+
 # Get Started with NeMo Run
 
-Welcome to NeMo Run! This guide will help you get up and running quickly with ML experiment management.
+NeMo Run is NVIDIA's Python framework for configuring, executing, and managing ML experiments across diverse computing environments.
 
-## Before You Start
+## Quick Start Options
 
-- Ensure you have Python 3.8+ installed
-- Have pip configured for package installation
-- Access to computing resources (local, cloud, or cluster)
-
----
-
-## Quickstart Options
-
-Choose your path to get started with NeMo Run:
-
-::::{grid} 1 1 1 3
+::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quickstart
+:link: quickstart
+:link-type: doc
+:link-alt: Quickstart Guide
+
+Run your first ML experiment in minutes
+:::
 
 :::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
 :link: install
 :link-type: doc
 :link-alt: Installation guide
-Install NeMo Run and optional dependencies for your environment
 
-+++
-{bdg-primary}`Start Here`
+Install NeMo Run and dependencies
 :::
 
-:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quickstart Guide
-:link: quickstart
-:link-type: doc
-:link-alt: Quickstart Guide
-Complete guide to install and run your first ML experiment in minutes
-
-+++
-{bdg-secondary}`Next Steps`
-:::
-
-:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Tutorials
-:link: tutorials
-:link-type: doc
-:link-alt: Tutorial collection
-Learn NeMo Run with hands-on tutorials and examples
-
-+++
-{bdg-secondary}`Advanced Learning`
-:::
 ::::
+
+## Prerequisites
+
+- **Python 3.8+** with pip
+- **Basic ML knowledge** (PyTorch, training loops)
+- **Computing resources** (local, cloud, or cluster)

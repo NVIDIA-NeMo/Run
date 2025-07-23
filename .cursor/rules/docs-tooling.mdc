@@ -1,11 +1,54 @@
----
-description: Specialized MyST/Sphinx markdown directives for documentation files. Apply when drafting or editing documentation that uses directives, grids, tabs, admonitions, or other Sphinx extensions.
-globs: 
-alwaysApply: false
----
 # Sphinx/MyST Documentation Tooling Rule
 
 Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these rules for all files in `docs/`:
+
+## MyST Token Reference
+
+### Block Tokens (Multi-line Elements)
+
+**Extended Block Tokens (MyST-specific):**
+- `FrontMatter` - YAML block at document start enclosed by `---`
+- `Directives` - Enclosed in 3+ backticks with `{directive_name}`
+- `Math` - `$$` or `\[...\]` for multi-line math
+- `LineComment` - Lines starting with `%`
+- `BlockBreak` - Lines with `+++` for document structure
+- `Footnote` - `[^ref]: content` footnote definitions
+- `Admonitions` - `:::{note} content :::` (optional syntax)
+
+**CommonMark Block Tokens:**
+- `HTMLBlock` - Valid HTML elements
+- `BlockCode` - Indented code (4 spaces/tab)
+- `Heading` - `#` level 1-6 headings
+- `SetextHeading` - Underlined headers with `===` or `---`
+- `Quote` - Lines starting with `>`
+- `CodeFence` - Fenced code blocks with language
+- `ThematicBreak` - Horizontal line with `---`
+- `List` - Bullet points or enumerated lists
+- `LinkDefinition` - `[key]: url "title"` link references
+- `Paragraph` - General inline text
+
+### Inline Tokens (Single-line Elements)
+
+**Extended Inline Tokens (MyST-specific):**
+- `Role` - `{rolename}` with backtick content
+- `Target` - `(target_name)=` anchor definitions
+- `Math` - `$...$` inline math
+- `FootnoteReference` - `[^ref]` footnote references
+- `LineComment` - `%` comments within lines
+
+**CommonMark Inline Tokens:**
+- `CodeSpan` - Backtick-enclosed code
+- `HTMLSpan` - Inline HTML elements
+- `Link` - `[text](url)` and `[text][ref]` links
+- `Image` - `![alt](src)` image syntax
+- `Emphasis` - `*italic*` and `**bold**` text
+- `Strong` - `**bold**` text
+- `Strikethrough` - `~~text~~` (if enabled)
+- `LineBreak` - Hard line breaks
+- `SoftBreak` - Soft line breaks
+- `Text` - Plain text content
+
+## Core Structure
 
 - **Headers:**  
   - Every header (including subheaders) must have a unique relref label above it in the format `(section-article-header)=`.  
@@ -21,9 +64,255 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
     ## Prerequisites
     ```
 
+- **Target Headers:**
+  - Use target headers for sections you want to reference elsewhere
+  - **Example:**
+    ```markdown
+    (my-target-header)=
+    ## My Important Section
+    ```
+
+- **Front Matter:**
+  - Use YAML front matter at document start for metadata
+  - Special keys: `orphan`, `html_meta`, `title`, `author`, `date`
+  - **Example:**
+    ```markdown
+    ---
+    orphan: true
+    title: Custom Page Title
+    author: Your Name
+    html_meta:
+      description: "Page description for SEO"
+      keywords: "keyword1, keyword2"
+    ---
+    ```
+
+## Content Formatting
+
+- **Text Formatting:**
+  - Use standard markdown formatting for emphasis
+  - **Example:**
+    ```markdown
+    *italic text*
+    **bold text**
+    ~~strikethrough~~
+    `inline code`
+    ```
+
+- **Quotes:**
+  - Use standard markdown quote syntax for callouts
+  - **Example:**
+    ```markdown
+    > This is an important quote or callout
+    ```
+
+- **Thematic Breaks:**
+  - Use `---` for horizontal dividers between sections
+  - **Example:**
+    ```markdown
+    This is the end of one section.
+    
+    ---
+    
+    ## New Section
+    ```
+
+- **Line Comments:**
+  - Use `% comment text` for internal notes (won't appear in rendered output)
+  - ⚠️ **Important**: Comments terminate the previous block, creating paragraph breaks
+  - **Example:**
+    ```markdown
+    % This is a comment for internal use
+    
+    First paragraph.
+    % This comment creates a paragraph break
+    Second paragraph.
+    ```
+
+- **Block Breaks:**
+  - Use `+++` for metadata or document structure breaks
+  - Intended for mapping to cell-based formats like Jupyter notebooks
+  - **Example:**
+    ```markdown
+    This is content.
+    
+    +++
+    {"meta": "data"}
+    
+    More content here.
+    ```
+
+## Visual Elements
+
+- **Emojis:**
+  - Use emojis sparingly for visual enhancement
+  - Common useful emojis:
+    - 👍 (thumbs-up), 📌 (pin), 💡 (lightbulb)
+    - 📚 (books), 🚀 (rocket), ⭐ (star)
+    - 🔔 (bell), 💻 (computer), 🔧 (tool)
+    - 👉 (point), 🌎 (world), 📣 (megaphone)
+
+- **Font Awesome Icons:**
+  - Use `{fa}` role for Font Awesome icons (if supported)
+  - **Example:**
+    ```markdown
+    {fa}`check` - checkmark icon
+    {fa}`warning` - warning icon
+    ```
+
+## Links and References
+
+- **Internal References:**  
+  - Use `{ref}` for internal links, referencing the relref label.  
+  - Check for existing relref labels before creating new ones.
+  - **Example:**
+    ```markdown
+    {ref}`header_target` - uses section title as link text
+    {ref}`my text <header_target>` - custom link text
+    ```
+
+- **Cross-References:**
+  - Use `{any}` role for flexible cross-references
+  - **Example:**
+    ```markdown
+    {any}`my text <header_target>` - flexible reference
+    ```
+
+- **Document References:**
+  - Use `{doc}` to reference other documents
+  - ⚠️ **Important**: Use absolute addressing with `/` and WITHOUT the file extension
+  - **Example:**
+    ```markdown
+    {doc}`/advanced/configuration` - absolute path, no extension
+    {doc}`Configuration Guide </advanced/configuration>` - with custom text
+    ```
+
+- **External Links:**
+  - Use standard markdown link syntax
+  - **Example:**
+    ```markdown
+    [Jupyter Book](https://jupyterbook.org)
+    [Link with title](https://example.com "Title text")
+    <https://example.com>
+    ```
+
+- **Markdown Links for Internal Content:**
+  - ✅ **Best Practice**: Use absolute addressing with `/` and the `.md` extension
+  - ⚠️ **Important**: Referencing sections requires the `.md` extension
+  - Supports nested syntax (bold, math, etc.)
+  - **Example:**
+    ```markdown
+    [Link to section](./other-file.md#section-anchor)
+    [Absolute link](/docs/guide.md#getting-started)
+    [](header_target) - uses target title as link text
+    [my text with **bold**](header_target) - nested syntax
+    ```
+
+## Math and Equations
+
+- **Inline Math:**
+  - Use `$equation$` for inline math
+  - Alternative: `\(equation\)` format
+  - **Example:**
+    ```markdown
+    The equation is $E = mc^2$ in the text.
+    Alternatively: \(E = mc^2\)
+    ```
+
+- **Block Math:**
+  - Use `$$equation$$` or `\[...\]` for block equations
+  - **Example:**
+    ```markdown
+    $$
+    \int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+    $$
+    
+    \[
+    E = mc^2
+    \]
+    ```
+
+- **Math Directives:**
+  - Use math directive for referenced equations
+  - **Example:**
+    ```markdown
+    ```{math}
+    :label: my-equation
+    
+    E = mc^2
+    ```
+    
+    See equation {eq}`my-equation` for the famous formula.
+    ```
+
+- **AMSMath Syntax:**
+  - Use AMSMath environments for complex equations
+  - **Example:**
+    ```markdown
+    ```{math}
+    \begin{align}
+    a_{11} &= b_{11} & a_{12} &= b_{12} \\
+    a_{21} &= b_{21} & a_{22} &= b_{22}
+    \end{align}
+    ```
+    
+    ```{math}
+    \begin{pmatrix}
+    a & b \\
+    c & d
+    \end{pmatrix}
+    ```
+    ```
+
+- **Math Configuration:**
+  - `myst_dmath_allow_space=False` - no spaces around inline math
+  - `myst_dmath_allow_digits=False` - no digits around inline math
+  - `myst_update_mathjax=False` - preserve custom MathJax config
+
+## Figures and Images
+
+- **Basic Images:**
+  - Use standard markdown image syntax with alt text
+  - **Example:**
+    ```markdown
+    ![Alt text describing the image](path/to/image.png)
+    ```
+
+- **Figure Directives:**
+  - Use figure directive for complex images with captions and references
+  - **Example:**
+    ```markdown
+    ```{figure} path/to/image.png
+    :name: my-figure
+    :alt: Alternative text
+    :align: center
+    :width: 80%
+    
+    This is the figure caption.
+    ```
+    
+    See {numref}`my-figure` for details.
+    ```
+
+- **HTML Images:**
+  - Use HTML img tag when more control is needed
+  - **Example:**
+    ```markdown
+    <img src="path/to/image.png" alt="Description" width="400" class="custom-class">
+    ```
+
+- **Figures with Links:**
+  - Wrap figures in links when needed
+  - **Example:**
+    ```markdown
+    [![Alt text](image.png)](link-target)
+    ```
+
+## Code and Execution
+
 - **Code Samples:**  
   - Use dropdowns for code blocks longer than 10 lines or for any code that may distract from the main flow.  
-  - Title dropdowns meaningfully (e.g., “Python Example”, “Full YAML Config”).
+  - Title dropdowns meaningfully (e.g., "Python Example", "Full YAML Config").
   - **Example:**
     ```markdown
     :::{dropdown} Python Example
@@ -36,6 +325,80 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
     ```
     :::
     ```
+
+- **Inline Code:**
+  - Use backticks for inline code elements
+  - **Example:**
+    ```markdown
+    Use the `pip install` command to install packages.
+    ```
+
+- **Code Blocks with Syntax Highlighting:**
+  - Specify language for proper syntax highlighting
+  - Add line numbers when helpful
+  - **Example:**
+    ```markdown
+    ```python
+    def example_function():
+        return "Hello, world!"
+    ```
+    
+    ```bash
+    :linenos:
+    
+    echo "Hello World!"
+    ls -la
+    ```
+    ```
+
+- **Executable Code Cells:**
+  - Use code-cell directive for executable content
+  - **Example:**
+    ```markdown
+    ```{code-cell} python
+    :tags: [hide-input]
+    
+    import numpy as np
+    result = np.array([1, 2, 3])
+    print(result)
+    ```
+    ```
+
+- **Code Cell Tags:**
+  - Use tags to control code cell display
+  - Available tags: `hide-input`, `hide-output`, `hide-cell`, `remove-input`, `remove-output`, `remove-cell`, `full-width`, `scroll-output`, `margin`, `raises-exception`
+  - **Example:**
+    ```markdown
+    ```{code-cell} python
+    :tags: [hide-input, scroll-output]
+    
+    for i in range(100):
+        print(f"Line {i}")
+    ```
+    ```
+
+- **Code Cell Metadata:**
+  - Use MyST-NB metadata for enhanced code cell presentation
+  - **Example:**
+    ```markdown
+    ```{code-cell} python
+    ---
+    mystnb:
+      image:
+        width: 200px
+        alt: output-image
+        classes: shadow bg-primary
+      figure:
+        caption: Code output visualization
+        name: code-output
+    ---
+    import matplotlib.pyplot as plt
+    plt.plot([1, 2, 3], [1, 4, 2])
+    plt.show()
+    ```
+    ```
+
+## Interactive Elements
 
 - **Tabs:**  
   - Use tab-sets for alternative options (e.g., curl vs. python, CLI vs. UI).  
@@ -68,12 +431,25 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
     :link: get-started-index
     :link-type: ref
 
-    
-
     Learn how to get started with the platform.
     :::
     ::::
     ```
+
+- **Margin Notes:**
+  - Use margin directive for side notes
+  - **Example:**
+    ```markdown
+    This is main content.
+    
+    :::{margin}
+    This is a margin note that appears on the side.
+    :::
+    
+    More main content continues here.
+    ```
+
+## Lists and Tables
 
 - **Lists/Tables:**  
   - Use lists or tables for short, related items, steps, or comparisons.  
@@ -92,41 +468,264 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
     ```
   - Prefer myst list tables for advanced tables over markdown tables
 
+- **MyST List Tables:**
+  - Use list-table directive for complex tables
+  - **Example:**
+    ```markdown
+    ```{list-table} Feature Comparison
+    :header-rows: 1
+    :name: feature-table
+    
+    * - Feature
+      - Basic
+      - Advanced
+    * - Authentication
+      - Yes
+      - Yes
+    * - Rate Limiting
+      - No
+      - Yes
+    ```
+    
+    See {numref}`feature-table` for details.
+    ```
+
+## Admonitions and Callouts
+
 - **Admonitions:**  
   - Use admonitions sparingly because they interrupt the flow of information.
     - Use a note to identify surprising or unexpected behavior.
     - Use a warning to identify risk of physical injury or data loss.
     - Use a tip to reveal a positive behavior in the software that someone might not discover on their own.
-  - Example:  
-    - `note` for general info  
-    - `warning` for risks  
-    - `tip` for best practices  
+  - Available types: `note`, `warning`, `tip`, `important`, `caution`, `danger`, `attention`, `hint`, `seealso`, `error`
   - **Example:**
     ```markdown
     :::{note}
     You must have an API key before proceeding.
     :::
+    
+    :::{warning}
+    This operation will permanently delete your data.
+    :::
+    
+    :::{tip}
+    Use keyboard shortcuts to speed up your workflow.
+    :::
+    
+    :::{error}
+    This configuration will cause system failure.
+    :::
     ```
 
-- **References:**  
-  - Use `{ref}` for internal links, referencing the relref label.  
-  - Check for existing relref labels before creating new ones.
+- **Referenceable Admonitions:**
+  - Add names to admonitions for referencing
   - **Example:**
     ```markdown
-    Refer to the {ref}`customization job <ft-create-customization-job>` guide.
+    :::{note}
+    :name: important-note
+    
+    This is a referenceable note.
+    :::
+    
+    Refer back to {ref}`important-note` for details.
     ```
+
+## Citations and Footnotes
+
+- **Footnotes:**
+  - Use footnote syntax for additional information
+  - Labels start with `^` and can be any alpha-numeric string (case-insensitive)
+  - Manual numbering: Use integers for specific footnote numbers
+  - Auto-numbering: Use text labels for automatic numbering
+  - **Example:**
+    ```markdown
+    Manual numbered footnote[^3] and auto-numbered footnote[^myref].
+    
+    [^3]: This is a manually-numbered footnote.
+    [^myref]: This is an auto-numbered footnote.
+    ```
+
+- **Extended Footnotes:**
+  - Include multiple paragraphs by indenting 4+ spaces
+  - **Example:**
+    ```markdown
+    Extended footnote example[^long].
+    
+    [^long]: This is the first paragraph of the footnote.
+    
+        This is the second paragraph, indented by 4 spaces.
+        
+        - Even lists work
+        - With multiple items
+        
+        More content continues here.
+    ```
+
+- **Citations:**
+  - Use cite directive for academic references (requires bibliography file)
+  - **Example:**
+    ```markdown
+    This research was published by {cite}`author2023paper`.
+    
+    ```{bibliography}
+    :filter: docname in docnames
+    ```
+    ```
+
+## HTML Metadata
+
+- **HTML Meta Tags:**
+  - Use `html_meta` in front matter for SEO and social media
+  - **Example:**
+    ```markdown
+    ---
+    html_meta:
+      "description": "Page description for search engines"
+      "keywords": "keyword1, keyword2, keyword3"
+      "author": "Author Name"
+      "property=og:title": "Social Media Title"
+      "property=og:description": "Social media description"
+      "property=og:image": "https://example.com/image.png"
+    ---
+    ```
+
+- **Global HTML Metadata:**
+  - Configure in `conf.py` with `myst_html_meta`
+  - **Example:**
+    ```python
+    myst_html_meta = {
+        "description lang=en": "Default description",
+        "keywords": "Default, Keywords",
+        "property=og:locale": "en_US"
+    }
+    ```
+
+## Advanced Features
+
+- **HTML Blocks:**
+  - Use HTML when MyST syntax is insufficient
+  - **Example:**
+    ```markdown
+    <div class="custom-class">
+    This is custom HTML content.
+    </div>
+    
+    <tagname>Custom content</tagname>
+    ```
+
+- **Custom Div Blocks:**
+  - Use div directive for custom styling
+  - **Example:**
+    ```markdown
+    :::{div} custom-class
+    This content will have the custom-class applied.
+    :::
+    ```
+
+- **Variable Gluing:**
+  - Use glue for dynamic content in executable notebooks
+  - **Example:**
+    ```markdown
+    ```{code-cell} python
+    from myst_nb import glue
+    result = 42
+    glue("my_variable", result)
+    ```
+    
+    The result is {glue:}`my_variable`.
+    ```
+
+- **Structure Breaks:**
+  - Use `+++` to break paragraphs when needed
+  - **Example:**
+    ```markdown
+    This is one paragraph.
+    
+    +++
+    
+    This starts a new paragraph structure.
+    ```
+
+## Best Practices and Gotchas
+
+- **Document References:**
+  - ⚠️ **Critical**: The `{doc}` role does NOT support anchor tags for sections
+  - ✅ **Correct**: `{doc}`/path/to/document`` (no extension, absolute path)
+  - ❌ **Incorrect**: `{doc}`/path/to/document.md`` (with extension)
+  - ❌ **Incorrect**: `{doc}`/path/to/document#section`` (with anchor)
+
+- **Markdown Links:**
+  - ✅ **Best Practice**: Use absolute addressing with `/` and file extensions
+  - ⚠️ **Important**: Section references require the `.md` extension
+  - **Example:**
+    ```markdown
+    [Link to section](./file.md#section-anchor)
+    [Absolute link](/docs/guide.md#getting-started)
+    ```
+
+- **Comments and Block Structure:**
+  - ⚠️ **Important**: `%` comments terminate previous blocks
+  - This creates paragraph breaks even within what appears to be continuous text
+  - **Example:**
+    ```markdown
+    First line
+    % comment here breaks the paragraph
+    Second line
+    ```
+
+- **Footnotes:**
+  - ⚠️ **Important**: Footnote definitions within directives may not be available globally
+  - ✅ **Best Practice**: Place footnote definitions at document level
+  - Auto-numbered footnotes are ordered by reference, not definition
+
+- **Math Syntax:**
+  - Both `$...$` and `$$...$$` work for inline and block math
+  - Use `\(...\)` and `\[...\]` as alternatives
+  - AMSMath environments require the math directive
+  - Configure parsing behavior with `myst_dmath_*` options
+
+- **Code Cell Execution:**
+  - Code cells execute in document order
+  - Use `display=False` in glue to hide intermediate outputs
+  - Tags control cell visibility and behavior
+
+## Accessibility Guidelines
 
 - **Accessibility:**  
   - Add alt text to images.  
   - Use descriptive tab and dropdown titles.  
   - Ensure tables and lists are readable by screen readers.
-  - Avoid abelist language like "see", "above", "below".
+  - Avoid ableist language like "see", "above", "below".
+  - Use "refer to" instead of "see"
+  - Use "following" instead of "below"
+  - Use "preceding" instead of "above"
+
+## Style & Consistency
 
 - **Style & Consistency:**  
   - Follow the style guide for tone, terminology, and formatting.  
   - Use consistent abbreviations and naming conventions.
+  - Maintain consistent indentation in nested directives.
+  - Use meaningful names for references and labels.
+
+## Best Practices
+
+- **Performance:**
+  - Optimize images for web (appropriate size and format)
+  - Use lazy loading for large content when possible
+  - Minimize nested directives when simpler alternatives exist
+
+- **Maintainability:**
+  - Use descriptive reference labels
+  - Keep related content close together
+  - Document complex directive usage with comments
+  - Check parser compatibility (myst_parser vs myst_nb)
+
+## Getting Help
 
 - **If Unsure:**  
   - Check existing docs for examples.  
   - Ask for clarification if a rule or pattern is unclear.
-
+  - Refer to the [MyST syntax cheatsheet](https://jupyterbook.org/en/stable/reference/cheatsheet.html) for comprehensive examples.
+  - Consult the [practical MyST guide](https://jdsalaro.com/cheatsheet/sphinx-myst-markdown/) for real-world examples and gotchas.
+  - Review the [official MyST parser documentation](https://myst-parser.readthedocs.io/en/latest/using/syntax.html) for complete specification.

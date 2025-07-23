@@ -8,7 +8,9 @@ categories: ["documentation"]
 
 # NeMo Run Documentation
 
-NeMo Run is a powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments. NeMo Run has three core responsibilities:
+NeMo Run is NVIDIA's Python framework for configuring, executing, and managing ML experiments across diverse computing environments.
+
+## Core Features
 
 ::::{grid} 1 1 1 3
 :gutter: 1 1 1 2
@@ -18,7 +20,7 @@ NeMo Run is a powerful tool designed to streamline the configuration, execution 
 :link-type: doc
 :link-alt: Configuration guide
 
-Learn how to configure your ML experiments and environments.
+Type-safe configuration with Fiddle integration
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
@@ -26,7 +28,7 @@ Learn how to configure your ML experiments and environments.
 :link-type: doc
 :link-alt: Execution guide
 
-Execute your configured experiments across various computing environments.
+Multi-environment execution (local, Docker, Slurm, cloud)
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
@@ -34,84 +36,49 @@ Execute your configured experiments across various computing environments.
 :link-type: doc
 :link-alt: Management guide
 
-Manage and monitor your running experiments and results.
-:::
-
-::::
-
-This is the typical order Nemo Run users will follow to setup and launch experiments.
-
----
-
-## About
-
-::::{grid} 1 1 1 2
-:gutter: 1 1 1 2
-
-:::{grid-item-card} {octicon}`info;1.5em;sd-mr-1` About NeMo Run
-:link: about/index
-:link-type: doc
-:link-alt: About NeMo Run
-
-Overview of NeMo Run's core concepts and architecture.
-:::
-
-:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Key Features
-:link: about/key-features
-:link-type: doc
-:link-alt: Key features
-
-Explore the technical capabilities and implementation details.
-:::
-
-:::{grid-item-card} {octicon}`star;1.5em;sd-mr-1` Why Choose NeMo Run
-:link: about/why-nemo-run
-:link-type: doc
-:link-alt: Why choose NeMo Run
-
-Learn why NeMo Run is the preferred choice for ML experiment management.
+Experiment tracking and reproducibility
 :::
 
 ::::
 
 ---
 
-## Get Started
+## Quick Start
 
 ::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
 
-:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Get Started with NeMo Run
-:link: get-started/index
-:link-type: doc
-:link-alt: Get Started with NeMo Run
-
-Overview and quick start options for NeMo Run
-:::
-
-:::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Install NeMo Run
-:link: get-started/install
-:link-type: doc
-:link-alt: Installation guide
-
-Install NeMo Run and optional dependencies for your environment
-:::
-
-:::{grid-item-card} {octicon}`zap;1.5em;sd-mr-1` Quickstart
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quickstart
 :link: get-started/quickstart
 :link-type: doc
 :link-alt: Quickstart Guide
 
-Complete guide to install and run your first ML experiment in minutes
+Run your first ML experiment in minutes
 :::
 
-:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Tutorials and Learning Resources
-:link: get-started/tutorials
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Best Practices
+:link: best-practices/index
 :link-type: doc
-:link-alt: Tutorial collection
+:link-alt: Best Practices
 
-Learn NeMo Run with hands-on tutorials and examples
+Production-ready patterns and workflows
 :::
+
+::::
+
+---
+
+## Learning Path
+
+::::{grid} 1 1 1 1
+:gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`mortar-board;1.5em;sd-mr-1` Tutorials and Examples
+:link: tutorials-and-examples/index
+:link-type: doc
+:link-alt: Tutorials and Examples
+
+Step-by-step tutorials, complete code examples, and real-world use cases
 ::::
 
 ---
@@ -126,7 +93,7 @@ Learn NeMo Run with hands-on tutorials and examples
 :link-type: doc
 :link-alt: Configuration guide
 
-Learn how to configure your ML experiments with type-safe, flexible configuration management.
+Advanced configuration patterns and validation
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
@@ -134,7 +101,7 @@ Learn how to configure your ML experiments with type-safe, flexible configuratio
 :link-type: doc
 :link-alt: Execution guide
 
-Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud environments.
+Multi-environment execution strategies
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
@@ -142,39 +109,56 @@ Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud envi
 :link-type: doc
 :link-alt: Management guide
 
-Manage and monitor your experiments with comprehensive tracking and reproducibility.
+Experiment lifecycle management
 :::
 
-:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Clusters and Jobs
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
 :link: guides/ray
 :link-type: doc
 :link-alt: Ray Clusters and Jobs
 
-Deploy and manage Ray clusters and jobs for scalable distributed computing.
+Distributed computing with Ray
 :::
 
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging Strategies
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
 :link: guides/packaging
 :link-type: doc
 :link-alt: Packaging Strategies
 
-Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
+Code packaging for reproducible execution
 :::
+
+:::{grid-item-card} {octicon}`plug;1.5em;sd-mr-1` Integrations
+:link: integrations/index
+:link-type: doc
+:link-alt: Integrations
+
+CI/CD, ML frameworks, cloud platforms
+:::
+
 ::::
 
 ---
 
-## References
+## Reference
 
 ::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` API Reference
+:link: reference/api
+:link-type: doc
+:link-alt: API Reference
+
+Complete API documentation
+:::
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Reference
 :link: reference/cli
 :link-type: doc
 :link-alt: CLI Reference
 
-Complete command-line interface documentation and usage examples.
+Command-line interface documentation
 :::
 
 :::{grid-item-card} {octicon}`question;1.5em;sd-mr-1` FAQs
@@ -182,7 +166,7 @@ Complete command-line interface documentation and usage examples.
 :link-type: doc
 :link-alt: Frequently Asked Questions
 
-Find answers to common questions about NeMo Run.
+Common questions and solutions
 :::
 
 :::{grid-item-card} {octicon}`tools;1.5em;sd-mr-1` Troubleshooting
@@ -190,15 +174,7 @@ Find answers to common questions about NeMo Run.
 :link-type: doc
 :link-alt: Troubleshooting Guide
 
-Solutions for common issues and error messages.
-:::
-
-:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Glossary
-:link: reference/glossary
-:link-type: doc
-:link-alt: NeMo Run Glossary
-
-Technical glossary of NeMo Run-specific concepts and terminology.
+Debug common issues
 :::
 
 ::::
@@ -221,8 +197,20 @@ about/why-nemo-run
 get-started/index
 get-started/install
 get-started/quickstart
-get-started/tutorials
 ::::
+
+::::{toctree}
+:hidden:
+:caption: Tutorials and Examples
+:maxdepth: 2
+tutorials-and-examples/index
+tutorials-and-examples/beginner/first-experiment
+tutorials-and-examples/ml-frameworks/pytorch-training
+tutorials-and-examples/use-cases/index
+tutorials-and-examples/use-cases/research/reproducible-research
+::::
+
+
 
 ::::{toctree}
 :hidden:
@@ -241,8 +229,8 @@ guides/ray
 :caption: References
 :maxdepth: 2
 reference/index
+reference/api
 reference/cli
 reference/faqs
 reference/troubleshooting
-reference/glossary
 ::::

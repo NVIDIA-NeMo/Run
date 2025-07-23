@@ -57,16 +57,9 @@ docs/
 │   ├── key-features.md
 │   └── release-notes/
 ├── get-started/             # Quickstart guides
-├── product-a-workflows/     # Product A documentation
-│   ├── tutorials/
-│   ├── load-data/
-│   ├── process-data/
-│   └── generate-reports/
-├── product-b-integration/   # Product B documentation
-│   ├── tutorials/
-│   ├── load-data/
-│   ├── process-data/
-│   └── save-export/
+├── guides/                  # Advanced guides
+├── best-practices/          # Best practices
+├── integrations/            # Integration guides
 ├── product-c-analytics/     # Product C documentation
 ├── deployment/              # Administrative guides
 │   ├── deployment/

@@ -1,20 +1,22 @@
 ---
 description: "Comprehensive guides for NeMo Run features including configuration, execution, and management."
-tags: ["guides", "configuration", "execution", "management", "tutorials"]
 categories: ["guides"]
+tags: ["guides", "configuration", "execution", "management"]
+personas: ["mle-focused", "data-scientist-focused"]
+difficulty: "intermediate"
+content_type: "guide"
+modality: "text-only"
 ---
 
 (guides)=
 
 # NeMo Run Guides
 
-Welcome to the NeMo Run guides. These comprehensive guides will help you master the core features and capabilities of NeMo Run for ML experiment management.
+Comprehensive guides for mastering NeMo Run's core features and capabilities.
 
 ## Guides
 
-Explore the topics below to learn how to set up, customize, and optimize your machine learning experiments with NeMo Run.
-
-::::{grid} 1 1 2 2
+::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
@@ -22,7 +24,7 @@ Explore the topics below to learn how to set up, customize, and optimize your ma
 :link-type: doc
 :link-alt: Configuration guide
 
-Learn how to configure your ML experiments with type-safe, flexible configuration management.
+Type-safe configuration with Fiddle integration
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
@@ -30,7 +32,7 @@ Learn how to configure your ML experiments with type-safe, flexible configuratio
 :link-type: doc
 :link-alt: Execution guide
 
-Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud environments.
+Multi-environment execution strategies
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
@@ -38,57 +40,31 @@ Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud envi
 :link-type: doc
 :link-alt: Management guide
 
-Manage and monitor your experiments with comprehensive tracking and reproducibility.
+Experiment lifecycle management
 :::
 
-:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Clusters and Jobs
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
 :link: ray
 :link-type: doc
-:link-alt: Deploy Ray Clusters and Jobs
+:link-alt: Ray Clusters and Jobs
 
-Deploy and manage Ray clusters and jobs for scalable distributed computing.
+Distributed computing with Ray
 :::
 
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging Strategies
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
 :link: packaging
 :link-type: doc
-:link-alt: NeMo Run Packaging Strategies
+:link-alt: Packaging Strategies
 
-Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
+Code packaging for reproducible execution
 :::
 
 ::::
 
-## Get Started
+## Recommended Order
 
-If you're new to NeMo Run, we recommend following these guides in order:
-
-1. **Configuration** - Start here to understand how to configure your experiments
-2. **Execution** - Learn how to run your configured experiments
-3. **Management** - Discover how to track and manage your experiments
-4. **Packaging Strategies** - Learn how to package your code for remote execution
-5. **Ray Clusters and Jobs** - Learn distributed computing with Ray (optional)
-
-## What You'll Learn
-
-Each guide provides:
-
-- **Step-by-step instructions** with practical examples
-- **Code samples** that you can run immediately
-- **Best practices** for production use
-- **Troubleshooting tips** for common issues
-- **Advanced features** for power users
-
-## Prerequisites
-
-Before diving into these guides, make sure you have:
-
-- NeMo Run installed (see [Installation Guide](../get-started/install))
-- Basic Python knowledge
-- Access to computing resources (local, cloud, or cluster)
-
-## Need Help?
-
-- Check the [FAQs](../reference/faqs) for common questions
-- Explore the [About section](../about/index) for conceptual information
-- Review the [tutorials](../get-started/tutorials) for hands-on examples
+1. **Configuration** - Type-safe experiment configuration
+2. **Execution** - Multi-environment execution strategies
+3. **Management** - Experiment tracking and reproducibility
+4. **Packaging** - Code packaging for remote execution
+5. **Ray Integration** - Distributed computing (optional)

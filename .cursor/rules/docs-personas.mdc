@@ -1,15 +1,15 @@
 ---
-description: Documentation guidelines for addressing specific audience personas including data scientists, MLEs, cluster administrators, and DevOps professionals.
+description: Documentation guidelines for addressing specific audience personas including AI researchers, MLEs, cluster administrators, and DevOps professionals.
 globs: 
 alwaysApply: false
 ---
 # Documentation Personas
 
-Our documentation is for enterprise AI products and features consumed by personas like data scientists, machine learning engineers, cluster administrators, and devops professionals. Common tools include: Kubernetes, notebooks, python, AI models.
+Our documentation is for NeMo Run machine learning experiment management workflows consumed by personas like AI researchers, machine learning engineers, cluster administrators, and devops professionals. Common tools include: Ray, Kubernetes, notebooks, python, large language models, experiment management, distributed computing.
 
 ## Persona-Specific Guidelines
 
-### For Data Scientists
+### For AI researchers
 - Include details on data formats and schemas
 - Document model validation methodologies clearly
 - Specify computational requirements for processing
@@ -18,7 +18,7 @@ Our documentation is for enterprise AI products and features consumed by persona
 - Document data preprocessing and feature engineering steps
 - Explain hyperparameter tuning approaches
 
-### For Machine Learning Engineers
+### For Machine Learning Engineers (mle-focused)
 - Document model training pipelines completely
 - Include details on environment setup and dependencies
 - Provide testing and validation methodologies
@@ -49,7 +49,7 @@ Our documentation is for enterprise AI products and features consumed by persona
 
 When writing for different personas, adjust your style:
 
-- **Data Scientists**: Focus on analytical concepts and model behavior
+- **AI researchers**: Focus on analytical concepts and model behavior
 - **ML Engineers**: Emphasize implementation details and pipeline architecture
 - **Cluster Admins**: Prioritize operational stability and system interactions
 - **DevOps**: Focus on automation, reliability, and maintainability

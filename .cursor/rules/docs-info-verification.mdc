@@ -1,16 +1,67 @@
 ---
-description: Guidelines for verifying technical documentation claims against source code to ensure accuracy between documentation and implementation.
-globs:
+description: Apply this rule when asked to validate or verify content in documentation
 alwaysApply: false
 ---
-# NeMo Run Documentation Verification Guidelines
+# Technical Documentation Verification Guidelines
 
-These guidelines ensure technical documentation accurately reflects the actual NeMo Run project implementation and maintains the highest standards of factual accuracy. Follow these verification procedures when writing or updating documentation to prevent inaccuracies that could mislead users.
+These guidelines ensure technical documentation accurately reflects the actual project implementation and maintains the highest standards of factual accuracy. Follow these verification procedures when writing or updating documentation to prevent inaccuracies that could mislead users.
+
+## Auto-Discovery Strategy
+
+**When invoked, systematically explore the project to understand its structure:**
+
+### Step 1: Identify Project Type
+Use `file_search` to detect project type by looking for key configuration files:
+- `pyproject.toml` or `setup.py` → Python project
+- `package.json` → Node.js project
+- `CMakeLists.txt` → C++ project
+- `Cargo.toml` → Rust project
+- `go.mod` → Go project
+- `pom.xml` → Java/Maven project
+- `build.gradle` → Gradle project
+
+### Step 2: Discover Source Code Locations
+Use `list_dir` to explore common source directories:
+- **Python**: `src/`, `lib/`, package name directories, `nemo_run/`, `triton/`, etc.
+- **Node.js**: `src/`, `lib/`, `app/`, main entry point from package.json
+- **C++**: `src/`, `lib/`, `include/`, `source/`
+- **Go**: `./`, `cmd/`, `pkg/`, `internal/`
+- **Rust**: `src/`, `lib/`, `bin/`
+
+### Step 3: Find Documentation and Examples
+Look for these directories with `list_dir`:
+- **Documentation**: `docs/`, `documentation/`, `doc/`, `README.md`
+- **Examples**: `examples/`, `tutorials/`, `samples/`, `demo/`, `notebooks/`
+- **Tests**: `tests/`, `test/`, `spec/`, `__tests__/`
+
+### Step 4: Locate CLI Commands
+Search configuration files for CLI definitions:
+- **Python**: `[project.scripts]` in `pyproject.toml`, `console_scripts` in `setup.py`
+- **Node.js**: `"scripts"` and `"bin"` in `package.json`
+- **C++**: `install(TARGETS)` in `CMakeLists.txt`
+- **Go**: `main` packages in `cmd/` directory
+- **Rust**: `[[bin]]` in `Cargo.toml`
+
+### Step 5: Understand Project Structure
+Use `codebase_search` with broad queries to understand:
+- "What is the main entry point or API?"
+- "How are CLI commands implemented?"
+- "What are the key modules or components?"
+- "How is configuration handled?"
+
+### Discovery Checklist
+When starting verification, always:
+- [ ] Run `file_search` for config files to identify project type
+- [ ] Use `list_dir` on root to see overall structure
+- [ ] Use `list_dir` on likely source directories
+- [ ] Use `read_file` on main config files (pyproject.toml, package.json, etc.)
+- [ ] Use `codebase_search` for broad understanding before specific verification
+- [ ] Use `grep_search` for specific imports, functions, or CLI commands being documented
 
 ## Editorial Accuracy Principles
 
 ### No Speculation or Extrapolation
-- **Document only verified functionality**: Never document presumed behavior or "likely" features without verifying against source code and `pyproject.toml`
+- **Document only verified functionality**: Never document presumed behavior or "likely" features without verifying against the discovered source code and project configuration files
 - **Avoid assumptions**: Don't make assumptions about unreleased functionality or implementation details
 - **Source everything**: If information cannot be verified against the codebase, acknowledge the gap rather than guessing
 
@@ -22,180 +73,157 @@ These guidelines ensure technical documentation accurately reflects the actual N
   ```markdown
   :::{warning}
   This feature is experimental and may change in future releases without notice.
-  ::::
+  :::
   ```
 
 ### Performance and Benchmarking Claims
-- **Require evidence**: Back all performance statements with specific, reproducible benchmarks from `test/` or `examples/`
+- **Require evidence**: Back all performance statements with specific, reproducible benchmarks from discovered examples or test directories
 - **Include methodology**: Document test environment details, hardware specifications, and dataset characteristics
 - **Use precise language**: Avoid vague terms like "fast" or "efficient" - provide quantifiable metrics
 - **Comparative claims**: Ensure performance comparisons are fair, accurate, and based on equivalent test conditions
 
-## NeMo Run Project Configuration Verification
+## Project Configuration Verification
 
-### pyproject.toml Validation
-**Critical Rule**: Always check `pyproject.toml` for project configuration, dependencies, and CLI commands before documenting.
+### Configuration File Validation
+**Critical Rule**: Always check project configuration files for dependencies, build settings, and CLI commands before documenting.
 
-- **Console Scripts**: Verify all documented CLI commands exist in `[project.scripts]` section:
-  - `nemorun` = `nemo_run.__main__:app`
-  - `nemo` = `nemo_run.__main__:app`
-- **Dependencies**: Check that documented dependencies match `[project.dependencies]` and optional dependencies:
-  - Core: `inquirerpy`, `catalogue`, `fabric`, `fiddle`, `torchx`, `typer`, `rich`, `jinja2`, `cryptography`, `networkx`, `omegaconf`, `leptonai`, `packaging`, `toml`
-  - Optional: `skypilot`, `ray` (with `kubernetes`)
-- **Project Metadata**: Verify project name (`nemo_run`), version, and description match documentation
-- **Entry Points**: Confirm all documented entry points are properly registered in `[project.entry-points."torchx.schedulers"]`
+#### Python Projects (pyproject.toml/setup.py)
+- **Console Scripts**: Verify all documented CLI commands exist in `[project.scripts]` section
+- **Dependencies**: Check that documented dependencies match `[project.dependencies]` and optional dependencies
+- **Project Metadata**: Verify project name, version, and other metadata match documentation
+- **Entry Points**: Confirm all documented entry points are properly registered
 
-### NeMo Run CLI Command Verification Process
-1. **Check pyproject.toml**: Look in `[project.scripts]` for console script definitions (`nemorun` and `nemo`)
-2. **Verify Script Paths**: Ensure the script paths point to `nemo_run.__main__:app`
-3. **Test CLI Commands**: Run documented CLI commands to ensure they work with the Typer-based CLI system
-4. **Validate Arguments**: Check script argument parsing matches documented examples in `nemo_run/cli/api.py`
-5. **Cross-Reference**: Verify CLI examples work with the actual script implementations in `nemo_run/cli/`
+#### Node.js Projects (package.json)
+- **Scripts**: Verify documented npm/yarn scripts exist in `"scripts"` section
+- **Dependencies**: Check `"dependencies"` and `"devDependencies"` match documentation
+- **Binary Commands**: Verify `"bin"` entries match documented CLI commands
+- **Engines**: Check Node.js version requirements match documentation
 
-### NeMo Run CLI Validation Checks
-- ✅ All documented CLI commands exist in `[project.scripts]` section of `pyproject.toml`
-- ✅ Script paths in `pyproject.toml` point to `nemo_run.__main__:app`
-- ✅ CLI argument examples match Typer argument parsing in `nemo_run/cli/api.py`
+#### C++ Projects (CMakeLists.txt)
+- **Targets**: Verify documented executables/libraries exist as CMake targets
+- **Dependencies**: Check `find_package()` calls match documented dependencies
+- **Options**: Verify build options (`option()`) match documented configuration
+- **Installation**: Check install targets match documented installation instructions
+
+#### Go Projects (go.mod)
+- **Module Path**: Verify documented import paths match module declaration
+- **Dependencies**: Check `require` statements match documented dependencies
+- **Go Version**: Verify minimum Go version matches documentation
+- **Replace Directives**: Document any local path replacements
+
+### CLI Command Verification Process
+1. **Check Configuration**: Look in discovered config files for CLI definitions
+2. **Verify Script Paths**: Ensure the script paths point to existing files in discovered source directories
+3. **Test CLI Commands**: Run documented CLI commands to ensure they work
+4. **Validate Arguments**: Check script argument parsing matches documented examples
+5. **Cross-Reference**: Verify CLI examples work with the actual script implementations
+
+### Common CLI Validation Checks
+- ✅ All documented CLI commands exist in project configuration
+- ✅ Script paths in configuration point to actual files
+- ✅ CLI argument examples match script argument parsing
 - ✅ CLI commands execute without errors with documented arguments
 - ✅ Console script entry points are properly formatted
-- ✅ Entrypoint decorators in `nemo_run/cli/api.py` match documented functionality
 
-## NeMo Run Code Example Verification
+## Code Example Verification
 
 ### Source Code Validation
-**Primary Rule**: All code examples must be validated against the actual implementation in the `nemo_run/` source directory before publication.
+**Primary Rule**: All code examples must be validated against the actual implementation in discovered source directories before publication.
 
-- **Import Statements**: Verify all imports reference actual modules in the `nemo_run/` package
+- **Import Statements**: Verify all imports reference actual modules in discovered source directories
 - **Class/Function Signatures**: Check that documented method signatures match source code exactly
 - **Parameter Types**: Confirm all parameter types, defaults, and constraints match implementation
 - **Return Values**: Verify documented return types and structures match actual code
 
-### NeMo Run Systematic Code Verification Process
-1. **Locate Source Implementation**: Find the relevant class/function in the `nemo_run/` source directory
-2. **Check pyproject.toml**: Verify any CLI commands, dependencies, or entry points
+### Systematic Code Verification Process
+1. **Locate Source Implementation**: Find the relevant class/function in discovered source directories
+2. **Check Configuration**: Verify any CLI commands, dependencies, or entry points
 3. **Check Signatures**: Compare documented signatures with actual implementation
 4. **Verify Parameters**: Ensure all required/optional parameters are correctly documented
 5. **Test Imports**: Verify import paths work from documented context
 6. **Execute Examples**: Run code examples to ensure they work with current codebase
 
-### NeMo Run Code Validation Checks
-- ✅ All imports can be resolved from the `nemo_run` package
-- ✅ Class constructors match documented parameters (especially in `nemo_run/config.py`)
+### Common Code Validation Checks
+- ✅ All imports can be resolved from the project
+- ✅ Class constructors match documented parameters
 - ✅ Method signatures include all required arguments
 - ✅ Default parameter values match implementation
 - ✅ Documented exceptions match those raised in source code
-- ✅ Configuration classes match their actual schemas in `nemo_run/config.py`
+- ✅ Configuration classes match their actual schemas
 
-## NeMo Run Configuration Documentation
+## Configuration Documentation
 
 ### Configuration Schema Verification
-- **Extract from Source**: Pull all configurable options directly from config classes in `nemo_run/config.py`
+- **Extract from Source**: Pull all configurable options directly from config classes in discovered source directories
 - **Required vs Optional**: Clearly distinguish required and optional configuration parameters
 - **Default Values**: Verify defaults match implementation, not documentation assumptions
 - **Valid Options**: Document valid ranges, enums, and interdependencies from source code
 
-### NeMo Run Configuration Validation Steps
-1. **Locate Config Classes**: Find relevant configuration classes in `nemo_run/config.py`
+### Configuration Validation Steps
+1. **Locate Config Classes**: Find relevant configuration classes in discovered source directories
 2. **Extract Parameters**: List all configurable parameters from class definitions
 3. **Check Defaults**: Verify default values match source code
 4. **Test Examples**: Ensure configuration examples work with actual implementations
 5. **Validate Constraints**: Check parameter validation logic in source code
 
-## NeMo Run Execution Backend Documentation
-
-### Execution Backend Verification
-**Critical for NeMo Run**: Verify all execution backend documentation against actual implementations in `nemo_run/core/execution/` and `nemo_run/run/torchx_backend/schedulers/`.
-
-- **Backend Implementations**: Check documented backends exist in source:
-  - `nemo_run/core/execution/`: `local.py`, `slurm.py`, `skypilot.py`, `docker.py`, `dgxcloud.py`, `lepton.py`, `kuberay.py`
-  - `nemo_run/run/torchx_backend/schedulers/`: Corresponding scheduler implementations
-- **Entry Points**: Verify TorchX scheduler entry points in `pyproject.toml` match documented backends
-- **Configuration Options**: Check backend-specific configuration options against actual implementations
-- **Template Files**: Verify template files in `nemo_run/core/execution/templates/` match documented usage
-
-### Execution Backend Validation Steps
-1. **Check Backend Files**: Verify documented backends exist in `nemo_run/core/execution/`
-2. **Check Scheduler Files**: Verify corresponding TorchX schedulers in `nemo_run/run/torchx_backend/schedulers/`
-3. **Check Entry Points**: Verify `[project.entry-points."torchx.schedulers"]` entries match documented backends
-4. **Test Configuration**: Ensure backend configuration examples work with actual implementations
-5. **Validate Templates**: Check template files match documented usage patterns
-
-## NeMo Run CLI Entrypoint Documentation
-
-### Entrypoint System Verification
-**Unique to NeMo Run**: Verify all CLI entrypoint documentation against the entrypoint system in `nemo_run/cli/api.py`.
-
-- **Entrypoint Decorators**: Check documented `@entrypoint` decorators match actual implementation
-- **Factory Functions**: Verify documented `@factory` decorators work with actual factory system
-- **CLI Argument Parsing**: Check documented CLI argument syntax matches `nemo_run/cli/cli_parser.py`
-- **Run Context**: Verify documented run context options match `RunContext` class in `nemo_run/cli/api.py`
-
-### Entrypoint Validation Steps
-1. **Check Entrypoint Decorators**: Verify documented entrypoints match `@entrypoint` implementation
-2. **Check Factory Decorators**: Verify documented factories match `@factory` implementation
-3. **Test CLI Syntax**: Ensure documented CLI argument syntax works with actual parser
-4. **Validate Run Options**: Check documented run options match `RunContext` class
-5. **Test Examples**: Run entrypoint examples to ensure they work correctly
-
 ## Tutorial and Example Verification
 
 ### Executable Examples
-- **Test All Tutorials**: Every tutorial in `docs/get-started/` should be executable against current codebase
+- **Test All Tutorials**: Every tutorial in discovered examples directories should be executable against current codebase
 - **Complete Examples**: Include all necessary imports, data setup, and dependencies
 - **Data Requirements**: Verify example datasets and file formats are correctly specified
 - **Environment Setup**: Ensure documented environment requirements are sufficient
 
-### NeMo Run Example Quality Standards
+### Example Quality Standards
 - **Realistic Data**: Use realistic dataset examples, not just placeholder text
-- **Complete Workflows**: Examples should demonstrate end-to-end workflows with NeMo Run
+- **Complete Workflows**: Examples should demonstrate end-to-end workflows
 - **Error Handling**: Document common error scenarios with actual error messages
-- **Best Practices**: Examples should follow established patterns from `test/` directory
+- **Best Practices**: Examples should follow established patterns from discovered examples directories
 
-## NeMo Run Project Component Documentation
+## API Documentation Verification
 
-### Component Verification
-Verify component documentation against the actual NeMo Run project structure:
-- **Core Modules**: Check core functionality against `nemo_run/` source directory
-- **CLI System**: Verify CLI documentation against `nemo_run/cli/` modules
-- **Execution System**: Validate execution documentation against `nemo_run/core/execution/` and `nemo_run/run/`
-- **Configuration System**: Ensure configuration docs match `nemo_run/config.py`
-- **Extensions**: Validate extension or plugin documentation against `nemo_run/run/plugin.py`
+### API Endpoint Documentation
+- **Endpoint Paths**: Verify REST API paths match actual route definitions
+- **HTTP Methods**: Check documented HTTP methods match implementation
+- **Request/Response Schemas**: Validate JSON schemas against actual API responses
+- **Status Codes**: Verify documented status codes match what the API returns
+- **Authentication**: Check authentication requirements match implementation
 
-### NeMo Run Component Validation Steps
-1. **Identify Components**: Map documented functionality to actual implementations in `nemo_run/`
-2. **Check CLI Availability**: Verify CLI commands exist in `pyproject.toml` if documented
-3. **Check Compatibility**: Verify component combinations work as documented
-4. **Test Data Flow**: Ensure data formats between components are correct
-5. **Validate Outputs**: Check that documented output formats match actual results
+### API Validation Steps
+1. **Locate Route Definitions**: Find API route definitions in discovered source directories
+2. **Check OpenAPI/Swagger**: Verify documentation matches OpenAPI specification
+3. **Test Endpoints**: Make actual API calls to verify documented behavior
+4. **Validate Schemas**: Check request/response examples work with actual API
+5. **Check Error Responses**: Verify error response formats and codes
 
 ## Automated Verification Integration
 
 ### Code Validation Automation
-- **Import Testing**: Automated tests that verify all documented imports work from `nemo_run` package
+- **Import Testing**: Automated tests that verify all documented imports work
 - **CLI Testing**: Automated tests that verify all documented CLI commands exist and work
 - **Example Execution**: CI pipeline that runs tutorial and example code
 - **Link Checking**: Verify all references to source code files are valid
 - **Documentation Testing**: Include documentation examples in test suites
 
-### NeMo Run Verification Tooling
-- **Pytest Integration**: Use pytest to validate code examples in documentation
-- **CLI Validation**: Test that all documented CLI commands can be executed
+### Verification Tooling
+- **Test Integration**: Use project's test framework to validate documentation examples
+- **Notebook Testing**: Automated execution of Jupyter notebooks in discovered examples directories
 - **Configuration Validation**: Test configuration examples against actual schemas
-- **Import Resolution**: Check that all documented imports resolve correctly from `nemo_run` package
-- **Backend Testing**: Test execution backend examples against actual implementations
+- **Import Resolution**: Check that all documented imports resolve correctly
+- **CLI Validation**: Test that all documented CLI commands can be executed
 
 ## Verification Workflow
 
 ### During Documentation Creation
-1. **Check pyproject.toml**: Verify CLI commands, dependencies, and project configuration
-2. **Identify Source Components**: Locate relevant modules/classes in the `nemo_run/` source
+1. **Check Configuration**: Verify CLI commands, dependencies, and project configuration
+2. **Identify Source Components**: Locate relevant modules/classes in discovered source directories
 3. **Extract Implementation Details**: Document actual parameters, types, and behavior
 4. **Create Working Examples**: Build examples that execute successfully
 5. **Test Against Source**: Validate examples against current codebase
 6. **Document Dependencies**: List all required packages and versions
 
 ### During Documentation Updates
-1. **Check for Config Changes**: Compare current `pyproject.toml` against previously documented versions
+1. **Check for Config Changes**: Compare current configuration against previously documented versions
 2. **Check for Code Changes**: Compare current source against previously documented versions
 3. **Update Examples**: Modify examples to reflect any implementation changes
 4. **Re-validate**: Run full validation process on updated examples
@@ -203,32 +231,30 @@ Verify component documentation against the actual NeMo Run project structure:
 
 ### Quality Assurance Checklist
 
-Before publishing NeMo Run documentation:
-- [ ] CLI commands verified against `[project.scripts]` in `pyproject.toml`
-- [ ] Dependencies match those listed in `pyproject.toml`
-- [ ] All code examples tested against current `nemo_run/` source code
-- [ ] Import statements verified for correctness from `nemo_run` package
-- [ ] Configuration examples tested with actual implementations in `nemo_run/config.py`
-- [ ] Execution backend examples tested against actual implementations
-- [ ] CLI entrypoint examples tested with actual entrypoint system
+Before publishing technical documentation:
+- [ ] CLI commands verified against project configuration
+- [ ] Dependencies match those listed in configuration files
+- [ ] All code examples tested against current source code
+- [ ] Import statements verified for correctness
+- [ ] Configuration examples tested with actual implementations
+- [ ] Tutorial notebooks/examples execute successfully
 - [ ] Function/class signatures match source code exactly
 - [ ] Example datasets and file formats validated
 - [ ] Error scenarios documented with actual error messages
 - [ ] Dependencies clearly specified in requirements
-- [ ] TorchX scheduler entry points verified in `pyproject.toml`
 
 ## When Discrepancies Are Found
 
 ### Immediate Actions
 1. **Document the Issue**: Create clear warning admonitions in affected documentation
 2. **Track the Problem**: File GitHub issues with specific details about the discrepancy
-3. **Determine Root Cause**: Investigate whether source code, `pyproject.toml`, or documentation needs correction
+3. **Determine Root Cause**: Investigate whether source code, configuration, or documentation needs correction
 4. **Establish Timeline**: Set clear deadlines for resolution
 
 ### Example Warning Format
 ```markdown
 :::{warning}
-**Implementation Verification Required**: This example has not been validated against the current NeMo Run project source code and configuration. Please verify imports, CLI commands, and parameters before use.
+**Implementation Verification Required**: This example has not been validated against the current project source code and configuration. Please verify imports, CLI commands, and parameters before use.
 :::
 ```
 
@@ -238,46 +264,384 @@ Before publishing NeMo Run documentation:
 - Maintain "last verified" timestamps on code example sections
 - Track which project version was used for verification
 - Document any known discrepancies and their resolution status
-- Link to specific source files and `pyproject.toml` sections used for verification
+- Link to specific source files and configuration sections used for verification
 
 ### Coverage Metrics
 - Measure percentage of code examples that have been source-validated
-- Track CLI command documentation coverage against `pyproject.toml` entries
-- Track documentation verification coverage across different `nemo_run/` modules
+- Track CLI command documentation coverage against configuration entries
+- Track documentation verification coverage across different project modules
 - Prioritize verification for high-impact or frequently-used components
 - Monitor source code change frequency and documentation update lag
 
-## NeMo Run Component-Specific Guidelines
+## Smart Exploration Techniques
 
-### For CLI Commands
-- **Always Check pyproject.toml First**: Before documenting any CLI command, verify it exists in `[project.scripts]`
-- **Verify Script Paths**: Ensure the console script paths point to `nemo_run.__main__:app`
-- **Test Command Execution**: Run CLI commands with documented examples to ensure they work
-- **Check Argument Parsing**: Verify documented arguments match actual Typer argument parsing in `nemo_run/cli/api.py`
+### Start with Broad Discovery
+**Use parallel tool calls** to quickly understand the project:
+```bash
+# Run these simultaneously for fast discovery
+file_search("pyproject.toml")  # Check for Python
+file_search("package.json")    # Check for Node.js  
+file_search("CMakeLists.txt")  # Check for C++
+file_search("go.mod")          # Check for Go
+list_dir(".")                  # See overall structure
+```
 
-### For NeMo Run Modules
-Adapt these guidelines based on the specific NeMo Run project structure:
-- **Core Functionality**: Always validate against main `nemo_run/` modules
-- **CLI System**: Verify examples work with CLI modules in `nemo_run/cli/`
-- **Configuration**: Check configuration examples against actual config classes in `nemo_run/config.py`
-- **Execution Backends**: Verify execution examples against implementations in `nemo_run/core/execution/`
-- **TorchX Integration**: Check TorchX examples against `nemo_run/run/torchx_backend/`
+### Follow Smart Patterns
+**Python Projects**: Look for `src/`, main package directories, `pyproject.toml`
+**Node.js Projects**: Check `package.json` main field, `src/`, `lib/`
+**C++ Projects**: Search for `src/`, `include/`, `CMakeLists.txt`
+**Go Projects**: Check `go.mod`, `cmd/`, `pkg/`, `main.go`
 
-### For Configuration Examples
-- **Configuration Files**: Validate YAML/JSON configs against actual implementations
-- **Environment Configs**: Check environment-specific examples work with documented parameters
-- **Deployment Configs**: Verify deployment examples against actual deployment implementations
+## Tech Stack-Specific Guidelines
 
-### For Dependencies and Installation
-- **Package Dependencies**: Verify all documented dependencies exist in `pyproject.toml`
-- **Optional Dependencies**: Check optional dependency groups (`skypilot`, `ray`) match documentation
+### Python Projects
+- **Package Structure**: Verify documented imports match actual package structure
+- **Virtual Environments**: Test examples work in clean virtual environments
+- **Dependencies**: Check pip/conda requirements match documentation
+- **Entry Points**: Validate console scripts and plugin entry points
+
+### JavaScript/Node.js Projects
+- **Module System**: Verify ES6/CommonJS imports match documentation
+- **Package Scripts**: Test npm/yarn scripts match documentation
+- **Dependencies**: Check npm/yarn dependencies match documentation
+- **Runtime Requirements**: Verify Node.js version requirements
+
+### C++ Projects
+- **Build Systems**: Verify CMake/Make instructions work as documented
+- **Dependencies**: Check library dependencies can be resolved
+- **Compiler Requirements**: Verify documented compiler versions work
+- **Installation**: Test installation instructions on clean systems
+
+### Go Projects
+- **Module System**: Verify go.mod matches documented import paths
+- **Build Tags**: Check build constraints match documentation
+- **Dependencies**: Verify go get commands work as documented
+- **Cross-compilation**: Test documented cross-compilation instructions
+
+Use these project-agnostic verification guidelines to maintain the highest level of accuracy between source code implementation, project configuration, and documentation across any technical project, ensuring users can successfully execute workflows and integrate with your project. 
+- **Optional Dependencies**: Check optional dependency groups match documentation
 - **Version Requirements**: Ensure documented version constraints match `pyproject.toml`
 - **Installation Instructions**: Test installation commands work with current project configuration
 
-### For Execution Backends
-- **Backend Availability**: Verify documented backends exist in `nemo_run/core/execution/`
-- **Scheduler Integration**: Check TorchX scheduler entry points in `pyproject.toml`
-- **Configuration Options**: Validate backend-specific configuration against actual implementations
-- **Template Files**: Verify template usage matches files in `nemo_run/core/execution/templates/`
+Use these NeMo Run-specific verification guidelines to maintain the highest level of accuracy between source code implementation, project configuration, and documentation, ensuring users can successfully execute experiment management workflows and pipelines. # Technical Documentation Verification Guidelines
 
-Use these verification guidelines to maintain the highest level of accuracy between NeMo Run source code implementation, project configuration, and documentation, ensuring users can successfully execute workflows and use the project as documented.
+These guidelines ensure technical documentation accurately reflects the actual project implementation and maintains the highest standards of factual accuracy. Follow these verification procedures when writing or updating documentation to prevent inaccuracies that could mislead users.
+
+## Auto-Discovery Strategy
+
+**When invoked, systematically explore the project to understand its structure:**
+
+### Step 1: Identify Project Type
+Use `file_search` to detect project type by looking for key configuration files:
+- `pyproject.toml` or `setup.py` → Python project
+- `package.json` → Node.js project
+- `CMakeLists.txt` → C++ project
+- `Cargo.toml` → Rust project
+- `go.mod` → Go project
+- `pom.xml` → Java/Maven project
+- `build.gradle` → Gradle project
+
+### Step 2: Discover Source Code Locations
+Use `list_dir` to explore common source directories:
+- **Python**: `src/`, `lib/`, package name directories, `nemo_run/`, `triton/`, etc.
+- **Node.js**: `src/`, `lib/`, `app/`, main entry point from package.json
+- **C++**: `src/`, `lib/`, `include/`, `source/`
+- **Go**: `./`, `cmd/`, `pkg/`, `internal/`
+- **Rust**: `src/`, `lib/`, `bin/`
+
+### Step 3: Find Documentation and Examples
+Look for these directories with `list_dir`:
+- **Documentation**: `docs/`, `documentation/`, `doc/`, `README.md`
+- **Examples**: `examples/`, `tutorials/`, `samples/`, `demo/`, `notebooks/`
+- **Tests**: `tests/`, `test/`, `spec/`, `__tests__/`
+
+### Step 4: Locate CLI Commands
+Search configuration files for CLI definitions:
+- **Python**: `[project.scripts]` in `pyproject.toml`, `console_scripts` in `setup.py`
+- **Node.js**: `"scripts"` and `"bin"` in `package.json`
+- **C++**: `install(TARGETS)` in `CMakeLists.txt`
+- **Go**: `main` packages in `cmd/` directory
+- **Rust**: `[[bin]]` in `Cargo.toml`
+
+### Step 5: Understand Project Structure
+Use `codebase_search` with broad queries to understand:
+- "What is the main entry point or API?"
+- "How are CLI commands implemented?"
+- "What are the key modules or components?"
+- "How is configuration handled?"
+
+### Discovery Checklist
+When starting verification, always:
+- [ ] Run `file_search` for config files to identify project type
+- [ ] Use `list_dir` on root to see overall structure
+- [ ] Use `list_dir` on likely source directories
+- [ ] Use `read_file` on main config files (pyproject.toml, package.json, etc.)
+- [ ] Use `codebase_search` for broad understanding before specific verification
+- [ ] Use `grep_search` for specific imports, functions, or CLI commands being documented
+
+## Editorial Accuracy Principles
+
+### No Speculation or Extrapolation
+- **Document only verified functionality**: Never document presumed behavior or "likely" features without verifying against the discovered source code and project configuration files
+- **Avoid assumptions**: Don't make assumptions about unreleased functionality or implementation details
+- **Source everything**: If information cannot be verified against the codebase, acknowledge the gap rather than guessing
+
+### Handling Uncertainty and Missing Information
+- **Use clear qualifiers**: When certainty is limited, use phrases like "as of version X..." or "in the current implementation..."
+- **Mark experimental features**: Explicitly state when documentation covers experimental or beta features
+- **Document gaps clearly**: When information is missing, state this clearly and direct readers to source code or examples
+- **Use appropriate warnings**: Include admonitions for important caveats:
+  ```markdown
+  :::{warning}
+  This feature is experimental and may change in future releases without notice.
+  :::
+  ```
+
+### Performance and Benchmarking Claims
+- **Require evidence**: Back all performance statements with specific, reproducible benchmarks from discovered examples or test directories
+- **Include methodology**: Document test environment details, hardware specifications, and dataset characteristics
+- **Use precise language**: Avoid vague terms like "fast" or "efficient" - provide quantifiable metrics
+- **Comparative claims**: Ensure performance comparisons are fair, accurate, and based on equivalent test conditions
+
+## Project Configuration Verification
+
+### Configuration File Validation
+**Critical Rule**: Always check project configuration files for dependencies, build settings, and CLI commands before documenting.
+
+#### Python Projects (pyproject.toml/setup.py)
+- **Console Scripts**: Verify all documented CLI commands exist in `[project.scripts]` section
+- **Dependencies**: Check that documented dependencies match `[project.dependencies]` and optional dependencies
+- **Project Metadata**: Verify project name, version, and other metadata match documentation
+- **Entry Points**: Confirm all documented entry points are properly registered
+
+#### Node.js Projects (package.json)
+- **Scripts**: Verify documented npm/yarn scripts exist in `"scripts"` section
+- **Dependencies**: Check `"dependencies"` and `"devDependencies"` match documentation
+- **Binary Commands**: Verify `"bin"` entries match documented CLI commands
+- **Engines**: Check Node.js version requirements match documentation
+
+#### C++ Projects (CMakeLists.txt)
+- **Targets**: Verify documented executables/libraries exist as CMake targets
+- **Dependencies**: Check `find_package()` calls match documented dependencies
+- **Options**: Verify build options (`option()`) match documented configuration
+- **Installation**: Check install targets match documented installation instructions
+
+#### Go Projects (go.mod)
+- **Module Path**: Verify documented import paths match module declaration
+- **Dependencies**: Check `require` statements match documented dependencies
+- **Go Version**: Verify minimum Go version matches documentation
+- **Replace Directives**: Document any local path replacements
+
+### CLI Command Verification Process
+1. **Check Configuration**: Look in discovered config files for CLI definitions
+2. **Verify Script Paths**: Ensure the script paths point to existing files in discovered source directories
+3. **Test CLI Commands**: Run documented CLI commands to ensure they work
+4. **Validate Arguments**: Check script argument parsing matches documented examples
+5. **Cross-Reference**: Verify CLI examples work with the actual script implementations
+
+### Common CLI Validation Checks
+- ✅ All documented CLI commands exist in project configuration
+- ✅ Script paths in configuration point to actual files
+- ✅ CLI argument examples match script argument parsing
+- ✅ CLI commands execute without errors with documented arguments
+- ✅ Console script entry points are properly formatted
+
+## Code Example Verification
+
+### Source Code Validation
+**Primary Rule**: All code examples must be validated against the actual implementation in discovered source directories before publication.
+
+- **Import Statements**: Verify all imports reference actual modules in discovered source directories
+- **Class/Function Signatures**: Check that documented method signatures match source code exactly
+- **Parameter Types**: Confirm all parameter types, defaults, and constraints match implementation
+- **Return Values**: Verify documented return types and structures match actual code
+
+### Systematic Code Verification Process
+1. **Locate Source Implementation**: Find the relevant class/function in discovered source directories
+2. **Check Configuration**: Verify any CLI commands, dependencies, or entry points
+3. **Check Signatures**: Compare documented signatures with actual implementation
+4. **Verify Parameters**: Ensure all required/optional parameters are correctly documented
+5. **Test Imports**: Verify import paths work from documented context
+6. **Execute Examples**: Run code examples to ensure they work with current codebase
+
+### Common Code Validation Checks
+- ✅ All imports can be resolved from the project
+- ✅ Class constructors match documented parameters
+- ✅ Method signatures include all required arguments
+- ✅ Default parameter values match implementation
+- ✅ Documented exceptions match those raised in source code
+- ✅ Configuration classes match their actual schemas
+
+## Configuration Documentation
+
+### Configuration Schema Verification
+- **Extract from Source**: Pull all configurable options directly from config classes in discovered source directories
+- **Required vs Optional**: Clearly distinguish required and optional configuration parameters
+- **Default Values**: Verify defaults match implementation, not documentation assumptions
+- **Valid Options**: Document valid ranges, enums, and interdependencies from source code
+
+### Configuration Validation Steps
+1. **Locate Config Classes**: Find relevant configuration classes in discovered source directories
+2. **Extract Parameters**: List all configurable parameters from class definitions
+3. **Check Defaults**: Verify default values match source code
+4. **Test Examples**: Ensure configuration examples work with actual implementations
+5. **Validate Constraints**: Check parameter validation logic in source code
+
+## Tutorial and Example Verification
+
+### Executable Examples
+- **Test All Tutorials**: Every tutorial in discovered examples directories should be executable against current codebase
+- **Complete Examples**: Include all necessary imports, data setup, and dependencies
+- **Data Requirements**: Verify example datasets and file formats are correctly specified
+- **Environment Setup**: Ensure documented environment requirements are sufficient
+
+### Example Quality Standards
+- **Realistic Data**: Use realistic dataset examples, not just placeholder text
+- **Complete Workflows**: Examples should demonstrate end-to-end workflows
+- **Error Handling**: Document common error scenarios with actual error messages
+- **Best Practices**: Examples should follow established patterns from discovered examples directories
+
+## API Documentation Verification
+
+### API Endpoint Documentation
+- **Endpoint Paths**: Verify REST API paths match actual route definitions
+- **HTTP Methods**: Check documented HTTP methods match implementation
+- **Request/Response Schemas**: Validate JSON schemas against actual API responses
+- **Status Codes**: Verify documented status codes match what the API returns
+- **Authentication**: Check authentication requirements match implementation
+
+### API Validation Steps
+1. **Locate Route Definitions**: Find API route definitions in discovered source directories
+2. **Check OpenAPI/Swagger**: Verify documentation matches OpenAPI specification
+3. **Test Endpoints**: Make actual API calls to verify documented behavior
+4. **Validate Schemas**: Check request/response examples work with actual API
+5. **Check Error Responses**: Verify error response formats and codes
+
+## Automated Verification Integration
+
+### Code Validation Automation
+- **Import Testing**: Automated tests that verify all documented imports work
+- **CLI Testing**: Automated tests that verify all documented CLI commands exist and work
+- **Example Execution**: CI pipeline that runs tutorial and example code
+- **Link Checking**: Verify all references to source code files are valid
+- **Documentation Testing**: Include documentation examples in test suites
+
+### Verification Tooling
+- **Test Integration**: Use project's test framework to validate documentation examples
+- **Notebook Testing**: Automated execution of Jupyter notebooks in discovered examples directories
+- **Configuration Validation**: Test configuration examples against actual schemas
+- **Import Resolution**: Check that all documented imports resolve correctly
+- **CLI Validation**: Test that all documented CLI commands can be executed
+
+## Verification Workflow
+
+### During Documentation Creation
+1. **Check Configuration**: Verify CLI commands, dependencies, and project configuration
+2. **Identify Source Components**: Locate relevant modules/classes in discovered source directories
+3. **Extract Implementation Details**: Document actual parameters, types, and behavior
+4. **Create Working Examples**: Build examples that execute successfully
+5. **Test Against Source**: Validate examples against current codebase
+6. **Document Dependencies**: List all required packages and versions
+
+### During Documentation Updates
+1. **Check for Config Changes**: Compare current configuration against previously documented versions
+2. **Check for Code Changes**: Compare current source against previously documented versions
+3. **Update Examples**: Modify examples to reflect any implementation changes
+4. **Re-validate**: Run full validation process on updated examples
+5. **Test Breaking Changes**: Verify that source changes don't break existing examples
+
+### Quality Assurance Checklist
+
+Before publishing technical documentation:
+- [ ] CLI commands verified against project configuration
+- [ ] Dependencies match those listed in configuration files
+- [ ] All code examples tested against current source code
+- [ ] Import statements verified for correctness
+- [ ] Configuration examples tested with actual implementations
+- [ ] Tutorial notebooks/examples execute successfully
+- [ ] Function/class signatures match source code exactly
+- [ ] Example datasets and file formats validated
+- [ ] Error scenarios documented with actual error messages
+- [ ] Dependencies clearly specified in requirements
+
+## When Discrepancies Are Found
+
+### Immediate Actions
+1. **Document the Issue**: Create clear warning admonitions in affected documentation
+2. **Track the Problem**: File GitHub issues with specific details about the discrepancy
+3. **Determine Root Cause**: Investigate whether source code, configuration, or documentation needs correction
+4. **Establish Timeline**: Set clear deadlines for resolution
+
+### Example Warning Format
+```markdown
+:::{warning}
+**Implementation Verification Required**: This example has not been validated against the current project source code and configuration. Please verify imports, CLI commands, and parameters before use.
+:::
+```
+
+## Verification Tracking
+
+### Documentation Metadata
+- Maintain "last verified" timestamps on code example sections
+- Track which project version was used for verification
+- Document any known discrepancies and their resolution status
+- Link to specific source files and configuration sections used for verification
+
+### Coverage Metrics
+- Measure percentage of code examples that have been source-validated
+- Track CLI command documentation coverage against configuration entries
+- Track documentation verification coverage across different project modules
+- Prioritize verification for high-impact or frequently-used components
+- Monitor source code change frequency and documentation update lag
+
+## Smart Exploration Techniques
+
+### Start with Broad Discovery
+**Use parallel tool calls** to quickly understand the project:
+```bash
+# Run these simultaneously for fast discovery
+file_search("pyproject.toml")  # Check for Python
+file_search("package.json")    # Check for Node.js  
+file_search("CMakeLists.txt")  # Check for C++
+file_search("go.mod")          # Check for Go
+list_dir(".")                  # See overall structure
+```
+
+### Follow Smart Patterns
+**Python Projects**: Look for `src/`, main package directories, `pyproject.toml`
+**Node.js Projects**: Check `package.json` main field, `src/`, `lib/`
+**C++ Projects**: Search for `src/`, `include/`, `CMakeLists.txt`
+**Go Projects**: Check `go.mod`, `cmd/`, `pkg/`, `main.go`
+
+## Tech Stack-Specific Guidelines
+
+### Python Projects
+- **Package Structure**: Verify documented imports match actual package structure
+- **Virtual Environments**: Test examples work in clean virtual environments
+- **Dependencies**: Check pip/conda requirements match documentation
+- **Entry Points**: Validate console scripts and plugin entry points
+
+### JavaScript/Node.js Projects
+- **Module System**: Verify ES6/CommonJS imports match documentation
+- **Package Scripts**: Test npm/yarn scripts match documentation
+- **Dependencies**: Check npm/yarn dependencies match documentation
+- **Runtime Requirements**: Verify Node.js version requirements
+
+### C++ Projects
+- **Build Systems**: Verify CMake/Make instructions work as documented
+- **Dependencies**: Check library dependencies can be resolved
+- **Compiler Requirements**: Verify documented compiler versions work
+- **Installation**: Test installation instructions on clean systems
+
+### Go Projects
+- **Module System**: Verify go.mod matches documented import paths
+- **Build Tags**: Check build constraints match documentation
+- **Dependencies**: Verify go get commands work as documented
+- **Cross-compilation**: Test documented cross-compilation instructions
+
+Use these project-agnostic verification guidelines to maintain the highest level of accuracy between source code implementation, project configuration, and documentation across any technical project, ensuring users can successfully execute workflows and integrate with your project. 
+- **Optional Dependencies**: Check optional dependency groups match documentation
+- **Version Requirements**: Ensure documented version constraints match `pyproject.toml`
+- **Installation Instructions**: Test installation commands work with current project configuration
+
+Use these NeMo Run-specific verification guidelines to maintain the highest level of accuracy between source code implementation, project configuration, and documentation, ensuring users can successfully execute experiment management workflows and pipelines. 

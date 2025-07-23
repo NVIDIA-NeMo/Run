@@ -14,58 +14,11 @@ This section provides comprehensive answers to common questions about NeMo Run, 
 
 ### **Q:** What is NeMo Run and when should I use it?
 
-**A:** NeMo Run is a Python framework designed for distributed machine learning experimentation and execution. It provides:
-
-- **Unified Configuration Management**: Use `run.Config` and `run.Partial` for type-safe, serializable configurations
-- **Multi-Platform Execution**: Support for local, Slurm, Kubernetes, Docker, and cloud platforms
-- **Automatic Code Packaging**: Git-based packaging for reproducible experiments
-- **Built-in Logging and Monitoring**: Centralized experiment tracking and log retrieval
-
-Use NeMo Run when you need to:
-
-- Run ML experiments across different compute environments
-- Ensure reproducibility through configuration management
-- Scale experiments from local development to production clusters
-- Maintain consistent logging and monitoring across platforms
+**A:** NeMo Run is NVIDIA's Python framework for distributed machine learning experimentation and execution. For detailed information about what NeMo Run is and when to use it, see our [Why Choose NeMo Run](../about/why-nemo-run) guide.
 
 ### **Q:** How do I install and set up NeMo Run?
 
-**A:** Install NeMo Run using pip from the GitHub repository:
-
-```bash
-pip install git+https://github.com/NVIDIA-NeMo/Run.git
-```
-
-Basic setup involves:
-
-1. **Configure your environment**:
-
-   ```bash
-   export NEMORUN_HOME=~/.nemo_run  # Optional: customize home directory
-   ```
-
-2. **Initialize a project**:
-
-   ```python
-   import nemo_run as run
-
-   # Basic configuration
-   config = run.Config(YourModel, learning_rate=0.001, batch_size=32)
-   ```
-
-3. **Choose an executor**:
-
-   ```python
-   # Local execution
-   executor = run.LocalExecutor()
-
-   # Remote execution
-   executor = run.SlurmExecutor(
-       partition="gpu",
-       nodes=1,
-       gpus_per_node=4
-   )
-   ```
+**A:** For installation and setup instructions, see our [Quickstart Guide](../get-started/quickstart) which includes installation steps and basic setup configuration.
 
 ## Configuration and Serialization
 

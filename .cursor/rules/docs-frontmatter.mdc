@@ -1,0 +1,235 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Documentation Frontmatter Taxonomy Framework
+
+Every markdown file in `docs/` should have frontmatter following this taxonomy framework at the very top of the page:
+
+## Required Frontmatter Structure
+
+```yaml
+---
+description: "Brief description of the content (1-2 sentences)"
+categories: ["primary-category"]  # Single category (required)
+tags: ["tag1", "tag2", "tag3"]    # 2-8 tags recommended
+personas: ["persona1", "persona2"] # Target audience(s)
+difficulty: "beginner|intermediate|advanced|reference"
+content_type: "tutorial|concept|reference|troubleshooting|example"
+modality: "text-only|image-only|video-only|multimodal|universal"
+# only: not ga  # Optional: content gating
+---
+```
+
+## Taxonomy Guidelines
+
+### Categories (Choose ONE - Required)
+
+**Primary functional domains aligned with user workflows:**
+
+- `getting-started` - Installation, setup, quickstart guides
+- `concepts-architecture` - Core concepts, fundamentals, system architecture
+- `training-algorithms` - RL algorithms (GRPO, DPO, SFT), policy optimization
+- `model-development` - Model integration, validation, custom architectures
+- `research-advanced` - Custom algorithms, ablation studies, theory
+- `deployment-operations` - Infrastructure, deployment, maintenance
+- `integrations-apis` - External services, API docs, custom integrations  
+- `reference` - API documentation, configuration, troubleshooting
+
+### Tags (Select 2-8 - Recommended)
+
+**Training Techniques:**
+
+
+
+- `reinforcement-learning` - RL algorithms and policy optimization
+- `policy-optimization` - Policy gradient methods and optimization
+- `model-training` - Model training and fine-tuning
+- `loss-functions` - Loss function implementations and gradients
+- `convergence` - Training convergence and stability
+- `environments` - RL environment interfaces and implementations
+- `rollouts` - Experience collection and rollout management
+- `evaluation` - Model evaluation and metrics
+
+
+
+**Technical Implementation:**
+
+- `gpu-accelerated` - GPU-specific processing
+- `distributed` - Multi-node/distributed processing
+- `kubernetes` - K8s deployment content
+- `slurm` - HPC/Slurm-related content
+- `docker` - Container-related content
+
+- `python-api` - Python API usage
+- `configuration` - Config file management
+
+
+**Data Types & Formats:**
+
+- `webdataset` - WebDataset format handling
+- `jsonl` - JSONL data format
+
+- `parquet` - Parquet data format
+- `bitext` - Parallel/bilingual text
+- `code-data` - Programming code datasets
+
+- `multimodal` - Cross-modal content
+
+**Workflow Stages:**
+
+
+- `data-loading` - Data ingestion processes
+- `data-processing` - Core processing steps
+- `data-export` - Output and export
+
+- `pipeline` - End-to-end workflows
+- `monitoring` - Observability and tracking
+
+
+**Performance & Scale:**
+
+- `large-scale` - Large dataset processing
+- `optimization` - Performance tuning
+- `memory-management` - Memory optimization
+
+- `batch-processing` - Batch operation techniques
+
+### Personas (Select 1+ - Required)
+
+**Target audiences based on user roles:**
+
+- `data-scientist-focused` - Analytics, metrics, model behavior
+- `mle-focused` - Implementation details, pipelines, optimization
+- `admin-focused` - Deployment, operations, maintenance
+- `devops-focused` - Infrastructure, automation, monitoring
+
+### Difficulty Levels
+
+- `beginner` - New users, basic concepts
+- `intermediate` - Some experience required
+- `advanced` - Expert-level content
+- `reference` - API docs, detailed specs
+
+### Content Types
+
+- `tutorial` - Step-by-step guides
+- `concept` - Explanatory content
+- `reference` - API/config documentation
+- `troubleshooting` - Problem-solving guides
+- `example` - Code samples and demos
+
+
+### Modality Focus
+
+- `text-only` - Text-specific content
+- `image-only` - Image-specific content
+- `video-only` - Video-specific content (EA-only)
+
+- `multimodal` - Cross-modal content
+- `universal` - Applies to all modalities
+
+## Example Frontmatter
+
+### Tutorial Example
+
+
+```yaml
+---
+description: "Step-by-step guide to setting up distributed GRPO training for large language models"
+categories: ["training-algorithms"]
+tags: ["reinforcement-learning", "distributed", "large-scale", "configuration", "gpu-accelerated"]
+personas: ["mle-focused", "admin-focused"]
+
+difficulty: "intermediate"
+content_type: "tutorial"
+modality: "text-only"
+---
+```
+
+
+### Concept Example
+
+```yaml
+---
+description: "Core concepts behind experiment management and distributed computing for machine learning models"
+categories: ["concepts-architecture"]
+tags: ["loss-functions", "convergence", "multimodal", "machine-learning"]
+
+personas: ["data-scientist-focused", "mle-focused"]
+difficulty: "beginner"
+content_type: "concept"
+modality: "multimodal"
+
+---
+```
+
+### Reference Example
+
+```yaml
+---
+description: "Complete API reference for NeMo Run training algorithms and experiment management methods"
+categories: ["reference"]
+
+tags: ["reinforcement-learning", "python-api", "policy-optimization", "configuration"]
+personas: ["mle-focused", "data-scientist-focused"]
+difficulty: "reference"
+content_type: "reference"
+modality: "universal"
+---
+```
+
+### Operations Example
+
+```yaml
+---
+description: "Deploy NeMo Run on Kubernetes clusters with GPU acceleration and distributed training"
+categories: ["deployment-operations"]
+tags: ["kubernetes", "gpu-accelerated", "monitoring", "distributed", "docker"]
+personas: ["admin-focused", "devops-focused"]
+difficulty: "advanced"
+content_type: "tutorial"
+modality: "universal"
+---
+```
+
+## Content Gating Integration
+
+For early access or internal content, add the `only` field:
+
+```yaml
+---
+description: "Video pipeline customization and advanced GPU processing techniques"
+categories: ["research-advanced"]
+tags: ["pipeline", "gpu-accelerated", "customization"]
+personas: ["mle-focused"]
+difficulty: "advanced"
+
+content_type: "tutorial"
+modality: "video-only"
+only: not ga  # Exclude from GA builds
+---
+```
+
+## Benefits
+
+
+
+1. **User-Centric Navigation** - Categories align with natural user workflows
+2. **Flexible Discovery** - Tags enable cross-cutting content discovery  
+3. **Persona Adaptation** - Content serves different user types effectively
+4. **Search Optimization** - Rich metadata improves search relevance
+5. **Content Strategy** - Clear guidelines for authors and maintainers
+6. **Scalability** - Structure accommodates future content and features
+
+## Validation
+When adding frontmatter, ensure:
+
+- ✅ Description is 1-2 sentences and informative
+- ✅ Exactly one category is specified
+- ✅ 2-8 relevant tags are selected
+- ✅ At least one persona is specified
+- ✅ Difficulty and content type are appropriate
+- ✅ Modality focus matches the content
+- ✅ Content gating (`only`) is used when needed

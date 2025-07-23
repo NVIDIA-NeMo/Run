@@ -830,4 +830,30 @@ packager = dev_packager if is_development else prod_packager
 executor = run.SlurmExecutor(packager=packager)
 ```
 
+### Multi-Environment Execution Examples
+
+```python
+# Local execution
+local_result = run.run(config, executor=run.LocalExecutor())
+
+# Docker execution
+docker_result = run.run(
+    config,
+    executor=run.DockerExecutor(
+        image="pytorch/pytorch:2.0.0-cuda11.7-cudnn8-runtime",
+        gpus=1
+    )
+)
+
+# Slurm execution (HPC cluster)
+slurm_result = run.run(
+    config,
+    executor=run.SlurmExecutor(
+        nodes=1,
+        gpus_per_node=1,
+        time_limit="1:00:00"
+    )
+)
+```
+
 This comprehensive guide covers all aspects of NeMo Run execution, from basic usage to advanced features and best practices. Use these patterns to build robust, scalable machine learning workflows across different computing environments.

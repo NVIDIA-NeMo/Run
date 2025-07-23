@@ -8,7 +8,21 @@ categories: ["about"]
 
 # Why Choose NeMo Run?
 
-NeMo Run is designed to solve the most critical challenges in machine learning experiment management. Here's why researchers, ML engineers, and data scientists choose NeMo Run for their workflows.
+NeMo Run is NVIDIA's Python framework designed for distributed machine learning experimentation and execution. It provides:
+
+- **Unified Configuration Management**: Use `run.Config` and `run.Partial` for type-safe, serializable configurations
+- **Multi-Platform Execution**: Support for local, Slurm, Kubernetes, Docker, and cloud platforms
+- **Automatic Code Packaging**: Git-based packaging for reproducible experiments
+- **Built-in Logging and Monitoring**: Centralized experiment tracking and log retrieval
+
+Use NeMo Run when you need to:
+
+- Run ML experiments across different compute environments
+- Ensure reproducibility through configuration management
+- Scale experiments from local development to production clusters
+- Maintain consistent logging and monitoring across platforms
+
+Here's why researchers, ML engineers, and data scientists choose NeMo Run for their workflows.
 
 ## Key Benefits
 
@@ -145,6 +159,6 @@ For teams managing ML infrastructure:
 
 ## Getting Started
 
-Ready to experience the benefits of NeMo Run? Start with our [installation guide](../get-started/install) and [tutorials](../get-started/tutorials) to see how NeMo Run can transform your ML workflows.
+Ready to experience the benefits of NeMo Run? Start with our [installation guide](../get-started/install) and [quickstart guide](../get-started/quickstart) to see how NeMo Run can transform your ML workflows.
 
 For more detailed information about specific features, explore our [Configuration](../guides/configuration), [Execution](../guides/execution), and [Management](../guides/management) guides.

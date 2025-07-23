@@ -1,17 +1,74 @@
 ---
 description: The documentation style guide.
-globs: 
+globs:
 alwaysApply: false
 ---
+
 Adhere to the NVIDIA Style Guide when drafting or editing content. Ensure the following:
 
-1. Brand Name: Ensure "NVIDIA" is always in all caps.
-2. Voice & Tone: Use PACE (Professional, Active, Conversational, Engaging). Maintain a consistent, natural voice. Use active voice and contractions.
-Abbreviations & Acronyms: Spell out on first use, then use abbreviations. Common acronyms like PC don't need to be spelled out.
-4. Capitalization: Use title case for headings and proper nouns. Avoid capitalizing conjunctions and prepositions of three letters or less.
-Punctuation: Use Oxford commas. Avoid ampersands unless in titles. Use em dashes for emphasis, en dashes for ranges.
-Dates & Times: Use the 12-hour format with periods (e.g., 12:45 p.m.). Abbreviate months in tables.
-Units of Measurement: Be consistent. Use a space between the number and unit (e.g., 40 GB).
-Inclusivity: Avoid gender-specific pronouns and Latinisms. Use plain English.
-10. Formatting: Use italics for publication titles and games. Use bold for UI elements.
+1. **Brand Name**: Ensure "NVIDIA" is always in all caps.
+
+2. **Voice & Tone**: Use PACE (Professional, Active, Conversational, Engaging). Maintain a consistent, natural voice that is:
+   - **Authoritative**: Confident and knowledgeable. Avoid redundancy, flowery language, and passive voice. Use appropriate formality level and second-person ("you") when possible.
+   - **Instructive**: Use declarative/command writing, active voice, action verbs, and concise headings. Keep text short but descriptive. Avoid jargon and include articles (a, an, the).
+   - **Welcoming**: Ensure content is accessible to all audiences. Consider: Would this make sense to outsiders? Can it be quickly scanned? Is it clear without visual elements? Does it work on mobile devices?
+
+3. **Abbreviations & Acronyms**: Spell out on first use, then use abbreviations. Common acronyms like PC don't need to be spelled out.
+
+4. **Capitalization**:
+   - **Always capitalize**: First word of sentences, proper nouns (names, cities, countries, companies, religions), days/months/holidays, time zones, nationalities/languages, historical periods with proper names
+   - **Titles**: Capitalize first word, nouns, verbs, adjectives, proper nouns. Lowercase articles, conjunctions, prepositions (unless >5 letters)
+   - **UI elements**: Capitalize and bold navigation/button labels as they appear. Use title case for elements, sentence case for functionality
+   - **Don't capitalize**: Seasons, centuries, compound words (except In-App/In-Game), domain-specific terms unless proper names, words after colons (except proper nouns or complete sentences), partial quotes
+   - **Time zones**: Spell out when possible (Eastern Time, Pacific Time). Abbreviate only if space limited (EST, PST, etc.)
+
+5. **Punctuation**:
+   - **Ampersands**: Write out "and" except in proper names
+   - **Apostrophes**: Use for possessives (insider's, users') and contractions (can't, don't). Not for "its" or plurals
+   - **Brackets**: Use `<angle>` for variables/navigation, `{curly}` for code only, `[square]` for .conf stanzas
+   - **Colons**: Introduce lists or elaborate statements. Lowercase what follows unless proper noun
+   - **Commas**: Use Oxford commas. Follow introductory phrases and join independent clauses
+   - **Dashes**: Em dashes (—) for emphasis, en dashes (–) for ranges/numbers, hyphens for compound modifiers
+   - **Periods**: End all sentences. One space after periods. No punctuation in headlines/headings
+   - **Quotation marks**: Use double quotes. Place commas/periods inside, colons/semicolons outside
+   - **Semicolons**: Avoid if possible. Use between independent clauses without conjunctions
+   - **Slashes**: Use backslash (\) for Windows paths, forward slash (/) for permissions or when meaning "and/or"
+   - **Avoid**: Ellipses, exclamation points, question marks in technical documentation
+
+6. **Numbers & Dates**:
+   - **Numbers in text**: Spell out 0-9, use numerals for 10+. Use numerals when space limited or if one item requires numeral
+   - **Commas**: Use in numbers with 4+ digits (1,024). Exception: Years, pixels, baud use commas only with 5+ digits
+   - **Negative numbers**: Use en dash (–79), not hyphen
+   - **Compound/ordinal numbers**: Hyphenate when spelled out (twenty-five). Always spell out ordinals (first, not 1st)
+   - **Ranges**: Use "from X through Y" or "X to Y." Use en dash for pages/space-limited (2016–2020)
+   - **Abbreviations**: Avoid K, M, B. If must use: capitalize, no space (65K), avoid decimals with K
+   - **Date format**: Month DD, YYYY (July 31, 2016). No ordinals (Jan 18, not Jan 18th)
+   - **Time format**: 12-hour with AM/PM (10:45 AM). No 24/7 (use "always" or "all day")
+   - **Days/months**: Capitalize, spell out when possible. If abbreviating: Sun-Sat, Jan-Dec (no periods)
+
+7. **Units of Measurement**: Be consistent. Use a space between the number and unit (e.g., 40 GB).
+
+8. **Inclusivity**: Avoid gender-specific pronouns and Latinisms. Use plain English.
+
+9. **Technical Formatting**:
+   - **Code elements** (samples, commands, config parameters, file names, expressions, knowledge objects, XML elements, source types): `Courier New` or `inline Courier New`
+   - **File paths/directories**: `Inline Courier New` with variables in `<angle brackets>` (not [square brackets])
+   - **Error messages, offset words, speech**: "Quotation marks"
+   - **Guide titles, menu items, UI elements, domain-specific terms, in-text emphasis**: *Italics*
+   - **User input/actions**: **Bold**
+   - **Keyboard shortcuts, user roles/capabilities**: No formatting
+   - **Equations**: MathML
+   - **Citations**: APA format
+
+10. **Code Blocks**: Use monospaced font blocks for REST API requests/responses and XML source code.
+
+11. **Lists & Tables**:
+
+*List basics**: Introduce with complete lead-in sentence, 2+ items, max 2 levels, parallel construction, capitalize first letter
+*Bulleted lists**: Use when order doesn't matter. Lead-in with colon. No end punctuation for phrases, use periods for complete sentences
+*Numbered lists**: Use for sequential steps/important order. Lead-in with period or colon. One action per item. Each step ends with period or colon
+*Definition lists**: Use for terms/descriptions. Bold terms on own line, indented definitions with full sentences and end punctuation
+
+- **Tables**: Introduce with full sentence and colon. 2+ rows required. Use title case headers. Avoid empty cells (use nonbreaking space if needed). Every table needs title. Avoid links and lists within tables
+
 Please review the text for these guidelines and suggest any necessary edits to ensure compliance with the NVIDIA Style Guide.
