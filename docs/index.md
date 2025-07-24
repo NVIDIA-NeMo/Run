@@ -186,8 +186,6 @@ Production-ready patterns for experiment management and team collaboration.
 :relative-docs: docs/
 ```
 
-
-
 ```{toctree}
 :hidden:
 :caption: Get Started
