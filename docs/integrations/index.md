@@ -10,7 +10,7 @@ modality: "text-only"
 
 (integrations)=
 
-# NeMo Run Integrations
+# About NeMo Run Integrations
 
 This section provides guides for integrating NeMo Run with popular ML frameworks, cloud platforms, monitoring tools, and CI/CD pipelines.
 

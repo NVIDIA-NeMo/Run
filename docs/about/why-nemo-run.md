@@ -6,7 +6,7 @@ categories: ["about"]
 
 (why-nemo-run)=
 
-# Why Choose NeMo Run?
+# Why NeMo Run?
 
 NeMo Run is NVIDIA's Python framework designed for distributed machine learning experimentation and execution. It provides:
 

@@ -14,6 +14,29 @@ modality: "text-only"
 
 NeMo Run is NVIDIA's Python framework for configuring, executing, and managing ML experiments across diverse computing environments.
 
+## What is NeMo Run?
+
+NeMo Run is a production-ready framework that provides a unified interface for the complete ML experiment lifecycle. It combines type-safe configuration management with flexible execution across multiple environments, from local development to distributed clusters.
+
+The framework is designed to handle the complexities of ML experiment management, including configuration versioning, environment-specific deployments, and comprehensive experiment tracking. NeMo Run supports multiple execution backends, including local, Docker, Slurm, Ray, and cloud platforms, providing flexibility for different compute requirements and infrastructure setups.
+
+## Target Users
+
+- **ML Researchers**: Conduct reproducible experiments with version-controlled configurations
+- **ML Engineers**: Build production ML pipelines with environment-agnostic execution
+- **DevOps Engineers**: Manage multi-environment deployments and infrastructure automation
+- **Data Scientists**: Prototype and scale ML experiments with minimal infrastructure overhead
+
+## Key Technologies
+
+NeMo Run is built on a robust technology stack designed for performance and flexibility:
+
+- **Fiddle**: Google's configuration framework for type-safe, validated configurations
+- **Ray**: Distributed computing framework for scalable execution and resource management
+- **PyTorch**: Deep learning framework with advanced distributed training capabilities
+- **Docker**: Containerization for consistent execution environments
+- **Slurm**: High-performance computing scheduler for cluster execution
+
 ## Core Architecture
 
 NeMo Run provides a unified interface for ML experiment lifecycle management:
@@ -47,16 +70,9 @@ Experiment tracking and reproducibility
 
 ::::
 
-## Key Benefits
+```{toctree}
+:caption: About NeMo Run
+:maxdepth: 2
+:hidden:
 
-- **Type-Safe Configuration**: Automatic validation using Python's type system
-- **Multi-Environment Execution**: Seamless transitions between environments
-- **Experiment Tracking**: Comprehensive metadata capture and reproducibility
-- **Scalable Architecture**: From local development to distributed clusters
-
-## Target Users
-
-- **ML Researchers**: Conducting experiments with full reproducibility
-- **ML Engineers**: Building production ML pipelines
-- **DevOps Engineers**: Managing ML infrastructure across platforms
-- **Data Scientists**: Prototyping and scaling ML experiments
+```

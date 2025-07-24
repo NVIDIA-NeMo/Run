@@ -20,6 +20,7 @@ NeMo Run works seamlessly with most Python-based ML frameworks:
 
 - **PyTorch** - Deep learning and neural networks
 - **TensorFlow** - Machine learning and neural networks
+- **JAX** - High-performance ML with TPU/GPU acceleration
 - **Scikit-learn** - Traditional machine learning
 - **XGBoost** - Gradient boosting
 - **LightGBM** - Gradient boosting
@@ -296,6 +297,244 @@ with run.Experiment("transformers_training") as experiment:
     experiment.run()
 ```
 
+## JAX Integration
+
+### Basic JAX Model Configuration
+
+```python
+import nemo_run as run
+import jax
+import jax.numpy as jnp
+from jax import grad, jit, vmap
+import optax
+
+# Define a simple neural network with JAX
+def create_jax_model(input_size: int, hidden_size: int, output_size: int):
+    """Create a simple JAX neural network."""
+
+    def init_params(key):
+        """Initialize network parameters."""
+        k1, k2 = jax.random.split(key)
+        w1 = jax.random.normal(k1, (input_size, hidden_size)) * 0.01
+        b1 = jnp.zeros(hidden_size)
+        w2 = jax.random.normal(k2, (hidden_size, output_size)) * 0.01
+        b2 = jnp.zeros(output_size)
+        return {'w1': w1, 'b1': b1, 'w2': w2, 'b2': b2}
+
+    def forward(params, x):
+        """Forward pass through the network."""
+        h = jax.nn.relu(jnp.dot(x, params['w1']) + params['b1'])
+        return jnp.dot(h, params['w2']) + params['b2']
+
+    return init_params, forward
+
+# Configure the model with NeMo Run
+model_config = run.Config(
+    create_jax_model,
+    input_size=784,
+    hidden_size=128,
+    output_size=10
+)
+
+# Training function
+def train_jax_model(model_config, epochs: int = 10, lr: float = 0.001):
+    """Train a JAX model."""
+    init_params, forward = model_config.build()
+
+    # Initialize parameters
+    key = jax.random.PRNGKey(0)
+    params = init_params(key)
+
+    # Define loss function
+    def loss_fn(params, x, y):
+        preds = forward(params, x)
+        return jnp.mean((preds - y) ** 2)
+
+    # Compute gradients
+    grad_fn = grad(loss_fn)
+
+    # Optimizer
+    optimizer = optax.adam(lr)
+    opt_state = optimizer.init(params)
+
+    # Training loop
+    for epoch in range(epochs):
+        # Generate synthetic data
+        key, subkey = jax.random.split(key)
+        x = jax.random.normal(subkey, (100, 784))
+        y = jax.random.normal(subkey, (100, 10))
+
+        # Compute gradients and update
+        grads = grad_fn(params, x, y)
+        updates, opt_state = optimizer.update(grads, opt_state)
+        params = optax.apply_updates(params, updates)
+
+        if epoch % 5 == 0:
+            loss = loss_fn(params, x, y)
+            print(f"Epoch {epoch}: Loss = {loss:.4f}")
+
+    return params
+
+# Create experiment
+with run.Experiment("jax_training") as experiment:
+    experiment.add(
+        run.Partial(train_jax_model, model_config, epochs=20),
+        name="jax_training"
+    )
+    experiment.run()
+```
+
+### Advanced JAX Integration with TPU Support
+
+```python
+import nemo_run as run
+import jax
+import jax.numpy as jnp
+from jax import grad, jit, vmap, pmap
+import optax
+from flax import linen as nn
+
+# Define a Flax neural network
+class JAXNet(nn.Module):
+    hidden_size: int
+    output_size: int
+
+    @nn.compact
+    def __call__(self, x):
+        x = nn.Dense(self.hidden_size)(x)
+        x = nn.relu(x)
+        x = nn.Dropout(0.1)(x, deterministic=False)
+        x = nn.Dense(self.output_size)(x)
+        return x
+
+# Configure the model with NeMo Run
+model_config = run.Config(
+    JAXNet,
+    hidden_size=128,
+    output_size=10
+)
+
+# Training function with TPU support
+def train_jax_tpu_model(model_config, epochs: int = 10, lr: float = 0.001):
+    """Train a JAX model with TPU support."""
+    model = model_config.build()
+
+    # Initialize parameters
+    key = jax.random.PRNGKey(0)
+    x = jnp.ones((1, 784))  # Dummy input for initialization
+    params = model.init(key, x)
+
+    # Define loss function
+    def loss_fn(params, x, y):
+        preds = model.apply(params, x)
+        return jnp.mean((preds - y) ** 2)
+
+    # JIT compile for performance
+    loss_fn = jit(loss_fn)
+    grad_fn = jit(grad(loss_fn))
+
+    # Optimizer
+    optimizer = optax.adam(lr)
+    opt_state = optimizer.init(params)
+
+    # Training loop
+    for epoch in range(epochs):
+        # Generate synthetic data
+        key, subkey = jax.random.split(key)
+        x = jax.random.normal(subkey, (100, 784))
+        y = jax.random.normal(subkey, (100, 10))
+
+        # Compute gradients and update
+        grads = grad_fn(params, x, y)
+        updates, opt_state = optimizer.update(grads, opt_state)
+        params = optax.apply_updates(params, updates)
+
+        if epoch % 5 == 0:
+            loss = loss_fn(params, x, y)
+            print(f"Epoch {epoch}: Loss = {loss:.4f}")
+
+    return params
+
+# Create experiment with TPU executor
+with run.Experiment("jax_tpu_training") as experiment:
+    experiment.add(
+        run.Partial(train_jax_tpu_model, model_config, epochs=20),
+        name="jax_tpu_training"
+    )
+    experiment.run()
+```
+
+### Multi-Device JAX Training
+
+```python
+import nemo_run as run
+import jax
+import jax.numpy as jnp
+from jax import grad, jit, pmap
+import optax
+
+# Define multi-device training function
+def train_jax_multi_device(model_config, epochs: int = 10, lr: float = 0.001):
+    """Train a JAX model across multiple devices."""
+    init_params, forward = model_config.build()
+
+    # Get available devices
+    devices = jax.devices()
+    print(f"Training on {len(devices)} devices: {devices}")
+
+    # Initialize parameters
+    key = jax.random.PRNGKey(0)
+    params = init_params(key)
+
+    # Replicate parameters across devices
+    params = jax.device_put_replicated(params, devices)
+
+    # Define loss function
+    def loss_fn(params, x, y):
+        preds = forward(params, x)
+        return jnp.mean((preds - y) ** 2)
+
+    # Parallel loss and gradient computation
+    p_loss_fn = pmap(loss_fn)
+    p_grad_fn = pmap(grad(loss_fn))
+
+    # Optimizer
+    optimizer = optax.adam(lr)
+    opt_state = jax.device_put_replicated(optimizer.init(params[0]), devices)
+
+    # Training loop
+    for epoch in range(epochs):
+        # Generate synthetic data for each device
+        key, subkey = jax.random.split(key)
+        keys = jax.random.split(subkey, len(devices))
+
+        x = jax.device_put_sharded([
+            jax.random.normal(k, (100, 784)) for k in keys
+        ], devices)
+        y = jax.device_put_sharded([
+            jax.random.normal(k, (100, 10)) for k in keys
+        ], devices)
+
+        # Compute gradients and update
+        grads = p_grad_fn(params, x, y)
+        updates, opt_state = optimizer.update(grads, opt_state)
+        params = optax.apply_updates(params, updates)
+
+        if epoch % 5 == 0:
+            loss = p_loss_fn(params, x, y)
+            print(f"Epoch {epoch}: Average Loss = {jnp.mean(loss):.4f}")
+
+    return params
+
+# Create experiment for multi-device training
+with run.Experiment("jax_multi_device_training") as experiment:
+    experiment.add(
+        run.Partial(train_jax_multi_device, model_config, epochs=20),
+        name="jax_multi_device_training"
+    )
+    experiment.run()
+```
+
 ## Best Practices for ML Framework Integration
 
 ### 1. Configuration Management
@@ -344,6 +583,9 @@ def compare_frameworks():
     # TensorFlow configuration
     tf_config = run.Config(create_tensorflow_model, input_shape=(784,), num_classes=10)
 
+    # JAX configuration
+    jax_config = run.Config(create_jax_model, input_size=784, hidden_size=128, output_size=10)
+
     # XGBoost configuration
     xgb_config = run.Config(xgb.XGBClassifier, n_estimators=100, max_depth=6)
 
@@ -358,6 +600,12 @@ def compare_frameworks():
         experiment.add(
             run.Partial(train_tensorflow_model, tf_config),
             name="tensorflow_experiment"
+        )
+
+        # Add JAX experiment
+        experiment.add(
+            run.Partial(train_jax_model, jax_config),
+            name="jax_experiment"
         )
 
         # Add XGBoost experiment

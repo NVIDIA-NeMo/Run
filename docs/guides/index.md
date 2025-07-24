@@ -10,7 +10,7 @@ modality: "text-only"
 
 (guides)=
 
-# NeMo Run Guides
+# About NeMo Run Guides
 
 Comprehensive guides for mastering NeMo Run's core features and capabilities.
 

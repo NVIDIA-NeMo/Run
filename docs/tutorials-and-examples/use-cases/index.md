@@ -10,7 +10,7 @@ modality: "text-only"
 
 (use-cases)=
 
-# NeMo Run Use Cases
+# Use Cases
 
 Real-world applications and workflows demonstrating how NeMo Run solves practical ML challenges.
 
@@ -20,36 +20,36 @@ Real-world applications and workflows demonstrating how NeMo Run solves practica
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`microscope;1.5em;sd-mr-1` Research
-:link: research/reproducible-research
+:link: research/reproducible-research.md
 :link-type: doc
-:link-alt: Reproducible Research Use Case
+:link-alt: Research Use Cases
 
 Academic and industrial research workflows
-::::
+:::::
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Production
-:link: production/ml-pipelines
+:link: production/ml-pipelines.md
 :link-type: doc
-:link-alt: ML Pipelines Use Case
+:link-alt: Production Use Cases
 
 Production ML systems and workflows
-::::
+:::::
 
 :::{grid-item-card} {octicon}`users;1.5em;sd-mr-1` Collaboration
-:link: collaboration/team-workflows
+:link: collaboration/team-workflows.md
 :link-type: doc
-:link-alt: Team Workflows Use Case
+:link-alt: Collaboration Use Cases
 
 Team collaboration and knowledge sharing
-::::
+:::::
 
-::::
+:::::
 
 ## Research Use Cases
 
 Academic and industrial research applications of NeMo Run.
 
-### [Reproducible Research](research/reproducible-research)
+### [Reproducible Research](research/reproducible-research.md)
 Ensure complete reproducibility of ML experiments across different environments.
 
 **Key Features:**
@@ -64,7 +64,7 @@ Ensure complete reproducibility of ML experiments across different environments.
 - Benchmark comparisons
 - Method validation
 
-### [Hyperparameter Optimization](research/hyperparameter-optimization)
+### [Hyperparameter Optimization](research/hyperparameter-optimization.md)
 Automate hyperparameter search with advanced optimization strategies.
 
 **Key Features:**
@@ -79,7 +79,7 @@ Automate hyperparameter search with advanced optimization strategies.
 - Automated ML pipelines
 - Research methodology validation
 
-### [Model Comparison](research/model-comparison)
+### [Model Comparison](research/model-comparison.md)
 Systematically compare different model architectures and approaches.
 
 **Key Features:**
@@ -98,7 +98,7 @@ Systematically compare different model architectures and approaches.
 
 Enterprise and production ML system applications.
 
-### [ML Pipelines](production/ml-pipelines)
+### [ML Pipelines](production/ml-pipelines.md)
 Build robust, scalable ML pipelines for production environments.
 
 **Key Features:**
@@ -113,7 +113,7 @@ Build robust, scalable ML pipelines for production environments.
 - Natural language processing
 - Predictive analytics
 
-### [Model Deployment](production/model-deployment)
+### [Model Deployment](production/model-deployment.md)
 Deploy ML models with confidence and monitoring.
 
 **Key Features:**
@@ -128,7 +128,7 @@ Deploy ML models with confidence and monitoring.
 - Model serving platforms
 - Edge deployment
 
-### [Monitoring](production/monitoring)
+### [Monitoring](production/monitoring.md)
 Monitor ML systems and detect issues proactively.
 
 **Key Features:**
@@ -147,7 +147,7 @@ Monitor ML systems and detect issues proactively.
 
 Team collaboration and knowledge sharing workflows.
 
-### [Team Workflows](collaboration/team-workflows)
+### [Team Workflows](collaboration/team-workflows.md)
 Enable effective collaboration across ML teams.
 
 **Key Features:**
@@ -162,7 +162,7 @@ Enable effective collaboration across ML teams.
 - Academic-industry partnerships
 - Open source contributions
 
-### [Code Sharing](collaboration/code-sharing)
+### [Code Sharing](collaboration/code-sharing.md)
 Share and reuse ML code effectively across teams.
 
 **Key Features:**
@@ -177,7 +177,7 @@ Share and reuse ML code effectively across teams.
 - Research code sharing
 - Best practice dissemination
 
-### [Experiment Tracking](collaboration/experiment-tracking)
+### [Experiment Tracking](collaboration/experiment-tracking.md)
 Track and share experiments across team members.
 
 **Key Features:**
@@ -391,9 +391,25 @@ class ProductionMonitor:
 - [ ] **Training**: Train team members on workflows
 - [ ] **Iteration**: Continuously improve based on feedback
 
+## Use Case Files
+
+```{toctree}
+:maxdepth: 2
+
+research/reproducible-research.md
+research/hyperparameter-optimization.md
+research/model-comparison.md
+production/ml-pipelines.md
+production/model-deployment.md
+production/monitoring.md
+collaboration/code-sharing.md
+collaboration/experiment-tracking.md
+collaboration/team-workflows.md
+```
+
 ## Next Steps
 
-- Explore **[Tutorials and Examples](../index)** for step-by-step learning
-- Check **[Tutorials and Examples](../index)** for complete code samples
-- Review **[Best Practices](../best-practices/index)** for optimization
-- Consult **[Reference](../reference/index)** for detailed API documentation
+- Explore **[Tutorials and Examples](../index.md)** for step-by-step learning
+- Check **[Tutorials and Examples](../index.md)** for complete code samples
+- Review **[Best Practices](../../best-practices/index.md)** for optimization
+- Consult **[Reference](../../reference/index.md)** for detailed API documentation
