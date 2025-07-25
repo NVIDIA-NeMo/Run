@@ -18,7 +18,7 @@ import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 from invoke.context import Context
 
@@ -37,6 +37,8 @@ try:
     import sky.task as skyt
     from sky import backends
     from sky.utils import status_lib
+    from sky.volumes import volume as volume_lib
+    from sky import models
 
     _SKYPILOT_AVAILABLE = True
 except ImportError:
@@ -95,6 +97,8 @@ class SkypilotExecutor(Executor):
     memory: Optional[Union[int | float, list[int | float]]] = None
     instance_type: Optional[Union[str, list[str]]] = None
     num_nodes: int = 1
+    volumes: Optional[Dict[str, str]] = None
+    volume_mounts: Optional[List[Any]] = None
     use_spot: Optional[Union[bool, list[bool]]] = None
     disk_size: Optional[Union[int, list[int]]] = None
     disk_tier: Optional[Union[str, list[str]]] = None
@@ -343,6 +347,14 @@ class SkypilotExecutor(Executor):
         )
 
     def _setup_launcher(self):
+        # Auto-enable torchrun for distributed training scenarios:
+        # 1. Multi-node training (num_nodes > 1)
+        # 2. Single-node multi-GPU training (gpus_per_node > 1)
+        if self.launcher is None and (
+            self.num_nodes > 1 or (self.gpus_per_node and self.gpus_per_node > 1)
+        ):
+            self.launcher = "torchrun"
+
         super()._setup_launcher()
         launcher = self.launcher
         # Dynamic rendezvous has an error in Skypilot Kubernetes currently
@@ -353,6 +365,53 @@ class SkypilotExecutor(Executor):
         ):
             launcher.rdzv_backend = "static"
             launcher.rdzv_port = 49500
+
+    def supports_launcher_transform(self) -> bool:
+        return True
+
+    def _parse_infra_for_volume_config(self) -> dict:
+        """Parse infra string and return volume config parameters."""
+        config = {}
+
+        if self.infra is not None:
+            # Parse infra string to extract cloud, region, zone components
+            # Format: cloud, cloud/region, cloud/region/zone, k8s/context
+            infra_parts = self.infra.split("/")
+            cloud = infra_parts[0] if infra_parts else None
+
+            if cloud:
+                # Special handling for Kubernetes
+                if cloud == "k8s":
+                    # VolumeConfig region and zone required even though they are marked as optional
+                    # validation fails otherwise
+                    config["cloud"] = "kubernetes"
+                    config["region"] = "kubernetes"
+                    config["zone"] = "kubernetes"
+                else:
+                    # Handle regular cloud providers
+                    config["cloud"] = cloud
+
+                    # Handle region for non-k8s clouds
+                    if len(infra_parts) >= 2:
+                        region = infra_parts[1]
+                        if region and region != "*":  # Skip wildcards
+                            config["region"] = region
+
+                    # Handle zone for non-k8s clouds
+                    if len(infra_parts) >= 3:
+                        zone = infra_parts[2]
+                        if zone and zone != "*":  # Skip wildcards
+                            config["zone"] = zone
+        else:
+            # Fall back to individual cloud, region, zone parameters
+            if self.cloud:
+                config["cloud"] = self.cloud
+            if self.region:
+                config["region"] = self.region
+            if self.zone:
+                config["zone"] = self.zone
+
+        return config
 
     def to_task(
         self,
@@ -377,16 +436,43 @@ cd /nemo_run/code
 
 {" ".join(cmd)}
 """
+
         task = Task(
             name=name,
             setup=self.setup if self.setup else "",
             run=run_cmd,
             envs=self.env_vars,
             num_nodes=self.num_nodes,
+            volumes=self.volumes,
         )
+
         file_mounts = self.file_mounts or {}
         file_mounts["/nemo_run"] = self.job_dir
         task.set_file_mounts(file_mounts)
+        task.set_volumes(self.volumes)
+
+        volume_mounts = []
+        if self.volume_mounts:
+            for volume_mount in self.volume_mounts:
+                # Configure volume based on infra if specified, otherwise use cloud/region/zone
+                volume_config_kwargs = {
+                    "name": volume_mount["volume_name"],
+                    "type": volume_mount["type"],
+                    "name_on_cloud": volume_mount["volume_name"],
+                    "size": volume_mount["size"],
+                }
+
+                # Add parsed infra configuration
+                volume_config_kwargs.update(self._parse_infra_for_volume_config())
+
+                volume_mounts.append(
+                    volume_lib.VolumeMount(
+                        path=volume_mount["path"],
+                        volume_name=volume_mount["volume_name"],
+                        volume_config=models.VolumeConfig(**volume_config_kwargs),
+                    )
+                )
+        task.volume_mounts = volume_mounts
         task.set_resources(self.to_resources())
 
         if env_vars:
