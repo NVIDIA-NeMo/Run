@@ -8,6 +8,7 @@ A comprehensive Sphinx extension for conditional content rendering based on rele
 - **Document Level**: Filter entire documents via frontmatter
 - **Toctree Level**: Conditional toctrees with global and per-entry filtering  
 - **Directive Level**: Conditional grid cards and other directives
+- **Content Level**: Conditional text sections and arbitrary content blocks
 
 ### Supported Tags
 - `ga` - General Availability (production ready)
@@ -61,6 +62,32 @@ experimental.md :only: internal
 :only: ea
 
 This card only shows in EA builds.
+:::
+```
+
+### 4. Content Section Filtering
+
+```rst
+:::{conditional}
+:only: not ga
+
+## Early Access Feature
+
+This entire section only appears in non-GA builds.
+
+- Feature details
+- Usage examples
+- Configuration options
+:::
+```
+
+Or for inline content:
+
+```rst
+:::{conditional}
+:only: internal
+
+**Internal Note**: This information is only visible in internal builds.
 :::
 ```
 

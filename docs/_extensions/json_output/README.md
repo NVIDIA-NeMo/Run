@@ -151,9 +151,21 @@ json_output_settings = {
 
 ## Content Gating Integration
 
-This extension automatically respects content gating rules set by the content_gating extension.
-Documents with 'only' conditions that fail evaluation (e.g., 'only: not ga' when building with -t ga)
-will be excluded from JSON generation entirely, ensuring sensitive content doesn't leak into search indexes.
+This extension automatically respects content gating rules set by the content_gating extension at multiple levels:
+
+### Document-Level Gating
+Documents with 'only' conditions in frontmatter that fail evaluation (e.g., 'only: not ga' when building with -t ga) will be excluded from JSON generation entirely, ensuring sensitive content doesn't leak into search indexes.
+
+### Content-Level Gating  
+Content sections wrapped in `{conditional}` directives are also properly filtered. When conditions don't match, the content is excluded from the document tree and won't appear in the generated JSON.
+
+### Integration Details
+- **Automatic Detection**: Detects if content_gating extension is loaded
+- **Exclude Pattern Sync**: Respects documents added to exclude_patterns by content gating
+- **Build Tag Awareness**: Logs current build tags for debugging
+- **Debug Logging**: Provides detailed logs when content gating rules are applied
+
+The integration works seamlessly - just enable both extensions and your JSON output will automatically respect all content gating rules without additional configuration.
 
 ## Performance Tips
 
