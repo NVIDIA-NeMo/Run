@@ -47,7 +47,7 @@ extensions = [
     "myst_codeblock_substitutions",  # Our custom MyST substitutions in code blocks
     "json_output",  # Generate JSON output for each page
     "search_assets",  # Enhanced search assets extension
-    "ai_assistant",  # AI Assistant extension for intelligent search responses
+     # "ai_assistant",  # AI Assistant extension for intelligent search responses
     "swagger_plugin_for_sphinx",  # For Swagger API documentation
     "sphinxcontrib.mermaid",  # For Mermaid diagrams
 ]
@@ -148,9 +148,19 @@ suppress_warnings = [
 # -- Options for Autodoc2 ---------------------------------------------------
 sys.path.insert(0, os.path.abspath(".."))
 
-# Conditional autodoc2 configuration - only enable if packages exist
+# Document individual submodules instead of the top-level package
+# This should generate shorter filenames without the nemo_run. prefix
 autodoc2_packages_list = [
-    "../replace_me",  # Path to your package relative to conf.py
+    # Core modules (single files need .py extension)
+    "../nemo_run/api.py",
+    "../nemo_run/config.py",
+    "../nemo_run/core",
+    # CLI interface
+    "../nemo_run/cli",
+    # Runtime and execution
+    "../nemo_run/run",
+    # Development environment
+    "../nemo_run/devspace",
 ]
 
 # Check if any of the packages actually exist before enabling autodoc2
@@ -165,14 +175,81 @@ if autodoc2_packages:
     if "autodoc2" not in extensions:
         extensions.append("autodoc2")
 
+    # NOTE: autodoc2 currently outputs files in a flat directory structure
+    # with dot-notation filenames (e.g., nemo_run.core.execution.md).
+    # It does NOT support hierarchical directory organization.
+
+    # ==================== SANE DEFAULTS (good for most projects) ====================
+
     autodoc2_render_plugin = "myst"  # Use MyST for rendering docstrings
     autodoc2_output_dir = "apidocs"  # Output directory for autodoc2 (relative to docs/)
-    # This is a workaround that uses the parser located in autodoc2_docstrings_parser.py to allow autodoc2 to
-    # render google style docstrings.
-    # Related Issue: https://github.com/sphinx-extensions2/sphinx-autodoc2/issues/33
-    # autodoc2_docstring_parser_regexes = [
-    #     (r".*", "docs.autodoc2_docstrings_parser"),
-    # ]
+
+    # Hide implementation details - good defaults for cleaner docs
+    autodoc2_hidden_objects = [
+        "dunder",  # Hide __methods__ like __init__, __str__, etc.
+        "private",  # Hide _private methods and variables
+        "inherited",  # Hide inherited methods to reduce clutter
+    ]
+
+    # Enable module summaries for better organization
+    autodoc2_module_summary = True
+
+    # Sort by name for consistent organization
+    autodoc2_sort_names = True
+
+    # Enhanced docstring processing for better formatting
+    autodoc2_docstrings = "all"  # Include all docstrings for comprehensive docs
+
+    # Include class inheritance information - useful for users
+    autodoc2_class_inheritance = True
+
+    # Handle class docstrings properly (merge __init__ with class doc)
+    autodoc2_class_docstring = "merge"
+
+    # Better type annotation handling - use correct autodoc2 options
+    autodoc2_type_guard_imports = True
+
+    # Replace common type annotations for better readability
+    autodoc2_replace_annotations = [
+        ("typing.Union", "Union"),
+        ("typing.Optional", "Optional"),
+        ("typing.List", "List"),
+        ("typing.Dict", "Dict"),
+        ("typing.Any", "Any"),
+        ("pathlib.Path", "Path"),
+    ]
+
+    # ==================== PROJECT-SPECIFIC CONFIGURATION ====================
+
+    # Skip internal/testing modules and scripts - CUSTOMIZE FOR YOUR PROJECT
+    autodoc2_skip_module_regexes = [
+        r".*\.tests?.*",  # Skip test modules
+        r".*\.test_.*",  # Skip test files
+        r".*\._.*",  # Skip private modules
+        r".*\.conftest",  # Skip conftest files
+        r".*\.package_info$",  # Skip package metadata (NeMo Run specific)
+        r".*\.__main__$",  # Skip __main__.py files
+        r".*\.templates\..*",  # Skip template files
+    ]
+
+    # Hide specific internal utilities and constants - CUSTOMIZE FOR YOUR PROJECT
+    autodoc2_hidden_regexes = [
+        r".*\.MAJOR$",
+        r".*\.MINOR$",
+        r".*\.PATCH$",
+        r".*\.VERSION$",
+        r".*\.DEV$",
+        r".*\.PRE_RELEASE$",
+        r".*\.__.*__$",  # Hide dunder variables
+    ]
+
+    # Load index template from external file for better maintainability
+    template_path = os.path.join(os.path.dirname(__file__), "_templates", "autodoc2_index.rst")
+    with open(template_path) as f:
+        autodoc2_index_template = f.read()
+
+    # Don't require __all__ to be defined - document all public members
+    autodoc2_module_all_regexes = []  # Empty list means don't require __all__
 else:
     # Remove autodoc2 from extensions if no valid packages
     if "autodoc2" in extensions:

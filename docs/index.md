@@ -244,4 +244,18 @@ reference/api.md
 reference/cli.md
 reference/faqs.md
 reference/troubleshooting.md
+apidocs/index.rst
+```
+
+```{toctree}
+:hidden:
+:caption: Legacy Guides
+:maxdepth: 2
+old-guides/index.md
+old-guides/why-use-nemo-run.md
+old-guides/configuration.md
+old-guides/execution.md
+old-guides/management.md
+old-guides/ray.md
+old-guides/cli.md
 ```

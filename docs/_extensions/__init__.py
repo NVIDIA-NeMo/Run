@@ -1,1 +1,1 @@
-# Custom Sphinx extensions for NeMo Curator documentation 
+# Custom Sphinx extensions for NeMo Curator documentation
