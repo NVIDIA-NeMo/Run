@@ -587,3 +587,34 @@ class TestSkypilotExecutor:
         assert config["cloud"] == "gcp"
         assert config["region"] == "us-central1"
         assert config["zone"] == "us-central1-a"
+
+    def test_volume_mounts_initialization(self, mock_skypilot_imports):
+        """Test that volume_mounts are properly stored during initialization."""
+        volume_mounts = [
+            {"path": "/data", "volume_name": "nemo-workspace", "size": "50Gi", "type": "k8s-pvc"}
+        ]
+
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            cloud="kubernetes",
+            cluster_name="test-cluster",
+            volume_mounts=volume_mounts,
+        )
+
+        # Verify volume_mounts are stored correctly
+        assert executor.volume_mounts == volume_mounts
+        assert len(executor.volume_mounts) == 1
+        assert executor.volume_mounts[0]["path"] == "/data"
+        assert executor.volume_mounts[0]["volume_name"] == "nemo-workspace"
+
+    def test_volume_mounts_none(self, mock_skypilot_imports):
+        """Test that volume_mounts can be None."""
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            cloud="kubernetes",
+            cluster_name="test-cluster",
+            volume_mounts=None,
+        )
+
+        # Verify volume_mounts is None
+        assert executor.volume_mounts is None

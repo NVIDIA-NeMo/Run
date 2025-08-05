@@ -27,7 +27,6 @@ from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
 )
-from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
@@ -356,15 +355,6 @@ class SkypilotExecutor(Executor):
             self.launcher = "torchrun"
 
         super()._setup_launcher()
-        launcher = self.launcher
-        # Dynamic rendezvous has an error in Skypilot Kubernetes currently
-        if (
-            launcher
-            and isinstance(launcher, (Torchrun, FaultTolerance))
-            and self.cloud == "kubernetes"
-        ):
-            launcher.rdzv_backend = "static"
-            launcher.rdzv_port = 49500
 
     def supports_launcher_transform(self) -> bool:
         return True
