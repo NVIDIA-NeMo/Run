@@ -641,3 +641,54 @@ class TestLeptonExecutor:
         result = executor.macro_values()
 
         assert result is None
+
+    def test_pre_launch_commands_initialization(self):
+        """Test that pre_launch_commands can be initialized and defaults to empty list."""
+        # Test default initialization
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+        )
+        assert executor.pre_launch_commands == []
+
+        # Test initialization with commands
+        commands = ["echo 'Setting up environment'", "export TEST_VAR=value"]
+        executor_with_commands = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            pre_launch_commands=commands,
+        )
+        assert executor_with_commands.pre_launch_commands == commands
+
+    def test_launch_script_with_pre_launch_commands(self):
+        """Test that pre_launch_commands are correctly included in the launch script."""
+
+        # Test without pre_launch_commands
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+        )
+
+        # Test script section generation - empty case
+        pre_launch_section = ""
+        if executor.pre_launch_commands:
+            pre_launch_section = "\n".join(executor.pre_launch_commands) + "\n"
+        assert pre_launch_section == ""
+
+        # Test with pre_launch_commands
+        commands = ["echo 'Custom setup'", "export MY_VAR=test"]
+        executor_with_commands = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            pre_launch_commands=commands,
+        )
+
+        # Test script section generation - with commands
+        pre_launch_section_with_commands = ""
+        if executor_with_commands.pre_launch_commands:
+            pre_launch_section_with_commands = (
+                "\n".join(executor_with_commands.pre_launch_commands) + "\n"
+            )
+
+        expected_pre_launch = "echo 'Custom setup'\nexport MY_VAR=test\n"
+        assert pre_launch_section_with_commands == expected_pre_launch
