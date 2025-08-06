@@ -56,6 +56,7 @@ class LeptonExecutor(Executor):
     mounts: list[dict[str, Any]] = field(default_factory=list)
     lepton_job_dir: str = field(init=False, default="")
     custom_spec: dict[str, Any] = field(default_factory=dict)
+    pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
 
     def stop_job(self, job_id: str):
         """
@@ -248,8 +249,14 @@ class LeptonExecutor(Executor):
         if len(name) > 35:
             logger.warning("length of name exceeds 35 characters. Shortening...")
             name = name[:34]
+
+        # Build pre-launch commands section
+        pre_launch_section = ""
+        if self.pre_launch_commands:
+            pre_launch_section = "\n".join(self.pre_launch_commands) + "\n"
+
         launch_script = f"""
-wget -O init.sh https://raw.githubusercontent.com/leptonai/scripts/main/lepton_env_to_pytorch.sh
+{pre_launch_section}wget -O init.sh https://raw.githubusercontent.com/leptonai/scripts/main/lepton_env_to_pytorch.sh
 chmod +x init.sh
 source init.sh
 ln -s {self.lepton_job_dir}/ /nemo_run
