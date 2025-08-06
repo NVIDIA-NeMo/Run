@@ -1,7 +1,7 @@
 # Changelog
 
 <!-- Next changelog -->
-## NVIDIA NemoRun [v0.5.0] - YYYY-MM-DD
+## NVIDIA NemoRun [v0.5.0]
 
 - Fix docs warnings  
 - Fix docs build  
