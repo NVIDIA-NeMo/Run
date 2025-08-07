@@ -15,6 +15,7 @@ To learn more, click on each link. This represents the typical order that NeMo R
   - [Why Use NeMo Run?](#why-use-nemo-run)
   - [Install NeMo Run](#install-nemo-run)
   - [Get Started](#get-started)
+  - [Supported Executors](#supported-executors)
   - [Design Philosophy and Inspiration](#design-philosophy-and-inspiration)
     - [Pythonic](#pythonic)
     - [Modular](#modular)
@@ -34,6 +35,12 @@ To install the project, use the following command:
 
 ```bash
 pip install git+https://github.com/NVIDIA-NeMo/Run.git
+```
+
+For Kubeflow support, install with the kubernetes optional dependency:
+
+```bash
+pip install "git+https://github.com/NVIDIA-NeMo/Run.git[kubernetes]"
 ```
 
 Make sure you have `pip` installed and configured properly.
@@ -58,6 +65,20 @@ local_executor = run.LocalExecutor()
 ```python
 run.run(partial_func, executor=local_executor, name="llama3_8b_pretraining")
 ```
+
+## Supported Executors
+
+NeMo Run supports multiple executors for different computing environments:
+
+- **LocalExecutor**: Execute tasks locally on your machine
+- **DockerExecutor**: Execute tasks in Docker containers
+- **SlurmExecutor**: Execute tasks on Slurm clusters
+- **SkypilotExecutor**: Execute tasks on cloud platforms via Skypilot
+- **DGXCloudExecutor**: Execute tasks on NVIDIA DGX Cloud
+- **LeptonExecutor**: Execute tasks on NVIDIA DGX Cloud Lepton clusters
+- **KubeflowExecutor**: Execute tasks on Kubernetes using Kubeflow Trainer
+
+For detailed information about each executor, see the [Execution Guide](./docs/source/guides/execution.md).
 
 ## Design Philosophy and Inspiration
 In building NeMo Run, we drew inspiration from and relied on the following primary libraries. We would like to extend our gratitude for their work.

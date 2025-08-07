@@ -52,6 +52,7 @@ from nemo_run.config import (
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
+from nemo_run.core.execution.kubeflow import KubeflowExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
@@ -204,12 +205,14 @@ nemo experiment cancel {exp_id} 0
         DockerExecutor,
         DGXCloudExecutor,
         LeptonExecutor,
+        KubeflowExecutor,
     )
     _DETACH_SUPPORTED_EXECUTORS = (
         SlurmExecutor,
         SkypilotExecutor,
         DGXCloudExecutor,
         LeptonExecutor,
+        KubeflowExecutor,
     )
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)
     _RUNNER_DEPENDENT_EXECUTORS = (LocalExecutor,)
