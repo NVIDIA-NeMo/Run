@@ -98,7 +98,7 @@ use-cases/index.md
 
 Before starting, ensure you have:
 
-- **Python 3.8+** with pip
+- **Python 3.10+** with pip
 - **NeMo Run installed** (see [Installation Guide](../get-started/install.md))
 - **Basic ML knowledge** (PyTorch, training loops)
 - **Computing resources** (local machine or cloud access)

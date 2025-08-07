@@ -12,6 +12,68 @@ modality: "text-only"
 
 Welcome to the NeMo Run tutorials! These step-by-step guides will help you learn how to use NeMo Run effectively.
 
+## Tutorial Overview
+
+::::{grid} 1 2 2 2
+:gutter: 2 2 2 2
+
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Your First Experiment
+:link: first-experiment.md
+:link-type: doc
+:class-body: text-center
+
+Start your NeMo Run journey with a simple ML experiment. Learn installation, basic configuration, and execution.
+
++++
+{bdg-success}`Beginner` {bdg-secondary}`Setup`
+:::
+
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuring Your First Model
+:link: configuring-your-first-model.md
+:link-type: doc
+:class-body: text-center
+
+Master type-safe configuration with `run.Config`. Learn dataclass integration, validation, and reusable patterns.
+
++++
+{bdg-info}`Beginner` {bdg-secondary}`Configuration`
+:::
+
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Running Your First Experiment
+:link: running-your-first-experiment.md
+:link-type: doc
+:class-body: text-center
+
+Organize experiments with `run.Experiment` and `run.Partial`. Learn experiment management and best practices.
+
++++
+{bdg-info}`Beginner` {bdg-secondary}`Experiments`
+:::
+
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Saving and Loading Models
+:link: saving-and-loading-models.md
+:link-type: doc
+:class-body: text-center
+
+Persist your trained models with serialization. Learn checkpointing, metadata, and model registry patterns.
+
++++
+{bdg-info}`Beginner` {bdg-secondary}`Persistence`
+:::
+
+:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Perform Hyperparameter Tuning
+:link: hyperparameter-tuning-basics.md
+:link-type: doc
+:class-body: text-center
+
+Optimize model performance with grid search, random search, and Bayesian optimization strategies.
+
++++
+{bdg-warning}`Intermediate` {bdg-secondary}`Optimization`
+:::
+
+::::
+
 ## Beginner Tutorials
 
 These tutorials are designed for users who are new to NeMo Run or machine learning experimentation.
@@ -55,7 +117,7 @@ We recommend following these tutorials in order:
 2. **Configuring Your First Model** - Learn how to use `run.Config`
 3. **Running Your First Experiment** - Learn about `run.Experiment` and `run.Partial`
 4. **Saving and Loading Models** - Learn model persistence
-5. **Hyperparameter Tuning Basics** - Learn optimization techniques
+5. **Perform Hyperparameter Tuning** - Learn optimization techniques
 
 ## What You'll Learn
 

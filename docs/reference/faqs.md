@@ -6,7 +6,7 @@ categories: ["help"]
 
 (faqs)=
 
-# Frequently Asked Questions
+# FAQs
 
 This section provides comprehensive answers to common questions about NeMo Run, organized by functionality and complexity.
 
@@ -14,7 +14,7 @@ This section provides comprehensive answers to common questions about NeMo Run, 
 
 ### **Q:** What is NeMo Run and when should I use it?
 
-**A:** NeMo Run is NVIDIA's Python framework for distributed machine learning experimentation and execution. For detailed information about what NeMo Run is and when to use it, see our [Why Choose NeMo Run](../about/why-nemo-run) guide.
+**A:** NeMo Run is NVIDIA's Python framework for distributed machine learning experimentation and execution. For detailed information about what NeMo Run is and when to use it, see our [About NeMo Run](../about/index) guide.
 
 ### **Q:** How do I install and set up NeMo Run?
 

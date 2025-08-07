@@ -14,36 +14,45 @@ modality: "text-only"
 
 Complete, runnable examples for common NeMo Run use cases and scenarios. These examples provide production-ready code that you can execute immediately.
 
-## Example Categories
+## Example Overview
 
-::::{grid} 1 1 1 3
-:gutter: 1 1 1 2
+::::{grid} 1 2 2 2
+:gutter: 2 2 2 2
 
-:::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` ML Frameworks
+:::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` PyTorch Training
 :link: ml-frameworks/pytorch-training.md
 :link-type: doc
-:link-alt: ML Framework Examples
+:class-body: text-center
 
-Integration examples with popular ML frameworks
-:::::
+Complete PyTorch training pipeline with distributed training, custom models, and production workflows.
 
-:::{grid-item-card} {octicon}`cloud;1.5em;sd-mr-1` Cloud Platforms
-:link: #cloud-platform-examples
-:link-type: ref
-:link-alt: Cloud Platform Examples
++++
+{bdg-info}`Intermediate` {bdg-secondary}`ML Framework`
+:::
 
-Deploy and run experiments on various cloud platforms
-:::::
+:::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` TensorFlow Training
+:link: ml-frameworks/tensorflow-training.md
+:link-type: doc
+:class-body: text-center
 
-:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Real-World
+Complete TensorFlow training pipeline with distributed strategies, custom training loops, and model persistence.
+
++++
+{bdg-info}`Intermediate` {bdg-secondary}`ML Framework`
+:::
+
+:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` LLM Fine-tuning
 :link: real-world/llm-fine-tuning.md
 :link-type: doc
-:link-alt: Real-World Examples
+:class-body: text-center
 
-Production-ready examples for common ML scenarios
-:::::
+Real-world LLM fine-tuning with LoRA, QLoRA, instruction tuning, and production deployment.
 
-:::::
++++
+{bdg-warning}`Advanced` {bdg-secondary}`Real-World`
+:::
+
+::::
 
 ## ML Framework Examples
 

@@ -14,44 +14,56 @@ modality: "text-only"
 
 This section provides guides for integrating NeMo Run with popular ML frameworks, cloud platforms, monitoring tools, and CI/CD pipelines.
 
-## Integration Categories
+## Integration Overview
 
-::::{grid} 1 1 1 2
-:gutter: 1 1 1 2
+::::{grid} 1 2 2 2
+:gutter: 2 2 2 2
 
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` ML Frameworks
-:link: ml-frameworks
+:link: ml-frameworks.md
 :link-type: doc
-:link-alt: ML Frameworks Integration
+:class-body: text-center
 
-Integrate with PyTorch, TensorFlow, and other popular ML frameworks
+Integrate with PyTorch, TensorFlow, JAX, and other popular ML frameworks for seamless model training and deployment.
+
++++
+{bdg-primary}`Frameworks` {bdg-secondary}`Training`
 :::
 
 :::{grid-item-card} {octicon}`cloud;1.5em;sd-mr-1` Cloud Platforms
-:link: cloud-platforms
+:link: cloud-platforms.md
 :link-type: doc
-:link-alt: Cloud Platforms Integration
+:class-body: text-center
 
-Connect with AWS, GCP, Azure, and other cloud providers
+Connect with AWS, GCP, Azure, and other cloud providers for scalable distributed computing and deployment.
+
++++
+{bdg-warning}`Cloud` {bdg-secondary}`Deployment`
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Monitoring Tools
-:link: monitoring-tools
+:link: monitoring-tools.md
 :link-type: doc
-:link-alt: Monitoring Tools Integration
+:class-body: text-center
 
-Integrate with WandB, MLflow, TensorBoard, and other monitoring solutions
+Integrate with WandB, MLflow, TensorBoard, and other monitoring solutions for comprehensive experiment tracking.
+
++++
+{bdg-success}`Monitoring` {bdg-secondary}`Tracking`
 :::
 
 :::{grid-item-card} {octicon}`git-branch;1.5em;sd-mr-1` CI/CD Pipelines
-:link: ci-cd-pipelines
+:link: ci-cd-pipelines.md
 :link-type: doc
-:link-alt: CI/CD Pipelines Integration
+:class-body: text-center
 
-Automate experiment execution with GitHub Actions, GitLab CI, and Jenkins
+Automate experiment execution with GitHub Actions, GitLab CI, Jenkins, and other CI/CD platforms.
+
++++
+{bdg-info}`Automation` {bdg-secondary}`DevOps`
 :::
 
-::::
+:::::
 
 ## Why Integrations Matter
 
@@ -161,6 +173,17 @@ with run.Experiment("training") as experiment:
 3. **Handle Errors** - Implement proper error handling for external services
 4. **Secure Credentials** - Use environment variables for sensitive information
 5. **Monitor Performance** - Track integration performance and optimize as needed
+
+## Integration Files
+
+```{toctree}
+:maxdepth: 2
+
+ml-frameworks.md
+cloud-platforms.md
+monitoring-tools.md
+ci-cd-pipelines.md
+```
 
 ## Need Help?
 

@@ -8,9 +8,9 @@ content_type: "concept"
 modality: "text-only"
 ---
 
-(architecture)=
+(architecture-overview)=
 
-# Architecture
+# Architecture Overview
 
 NeMo Run's architecture is designed around three core principles: **separation of concerns**, **extensibility**, and **type safety**. The framework provides a unified interface for ML experiment lifecycle management while maintaining flexibility across diverse computing environments.
 

@@ -43,7 +43,7 @@ pip install git+https://github.com/NVIDIA-NeMo/Run.git
 
 ### Requirements
 
-- Python 3.8+
+- Python 3.10+
 - pip (for package installation)
 - Access to computing resources (local, cloud, or cluster)
 
@@ -94,7 +94,7 @@ NeMo Run addresses critical challenges in ML experiment management:
 - **🔄 Reproducibility**: One-command experiment reconstruction from metadata
 - **⚡ Scalability**: Seamless transition from local development to distributed clusters
 
-For detailed information, see our [Why Use NeMo Run guide](docs/about/why-nemo-run.md).
+For detailed information, see our [About NeMo Run guide](docs/about/index.md).
 
 ## 📚 Documentation
 

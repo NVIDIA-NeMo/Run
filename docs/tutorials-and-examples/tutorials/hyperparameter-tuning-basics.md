@@ -10,7 +10,7 @@ modality: "text-only"
 
 (hyperparameter-tuning-basics)=
 
-# Hyperparameter Tuning Basics
+# Perform Hyperparameter Tuning
 
 Learn how to perform hyperparameter tuning using NeMo Run's experiment management features to find optimal model configurations.
 
@@ -47,7 +47,7 @@ class HyperparameterConfig:
     hidden_size: int
     batch_size: int
     epochs: int
-    
+
     def __str__(self):
         return f"lr={self.learning_rate}, hidden={self.hidden_size}, batch={self.batch_size}"
 
@@ -55,17 +55,17 @@ class HyperparameterConfig:
 def train_with_hyperparameters(config: HyperparameterConfig):
     """Train a model with given hyperparameters."""
     print(f"Training with config: {config}")
-    
+
     # Simulate training with different hyperparameters
     for epoch in range(config.epochs):
         # Simulate loss based on hyperparameters
         base_loss = 1.0 / (epoch + 1)
         lr_factor = config.learning_rate * 10  # Scale for visibility
         size_factor = 1.0 / (config.hidden_size / 50)  # Smaller networks learn faster
-        
+
         loss = base_loss * lr_factor * size_factor
         print(f"  Epoch {epoch}: Loss = {loss:.4f}")
-    
+
     # Return final loss and config
     return {
         "final_loss": loss,
@@ -92,12 +92,12 @@ with run.Experiment("grid_search_experiment") as experiment:
             batch_size=batch,
             epochs=5
         )
-        
+
         experiment.add(
             run.Partial(train_with_hyperparameters, config),
             name=f"config_{i:03d}_{lr}_{hidden}_{batch}"
         )
-    
+
     # Run all experiments
     results = experiment.run()
 
@@ -137,7 +137,7 @@ class HyperparameterRanges:
     hidden_size_range: Tuple[int, int] = (32, 512)
     batch_size_options: List[int] = None
     epochs_range: Tuple[int, int] = (3, 10)
-    
+
     def __post_init__(self):
         if self.batch_size_options is None:
             self.batch_size_options = [16, 32, 64, 128]
@@ -147,16 +147,16 @@ def generate_random_config(ranges: HyperparameterRanges) -> HyperparameterConfig
     # Generate random learning rate (log scale)
     lr_min, lr_max = ranges.learning_rate_range
     learning_rate = 10 ** random.uniform(np.log10(lr_min), np.log10(lr_max))
-    
+
     # Generate random hidden size
     hidden_size = random.randint(ranges.hidden_size_range[0], ranges.hidden_size_range[1])
-    
+
     # Choose random batch size
     batch_size = random.choice(ranges.batch_size_options)
-    
+
     # Generate random epochs
     epochs = random.randint(ranges.epochs_range[0], ranges.epochs_range[1])
-    
+
     return HyperparameterConfig(
         learning_rate=learning_rate,
         hidden_size=hidden_size,
@@ -168,23 +168,23 @@ def generate_random_config(ranges: HyperparameterRanges) -> HyperparameterConfig
 def run_random_search(num_trials: int = 20):
     """Run random search hyperparameter optimization."""
     ranges = HyperparameterRanges()
-    
+
     print(f"Running random search with {num_trials} trials")
     print(f"Learning rate range: {ranges.learning_rate_range}")
     print(f"Hidden size range: {ranges.hidden_size_range}")
     print(f"Batch size options: {ranges.batch_size_options}")
-    
+
     with run.Experiment("random_search_experiment") as experiment:
         for i in range(num_trials):
             config = generate_random_config(ranges)
-            
+
             experiment.add(
                 run.Partial(train_with_hyperparameters, config),
                 name=f"random_trial_{i:03d}"
             )
-        
+
         results = experiment.run()
-    
+
     return results
 
 # Run random search
@@ -226,7 +226,7 @@ class AdvancedHyperparameterConfig:
     dropout: float
     optimizer: str
     activation: str
-    
+
     def __str__(self):
         return f"lr={self.learning_rate}, hidden={self.hidden_size}, batch={self.batch_size}, dropout={self.dropout}, opt={self.optimizer}"
 
@@ -234,7 +234,7 @@ class AdvancedHyperparameterConfig:
 def advanced_training_with_hyperparameters(config: AdvancedHyperparameterConfig):
     """Advanced training function with more hyperparameters."""
     print(f"Advanced training with config: {config}")
-    
+
     # Simulate training with more complex loss function
     for epoch in range(config.epochs):
         # Complex loss simulation based on hyperparameters
@@ -243,10 +243,10 @@ def advanced_training_with_hyperparameters(config: AdvancedHyperparameterConfig)
         size_factor = 1.0 / (config.hidden_size / 100)
         dropout_factor = 1.0 + config.dropout * 0.5  # Dropout affects learning
         optimizer_factor = 1.0 if config.optimizer == "adam" else 1.2  # Adam is better
-        
+
         loss = base_loss * lr_factor * size_factor * dropout_factor * optimizer_factor
         print(f"  Epoch {epoch}: Loss = {loss:.4f}")
-    
+
     return {
         "final_loss": loss,
         "config": config,
@@ -257,13 +257,13 @@ def advanced_training_with_hyperparameters(config: AdvancedHyperparameterConfig)
 # Bayesian optimization simulation (simplified)
 class BayesianOptimizer:
     """Simplified Bayesian optimization for hyperparameter tuning."""
-    
+
     def __init__(self, ranges: Dict[str, Any]):
         self.ranges = ranges
         self.history = []
         self.best_config = None
         self.best_loss = float('inf')
-    
+
     def suggest_config(self) -> AdvancedHyperparameterConfig:
         """Suggest next configuration to try."""
         if len(self.history) < 3:
@@ -272,7 +272,7 @@ class BayesianOptimizer:
         else:
             # Simple acquisition function: explore promising regions
             return self._acquisition_function()
-    
+
     def _random_config(self) -> AdvancedHyperparameterConfig:
         """Generate random configuration."""
         return AdvancedHyperparameterConfig(
@@ -284,15 +284,15 @@ class BayesianOptimizer:
             optimizer=random.choice(["adam", "sgd"]),
             activation=random.choice(["relu", "tanh", "sigmoid"])
         )
-    
+
     def _acquisition_function(self) -> AdvancedHyperparameterConfig:
         """Simple acquisition function based on best results."""
         # Find best configurations
         best_configs = sorted(self.history, key=lambda x: x[1])[:3]
-        
+
         # Perturb best configuration
         best_config = best_configs[0][0]
-        
+
         # Create variation of best config
         new_config = AdvancedHyperparameterConfig(
             learning_rate=best_config.learning_rate * random.uniform(0.5, 2.0),
@@ -303,14 +303,14 @@ class BayesianOptimizer:
             optimizer=best_config.optimizer,
             activation=best_config.activation
         )
-        
+
         # Ensure bounds
         new_config.learning_rate = max(0.0001, min(0.1, new_config.learning_rate))
         new_config.hidden_size = max(32, min(512, new_config.hidden_size))
         new_config.dropout = max(0.0, min(0.5, new_config.dropout))
-        
+
         return new_config
-    
+
     def update(self, config: AdvancedHyperparameterConfig, loss: float):
         """Update optimizer with new result."""
         self.history.append((config, loss))
@@ -322,25 +322,25 @@ class BayesianOptimizer:
 def run_bayesian_optimization(num_trials: int = 20):
     """Run Bayesian optimization for hyperparameter tuning."""
     optimizer = BayesianOptimizer({})
-    
+
     print(f"Running Bayesian optimization with {num_trials} trials")
-    
+
     with run.Experiment("bayesian_optimization_experiment") as experiment:
         for i in range(num_trials):
             # Get suggested configuration
             config = optimizer.suggest_config()
-            
+
             experiment.add(
                 run.Partial(advanced_training_with_hyperparameters, config),
                 name=f"bayesian_trial_{i:03d}"
             )
-        
+
         results = experiment.run()
-        
+
         # Update optimizer with results
         for name, result in results.items():
             optimizer.update(result["config"], result["final_loss"])
-    
+
     return results, optimizer
 
 # Run Bayesian optimization
@@ -385,15 +385,15 @@ def analyze_hyperparameter_importance(results: Dict[str, Any]) -> Dict[str, floa
             "epochs": config.epochs,
             "final_loss": result["final_loss"]
         })
-    
+
     df = pd.DataFrame(data)
-    
+
     # Calculate correlations with loss
     correlations = {}
     for col in df.columns:
         if col != "final_loss":
             correlations[col] = abs(df[col].corr(df["final_loss"]))
-    
+
     return correlations
 
 def create_hyperparameter_plots(results: Dict[str, Any]):
@@ -409,37 +409,37 @@ def create_hyperparameter_plots(results: Dict[str, Any]):
             "epochs": config.epochs,
             "final_loss": result["final_loss"]
         })
-    
+
     df = pd.DataFrame(data)
-    
+
     # Create subplots
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    
+
     # Learning rate vs Loss
     axes[0, 0].scatter(df["learning_rate"], df["final_loss"])
     axes[0, 0].set_xlabel("Learning Rate")
     axes[0, 0].set_ylabel("Final Loss")
     axes[0, 0].set_title("Learning Rate vs Loss")
     axes[0, 0].set_xscale("log")
-    
+
     # Hidden size vs Loss
     axes[0, 1].scatter(df["hidden_size"], df["final_loss"])
     axes[0, 1].set_xlabel("Hidden Size")
     axes[0, 1].set_ylabel("Final Loss")
     axes[0, 1].set_title("Hidden Size vs Loss")
-    
+
     # Batch size vs Loss
     axes[1, 0].scatter(df["batch_size"], df["final_loss"])
     axes[1, 0].set_xlabel("Batch Size")
     axes[1, 0].set_ylabel("Final Loss")
     axes[1, 0].set_title("Batch Size vs Loss")
-    
+
     # Epochs vs Loss
     axes[1, 1].scatter(df["epochs"], df["final_loss"])
     axes[1, 1].set_xlabel("Epochs")
     axes[1, 1].set_ylabel("Final Loss")
     axes[1, 1].set_title("Epochs vs Loss")
-    
+
     plt.tight_layout()
     plt.savefig("hyperparameter_analysis.png")
     plt.show()
@@ -467,8 +467,8 @@ import time
 
 class AutomatedHyperparameterOptimizer:
     """Automated hyperparameter optimization system."""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  training_function: Callable,
                  hyperparameter_ranges: Dict[str, Any],
                  optimization_strategy: str = "random",
@@ -483,7 +483,7 @@ class AutomatedHyperparameterOptimizer:
         self.best_result = None
         self.best_loss = float('inf')
         self.no_improvement_count = 0
-    
+
     def generate_config(self) -> Dict[str, Any]:
         """Generate hyperparameter configuration based on strategy."""
         if self.optimization_strategy == "random":
@@ -492,7 +492,7 @@ class AutomatedHyperparameterOptimizer:
             return self._grid_config()
         else:
             raise ValueError(f"Unknown strategy: {self.optimization_strategy}")
-    
+
     def _random_config(self) -> Dict[str, Any]:
         """Generate random configuration."""
         config = {}
@@ -504,7 +504,7 @@ class AutomatedHyperparameterOptimizer:
             else:
                 config[param] = range_info
         return config
-    
+
     def _grid_config(self) -> Dict[str, Any]:
         """Generate grid search configuration."""
         # Simplified grid search
@@ -515,33 +515,33 @@ class AutomatedHyperparameterOptimizer:
             else:
                 config[param] = options
         return config
-    
+
     def optimize(self) -> Dict[str, Any]:
         """Run automated hyperparameter optimization."""
         print(f"Starting {self.optimization_strategy} optimization with {self.max_trials} trials")
-        
+
         with run.Experiment("automated_optimization") as experiment:
             for trial in range(self.max_trials):
                 # Generate configuration
                 config_dict = self.generate_config()
-                
+
                 # Convert to config object
                 config = HyperparameterConfig(**config_dict)
-                
+
                 # Add to experiment
                 experiment.add(
                     run.Partial(self.training_function, config),
                     name=f"trial_{trial:03d}"
                 )
-                
+
                 # Check early stopping
                 if self._should_stop_early():
                     print(f"Early stopping at trial {trial}")
                     break
-            
+
             # Run experiments
             results = experiment.run()
-            
+
             # Process results
             for name, result in results.items():
                 self.results.append({
@@ -549,7 +549,7 @@ class AutomatedHyperparameterOptimizer:
                     "config": result["config"],
                     "loss": result["final_loss"]
                 })
-                
+
                 # Update best result
                 if result["final_loss"] < self.best_loss:
                     self.best_loss = result["final_loss"]
@@ -557,20 +557,20 @@ class AutomatedHyperparameterOptimizer:
                     self.no_improvement_count = 0
                 else:
                     self.no_improvement_count += 1
-        
+
         return self.best_result
-    
+
     def _should_stop_early(self) -> bool:
         """Check if optimization should stop early."""
         return self.no_improvement_count >= self.early_stopping_patience
-    
+
     def get_optimization_summary(self) -> Dict[str, Any]:
         """Get summary of optimization results."""
         if not self.results:
             return {}
-        
+
         losses = [r["loss"] for r in self.results]
-        
+
         return {
             "best_loss": self.best_loss,
             "best_config": self.best_result["config"] if self.best_result else None,
@@ -633,7 +633,7 @@ def create_custom_optimizer():
         "batch_size": [16, 32, 64],
         "epochs": [5]
     }
-    
+
     optimizer = AutomatedHyperparameterOptimizer(
         training_function=train_with_hyperparameters,
         hyperparameter_ranges=ranges,
@@ -641,10 +641,10 @@ def create_custom_optimizer():
         max_trials=15,
         early_stopping_patience=3
     )
-    
+
     best_result = optimizer.optimize()
     summary = optimizer.get_optimization_summary()
-    
+
     # Save best configuration
     with open("best_config.json", "w") as f:
         json.dump({
@@ -652,7 +652,7 @@ def create_custom_optimizer():
             "best_loss": summary["best_loss"],
             "optimization_summary": summary
         }, f, indent=2, default=str)
-    
+
     return best_result
 
 # Run your optimizer
@@ -677,4 +677,4 @@ In this tutorial, you learned:
 - How to analyze and visualize hyperparameter results
 - How to build automated hyperparameter optimization systems
 
-Hyperparameter tuning is essential for finding optimal model configurations and improving model performance. 
+Hyperparameter tuning is essential for finding optimal model configurations and improving model performance.

@@ -12,42 +12,71 @@ modality: "text-only"
 
 # Use Cases
 
-Real-world applications and workflows demonstrating how NeMo Run solves practical ML challenges.
+Real-world applications and workflows demonstrating how NeMo Run solves practical ML challenges for AI developers and scientists.
 
-## Use Case Categories
+## Use Case Overview
 
-::::{grid} 1 1 1 3
-:gutter: 1 1 1 2
+::::{grid} 1 2 2 2
+:gutter: 2 2 2 2
 
-:::{grid-item-card} {octicon}`microscope;1.5em;sd-mr-1` Research
+:::{grid-item-card} {octicon}`microscope;1.5em;sd-mr-1` Reproducible Research
 :link: research/reproducible-research.md
 :link-type: doc
-:link-alt: Research Use Cases
+:class-body: text-center
 
-Academic and industrial research workflows
-:::::
+Ensure complete reproducibility of ML experiments across different environments and time periods with comprehensive state capture and version control.
 
-:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Production
++++
+{bdg-primary}`Research` {bdg-secondary}`Reproducibility`
+:::
+
+:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Hyperparameter Optimization
+:link: research/hyperparameter-optimization.md
+:link-type: doc
+:class-body: text-center
+
+Automate hyperparameter search with advanced optimization strategies including Bayesian optimization and multi-objective search.
+
++++
+{bdg-primary}`Research` {bdg-secondary}`Optimization`
+:::
+
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` ML Pipelines
 :link: production/ml-pipelines.md
 :link-type: doc
-:link-alt: Production Use Cases
+:class-body: text-center
 
-Production ML systems and workflows
-:::::
+Build robust, scalable ML pipelines for production environments with end-to-end orchestration and fault tolerance.
 
-:::{grid-item-card} {octicon}`users;1.5em;sd-mr-1` Collaboration
-:link: collaboration/team-workflows.md
++++
+{bdg-warning}`Production` {bdg-secondary}`Orchestration`
+:::
+
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Model Deployment
+:link: production/model-deployment.md
 :link-type: doc
-:link-alt: Collaboration Use Cases
+:class-body: text-center
 
-Team collaboration and knowledge sharing
-:::::
+Deploy ML models with confidence using versioning, A/B testing, monitoring, and automated scaling capabilities.
+
++++
+{bdg-warning}`Production` {bdg-secondary}`Deployment`
+:::
+
+:::{grid-item-card} {octicon}`users;1.5em;sd-mr-1` Experiment Tracking
+:link: collaboration/experiment-tracking.md
+:link-type: doc
+:class-body: text-center
+
+Track and share experiments across team members with centralized management and collaboration tools.
+
++++
+{bdg-success}`Collaboration` {bdg-secondary}`Tracking`
+:::
 
 :::::
 
 ## Research Use Cases
-
-Academic and industrial research applications of NeMo Run.
 
 ### [Reproducible Research](research/reproducible-research.md)
 Ensure complete reproducibility of ML experiments across different environments.
@@ -79,24 +108,7 @@ Automate hyperparameter search with advanced optimization strategies.
 - Automated ML pipelines
 - Research methodology validation
 
-### [Model Comparison](research/model-comparison.md)
-Systematically compare different model architectures and approaches.
-
-**Key Features:**
-- Standardized evaluation metrics
-- Statistical significance testing
-- Visualization and reporting
-- Automated comparison workflows
-
-**Applications:**
-- Architecture research
-- Benchmark studies
-- Method evaluation
-- Publication preparation
-
 ## Production Use Cases
-
-Enterprise and production ML system applications.
 
 ### [ML Pipelines](production/ml-pipelines.md)
 Build robust, scalable ML pipelines for production environments.
@@ -128,54 +140,7 @@ Deploy ML models with confidence and monitoring.
 - Model serving platforms
 - Edge deployment
 
-### [Monitoring](production/monitoring.md)
-Monitor ML systems and detect issues proactively.
-
-**Key Features:**
-- Real-time metrics collection
-- Anomaly detection
-- Performance tracking
-- Automated alerting
-
-**Applications:**
-- Model drift detection
-- System health monitoring
-- Performance optimization
-- Incident response
-
 ## Collaboration Use Cases
-
-Team collaboration and knowledge sharing workflows.
-
-### [Team Workflows](collaboration/team-workflows.md)
-Enable effective collaboration across ML teams.
-
-**Key Features:**
-- Shared experiment repositories
-- Knowledge transfer mechanisms
-- Standardized workflows
-- Team coordination tools
-
-**Applications:**
-- Research team collaboration
-- Cross-functional ML teams
-- Academic-industry partnerships
-- Open source contributions
-
-### [Code Sharing](collaboration/code-sharing.md)
-Share and reuse ML code effectively across teams.
-
-**Key Features:**
-- Version-controlled configurations
-- Reusable components
-- Documentation generation
-- Code review workflows
-
-**Applications:**
-- Internal tool development
-- Open source projects
-- Research code sharing
-- Best practice dissemination
 
 ### [Experiment Tracking](collaboration/experiment-tracking.md)
 Track and share experiments across team members.
@@ -191,64 +156,6 @@ Track and share experiments across team members.
 - Knowledge management
 - Research documentation
 - Training and onboarding
-
-## Industry-Specific Use Cases
-
-### Healthcare and Life Sciences
-
-**Drug Discovery Pipeline**
-- Molecular property prediction
-- Protein structure prediction
-- Clinical trial optimization
-- Medical image analysis
-
-**Key Benefits:**
-- Regulatory compliance
-- Reproducible research
-- Multi-site collaboration
-- Scalable computing
-
-### Financial Services
-
-**Risk Assessment and Trading**
-- Credit risk modeling
-- Fraud detection
-- Algorithmic trading
-- Portfolio optimization
-
-**Key Benefits:**
-- Real-time processing
-- Regulatory compliance
-- Audit trail maintenance
-- High-performance computing
-
-### Manufacturing and IoT
-
-**Predictive Maintenance**
-- Equipment failure prediction
-- Quality control automation
-- Supply chain optimization
-- Energy consumption optimization
-
-**Key Benefits:**
-- Edge deployment
-- Real-time monitoring
-- Scalable infrastructure
-- Cost optimization
-
-### E-commerce and Retail
-
-**Recommendation Systems**
-- Product recommendations
-- Customer segmentation
-- Demand forecasting
-- Price optimization
-
-**Key Benefits:**
-- Personalization at scale
-- Real-time inference
-- A/B testing capabilities
-- Performance optimization
 
 ## Use Case Implementation Patterns
 
@@ -398,18 +305,14 @@ class ProductionMonitor:
 
 research/reproducible-research.md
 research/hyperparameter-optimization.md
-research/model-comparison.md
 production/ml-pipelines.md
 production/model-deployment.md
-production/monitoring.md
-collaboration/code-sharing.md
 collaboration/experiment-tracking.md
-collaboration/team-workflows.md
 ```
 
 ## Next Steps
 
-- Explore **[Tutorials and Examples](../index.md)** for step-by-step learning
-- Check **[Tutorials and Examples](../index.md)** for complete code samples
+- Explore **[Tutorials](../tutorials/index.md)** for step-by-step learning
+- Check **[Examples](../examples/index.md)** for complete code samples
 - Review **[Best Practices](../../best-practices/index.md)** for optimization
 - Consult **[Reference](../../reference/index.md)** for detailed API documentation

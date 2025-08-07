@@ -6,13 +6,13 @@ categories: ["get-started"]
 
 (quickstart)=
 
-# Quickstart
+# Quick Start
 
 Get up and running with NeMo Run in minutes.
 
 ## Prerequisites
 
-- **Python 3.8+** with pip
+- **Python 3.10+** with pip
 - **Basic ML knowledge** (PyTorch, training loops)
 
 ## Installation
@@ -48,6 +48,12 @@ python -c "import nemo_run as run; print('✅ NeMo Run ready')"
    # Local execution
    executor = run.LocalExecutor()
 
+   # Docker execution
+   executor = run.DockerExecutor(
+       container_image="nvidia/pytorch:24.05-py3",
+       num_gpus=1
+   )
+
    # Remote execution
    executor = run.SlurmExecutor(
        partition="gpu",
@@ -65,6 +71,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+from typing import Dict
 import nemo_run as run
 
 def train_model(
@@ -128,8 +135,11 @@ config = run.Config(
 
 ```python
 # Simple execution
-result = run.run(config)
-print(f"Training completed! Final loss: {result['final_loss']:.4f}")
+try:
+    result = run.run(config)
+    print(f"Training completed! Final loss: {result['final_loss']:.4f}")
+except Exception as e:
+    print(f"Training failed: {e}")
 
 # Experiment with multiple configurations
 with run.Experiment(name="hyperparameter_sweep") as exp:
@@ -143,7 +153,12 @@ with run.Experiment(name="hyperparameter_sweep") as exp:
     )
 
 # Execute all experiments
-results = exp.run()
+try:
+    results = exp.run()
+    for name, result in results.items():
+        print(f"{name}: Loss = {result['final_loss']:.4f}")
+except Exception as e:
+    print(f"Experiment failed: {e}")
 ```
 
 ## Advanced Patterns
@@ -173,6 +188,26 @@ def create_training_config(
 
 # Usage
 config = create_training_config("large", learning_rate=0.0005)
+```
+
+### CLI Integration
+
+```python
+@run.cli.entrypoint
+def train_cli(
+    model_size: str = "small",
+    learning_rate: float = 0.001,
+    batch_size: int = 32,
+    epochs: int = 10
+):
+    """Train model via command line."""
+    config = create_training_config(model_size, learning_rate, batch_size)
+    config.epochs = epochs
+
+    result = run.run(config)
+    print(f"Training completed! Loss: {result['final_loss']:.4f}")
+
+# Usage: python script.py model_size=large learning_rate=0.0005
 ```
 
 ### Experiment Orchestration
@@ -211,6 +246,21 @@ with run.Experiment(name="train_and_evaluate") as exp:
 
 # Execute with dependency management
 results = exp.run()
+```
+
+### Script Execution
+
+```python
+# Execute Python scripts
+script = run.Script("python train.py --epochs 100")
+
+# Execute shell commands
+script = run.Script("bash train.sh")
+
+# Use in experiment
+with run.Experiment("script_execution") as exp:
+    exp.add(script, name="script_run")
+    exp.run()
 ```
 
 ## Next Steps

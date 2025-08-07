@@ -8,18 +8,7 @@ categories: ["about"]
 
 # Key Features
 
-NeMo Run provides advanced capabilities for AI researchers and ML practitioners, offering sophisticated experiment management, distributed computing, and reproducible research workflows.
-
-## Core Architecture
-
-NeMo Run's architecture is built around several interconnected systems:
-
-- **Configuration System**: Type-safe, composable configuration management with Fiddle
-- **Execution Framework**: Multi-backend execution across diverse computing environments
-- **Experiment Orchestration**: Advanced experiment lifecycle management with metadata tracking
-- **Distributed Computing**: Ray integration for scalable distributed training
-- **Packaging System**: Reproducible code packaging and deployment strategies
-- **CLI Framework**: Intelligent command-line interface with type safety
+NeMo Run provides advanced technical capabilities for AI researchers and ML practitioners, offering sophisticated experiment management, distributed computing, and reproducible research workflows.
 
 ## Advanced Configuration System
 
@@ -163,31 +152,62 @@ with run.Experiment(
 
 ### Ray Integration
 
-NeMo Run integrates with Ray for scalable distributed computing:
+NeMo Run provides comprehensive Ray integration for distributed computing across Kubernetes and Slurm environments:
 
 ```python
 import nemo_run as run
-from nemo_run.run.ray import RayCluster
+from nemo_run.run.ray.cluster import RayCluster
+from nemo_run.run.ray.job import RayJob
+from nemo_run.core.execution.kuberay import KubeRayExecutor, KubeRayWorkerGroup
 
-# Ray cluster configuration
-cluster_config = RayCluster(
-    num_nodes=4,
-    gpus_per_node=8,
-    memory_per_node="64GB"
+# Configure KubeRay executor for Kubernetes-based Ray clusters
+executor = KubeRayExecutor(
+    namespace="ml-team",
+    ray_version="2.43.0",
+    image="anyscale/ray:2.43.0-py312-cu125",
+    head_cpu="8",
+    head_memory="32Gi",
+    worker_groups=[
+        KubeRayWorkerGroup(
+            group_name="gpu-workers",
+            replicas=4,
+            gpus_per_worker=8,
+            cpu_per_worker="32",
+            memory_per_worker="128Gi"
+        )
+    ]
 )
 
-# Distributed training
-with run.Experiment() as exp:
-    exp.add(
-        run.Config(distributed_train, model_size="70b"),
-        executor=run.RayExecutor(cluster=cluster_config)
-    )
+# Create persistent Ray cluster for interactive development
+cluster = RayCluster(name="ml-dev-cluster", executor=executor)
+cluster.start(
+    timeout=900,
+    pre_ray_start_commands=["pip install uv", "mkdir -p /workspace/data"],
+    wait_until_ready=True
+)
+
+# Submit job to the cluster
+job = RayJob(name="training-job", executor=executor)
+job.start(
+    command="python train.py --config configs/train.yaml",
+    workdir="/workspace/project/",
+    pre_ray_start_commands=["pip install -r requirements.txt"]
+)
 ```
+
+### Multi-Environment Ray Support
+
+NeMo Run supports Ray across multiple execution environments:
+
+- **KubeRay**: Native Kubernetes integration with custom resources
+- **Slurm Ray**: HPC cluster integration with job scheduling
+- **Interactive Development**: Long-lived clusters for iterative workflows
+- **Batch Processing**: Ephemeral clusters for one-off jobs
 
 ### Multi-Node Training
 
 ```python
-# Multi-node PyTorch distributed training
+# Multi-node PyTorch distributed training with Ray
 def distributed_train(
     model_config: ModelConfig,
     world_size: int = 32,
@@ -220,16 +240,15 @@ NeMo Run supports multiple packaging strategies for reproducible execution:
 
 ```python
 # Git-based packaging
-git_package = run.GitPackage(
-    repo_url="https://github.com/user/project",
-    commit_hash="abc123",
-    subdirectory="ml_experiments"
+git_package = run.GitArchivePackager(
+    subpath="ml_experiments"
 )
 
 # Pattern-based packaging
-pattern_package = run.PatternPackage(
-    patterns=["*.py", "configs/*.yaml", "models/*.pt"],
-    exclude_patterns=["*.log", "temp/*"]
+pattern_package = run.PatternPackager(
+    include_pattern="*.py configs/*.yaml models/*.pt",
+    exclude_pattern="*.log temp/*",
+    relative_path=os.getcwd()
 )
 ```
 
@@ -241,7 +260,7 @@ NeMo Run provides a sophisticated CLI with automatic type inference:
 
 ```python
 # CLI integration with type safety
-@run.cli_command
+@run.cli.entrypoint
 def train(
     model_size: str = "7b",
     learning_rate: float = 1e-4,
@@ -259,6 +278,8 @@ def train(
 - **Configuration Overrides**: Override configuration values via command line
 - **Help Generation**: Automatic help text generation with parameter descriptions
 - **Validation**: Runtime validation of command line arguments
+- **Rich Argument Parsing**: Support for complex Python types and nested configurations
+- **Factory Functions**: Reusable configuration components for complex objects
 
 ## Integration Capabilities
 
@@ -278,9 +299,9 @@ def train(
 
 ### Monitoring and Observability
 
-- **TensorBoard**: Automatic TensorBoard integration for experiment tracking
-- **MLflow**: MLflow integration for experiment management
-- **WandB**: Weights & Biases integration for experiment tracking
+- **TensorBoard**: Manual TensorBoard integration for experiment tracking
+- **MLflow**: Manual MLflow integration for experiment management
+- **WandB**: Manual Weights & Biases integration for experiment tracking
 - **Custom Metrics**: Extensible metrics collection and visualization
 
 ## Performance Optimizations

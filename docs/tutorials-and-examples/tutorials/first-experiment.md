@@ -23,7 +23,7 @@ Welcome to NeMo Run! This tutorial will guide you through creating and running y
 
 ## Prerequisites
 
-- **Python 3.8+** with pip
+- **Python 3.10+** with pip
 - **Basic ML knowledge** (PyTorch, training loops)
 - **A computer** with Python installed
 

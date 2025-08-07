@@ -28,17 +28,6 @@ Set up your environment and run your first ML experiment with NeMo Run's type-sa
 {bdg-success}`Beginner` {bdg-secondary}`Setup`
 :::
 
-:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Tutorials and Examples
-:link: tutorials-and-examples/index.md
-:link-type: doc
-:class-body: text-center
-
-Learn NeMo Run with step-by-step tutorials, working examples, and real-world use cases for ML experiment management.
-
-+++
-{bdg-primary}`Learning` {bdg-secondary}`Hands-on`
-:::
-
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Guides
 :link: guides/index.md
 :link-type: doc
@@ -48,6 +37,17 @@ Master NeMo Run with organized guides covering configuration, execution, managem
 
 +++
 {bdg-warning}`Advanced` {bdg-secondary}`Reference`
+:::
+
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Learning Resources
+:link: tutorials-and-examples/index.md
+:link-type: doc
+:class-body: text-center
+
+Learn NeMo Run with step-by-step tutorials, working examples, and real-world use cases for ML experiment management.
+
++++
+{bdg-primary}`Learning` {bdg-secondary}`Hands-on`
 :::
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` About NeMo Run
@@ -72,8 +72,8 @@ Production-ready patterns and workflows for scalable ML experiment management an
 {bdg-warning}`Advanced` {bdg-secondary}`Production`
 :::
 
-:::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` Reference
-:link: reference/index.md
+:::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` API Documentation
+:link: api-documentation/index.md
 :link-type: doc
 :class-body: text-center
 
@@ -103,7 +103,6 @@ Connect NeMo Run with CI/CD pipelines, ML frameworks, cloud platforms, and monit
 :caption: About
 :maxdepth: 2
 about/index.md
-about/why-nemo-run.md
 about/key-features.md
 about/architecture.md
 ```
@@ -197,16 +196,6 @@ get-started/quickstart.md
 
 ```{toctree}
 :hidden:
-:caption: Tutorials and Examples
-:maxdepth: 2
-tutorials-and-examples/index.md
-tutorials-and-examples/tutorials/index.md
-tutorials-and-examples/examples/index.md
-tutorials-and-examples/use-cases/index.md
-```
-
-```{toctree}
-:hidden:
 :caption: Guides
 :maxdepth: 2
 guides/index.md
@@ -215,6 +204,16 @@ guides/execution.md
 guides/management.md
 guides/packaging.md
 guides/ray.md
+```
+
+```{toctree}
+:hidden:
+:caption: Learning Resources
+:maxdepth: 2
+tutorials-and-examples/index.md
+tutorials-and-examples/tutorials/index.md
+tutorials-and-examples/examples/index.md
+tutorials-and-examples/use-cases/index.md
 ```
 
 ```{toctree}
@@ -237,13 +236,13 @@ best-practices/index.md
 
 ```{toctree}
 :hidden:
-:caption: Reference
+:caption: API Documentation
 :maxdepth: 2
-reference/index.md
-reference/api.md
+api-documentation/index.md
+api-documentation/api-reference.md
 reference/cli.md
 reference/faqs.md
-reference/troubleshooting.md
+guides/troubleshooting.md
 apidocs/index.rst
 ```
 
