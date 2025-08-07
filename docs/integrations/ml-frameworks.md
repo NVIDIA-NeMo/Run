@@ -656,7 +656,7 @@ hyperparameter_grid_search()
 
 ## Next Steps
 
-- Explore [Cloud Platform Integration](cloud-platforms) for distributed training
-- Learn about [Monitoring Tools Integration](monitoring-tools) for experiment tracking
-- Review [CI/CD Integration](ci-cd-pipelines) for automated experimentation
-- Check [Best Practices](../best-practices/index) for production ML workflows
+- Explore [Cloud Platform Integration](cloud-platforms.md) for distributed training
+- Learn about [Monitoring Tools Integration](monitoring-tools.md) for experiment tracking
+- Review [CI/CD Integration](ci-cd-pipelines.md) for automated experimentation
+- Check [Guides](../guides/index) for production ML workflows

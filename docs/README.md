@@ -58,13 +58,13 @@ docs/
 │   └── release-notes/
 ├── get-started/             # Quickstart guides
 ├── guides/                  # Advanced guides
-├── best-practices/          # Best practices
+├── guides/                  # Guides and tutorials
 ├── integrations/            # Integration guides
 ├── product-c-analytics/     # Product C documentation
 ├── deployment/              # Administrative guides
 │   ├── deployment/
 │   └── integrations/
-└── reference/              # Reference documentation
+└── references/             # Reference documentation
     └── infrastructure/
 ```
 
@@ -94,7 +94,7 @@ The template uses `sphinx-design` for responsive grid layouts:
 :gutter: 1 1 1 2
 
 :::{grid-item-card} Title
-:link: target-reference
+:link: ../index
 :link-type: ref
 Description text
 +++
@@ -189,7 +189,7 @@ This template provides a solid foundation for creating professional, maintainabl
     - [1. File-Level Exclusion (Recommended for Entire Sections)](#1-file-level-exclusion-recommended-for-entire-sections)
     - [2. Grid Card Conditional Rendering](#2-grid-card-conditional-rendering)
     - [3. Toctree Conditional Rendering](#3-toctree-conditional-rendering)
-    - [Best Practices](#best-practices)
+    - [Guides](#guides)
     - [Testing Conditional Content](#testing-conditional-content)
   - [Run Doctests (if present)](#run-doctests-if-present)
   - [Example: How to Write Doctests in Documentation](#example-how-to-write-doctests-in-documentation)
@@ -277,7 +277,7 @@ Hide specific grid cards from certain builds:
 
 ```markdown
 :::{grid-item-card} Video Curation Features
-:link: video-overview
+:link: ../learning-resources/index
 :link-type: ref
 :only: not ga
 Content for EA-only features

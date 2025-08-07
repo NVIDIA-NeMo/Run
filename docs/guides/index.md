@@ -14,7 +14,18 @@ modality: "text-only"
 
 Comprehensive guides for mastering NeMo Run's core features and capabilities.
 
-## Guide Overview
+## What You'll Find Here
+
+This section contains comprehensive guides for mastering NeMo Run's core features and capabilities:
+
+- **Configuration Guide** with type-safe configuration patterns, validation, and Fiddle integration
+- **Execution Guide** covering multi-environment execution across local, Docker, Slurm, and cloud platforms
+- **Management Guide** for experiment lifecycle management, metadata tracking, and reproducibility
+- **Packaging Guide** with code deployment strategies for reproducible remote execution
+- **Ray Integration Guide** for distributed computing with Ray clusters and jobs
+- **Troubleshooting Guide** with comprehensive debugging and problem resolution techniques
+
+## Guides Overview
 
 ::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
@@ -95,29 +106,11 @@ Comprehensive debugging and problem resolution for common issues, error messages
 
 ## Recommended Learning Path
 
-1. **Configuration** - Type-safe experiment configuration with Fiddle integration
-2. **Execution** - Multi-environment execution strategies and task management
-3. **Management** - Experiment tracking, metadata, and reproducibility
-4. **Packaging** - Code deployment strategies for remote execution
-5. **Ray Integration** - Distributed computing capabilities (optional)
-6. **Troubleshooting** - Debugging and problem resolution (as needed)
+We recommend following these guides in order for the best learning experience:
 
-## Guide Details
-
-### Configuration Guide
-Learn advanced configuration patterns using `run.Config`, `run.Partial`, and `run.Script` with type-safe validation and Fiddle integration. Covers nested configurations, validation rules, and CLI integration.
-
-### Execution Guide
-Master multi-environment execution across local, Docker, Slurm, and cloud platforms. Understand executors, packagers, launchers, and experiment management with comprehensive examples.
-
-### Management Guide
-Comprehensive experiment lifecycle management with task orchestration, metadata tracking, artifact management, and reproducibility features for complex ML workflows.
-
-### Packaging Guide
-Complete guide to code packaging strategies including GitArchive for version control, Pattern for file matching, and Hybrid for complex deployment scenarios.
-
-### Ray Integration Guide
-Advanced distributed computing with Ray clusters and jobs on Kubernetes (KubeRay) and Slurm environments, supporting both interactive development and batch processing workflows.
-
-### Troubleshooting Guide
-Comprehensive debugging and problem resolution covering installation issues, configuration errors, execution problems, and advanced debugging techniques for AI developers and scientists.
+1. **[Configuration](configuration.md)** - Type-safe experiment configuration with Fiddle integration
+2. **[Execution](execution.md)** - Multi-environment execution strategies and task management
+3. **[Management](management.md)** - Experiment tracking, metadata, and reproducibility
+4. **[Packaging](packaging.md)** - Code deployment strategies for remote execution
+5. **[Ray Integration](ray.md)** - Distributed computing capabilities (optional)
+6. **[Troubleshooting](troubleshooting.md)** - Debugging and problem resolution (as needed)

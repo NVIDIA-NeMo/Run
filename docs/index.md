@@ -17,6 +17,17 @@ Welcome to the NeMo Run documentation! NeMo Run is NVIDIA's Python framework for
 ::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
 
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` About NeMo Run
+:link: about/index.md
+:link-type: doc
+:class-body: text-center
+
+Explore NeMo Run's core concepts, architecture, key features, and benefits for ML experiment management.
+
++++
+{bdg-secondary}`Overview` {bdg-secondary}`Concepts`
+:::
+
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Get Started
 :link: get-started/index.md
 :link-type: doc
@@ -26,6 +37,17 @@ Set up your environment and run your first ML experiment with NeMo Run's type-sa
 
 +++
 {bdg-success}`Beginner` {bdg-secondary}`Setup`
+:::
+
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Learning Resources
+:link: learning-resources/index.md
+:link-type: doc
+:class-body: text-center
+
+Learn NeMo Run with step-by-step tutorials, working examples, and real-world use cases for ML experiment management.
+
++++
+{bdg-primary}`Learning` {bdg-secondary}`Hands-on`
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Guides
@@ -39,50 +61,6 @@ Master NeMo Run with organized guides covering configuration, execution, managem
 {bdg-warning}`Advanced` {bdg-secondary}`Reference`
 :::
 
-:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Learning Resources
-:link: tutorials-and-examples/index.md
-:link-type: doc
-:class-body: text-center
-
-Learn NeMo Run with step-by-step tutorials, working examples, and real-world use cases for ML experiment management.
-
-+++
-{bdg-primary}`Learning` {bdg-secondary}`Hands-on`
-:::
-
-:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` About NeMo Run
-:link: #about
-:link-type: ref
-:class-body: text-center
-
-Explore NeMo Run's core concepts, architecture, key features, and benefits for ML experiment management.
-
-+++
-{bdg-secondary}`Overview` {bdg-secondary}`Concepts`
-:::
-
-:::{grid-item-card} {octicon}`beaker;1.5em;sd-mr-1` Best Practices
-:link: best-practices/index.md
-:link-type: doc
-:class-body: text-center
-
-Production-ready patterns and workflows for scalable ML experiment management and team collaboration.
-
-+++
-{bdg-warning}`Advanced` {bdg-secondary}`Production`
-:::
-
-:::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` API Documentation
-:link: api-documentation/index.md
-:link-type: doc
-:class-body: text-center
-
-Complete API documentation, CLI reference, FAQs, and troubleshooting guides for all NeMo Run components.
-
-+++
-{bdg-primary}`Technical` {bdg-secondary}`API`
-:::
-
 :::{grid-item-card} {octicon}`plug;1.5em;sd-mr-1` Integrations
 :link: integrations/index.md
 :link-type: doc
@@ -94,42 +72,42 @@ Connect NeMo Run with CI/CD pipelines, ML frameworks, cloud platforms, and monit
 {bdg-info}`Technical` {bdg-secondary}`Integration`
 :::
 
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
+:link: references/index.md
+:link-type: doc
+:class-body: text-center
+
+Access CLI reference, configuration docs, FAQs, and complete API documentation.
+
++++
+{bdg-secondary}`Reference` {bdg-secondary}`Documentation`
+:::
+
 :::::
 
-# About
-
-```{toctree}
-:hidden:
-:caption: About
-:maxdepth: 2
-about/index.md
-about/key-features.md
-about/architecture.md
-```
-
-## Learning Path
+# Learning Path
 
 Follow this structured progression to master NeMo Run:
 
-### **Beginner Path** (0-2 weeks)
+## **Beginner Path** (0-2 weeks)
 
 1. **Installation and Setup** → [Installation Guide](get-started/install.md)
 2. **First Experiment** → [Quickstart Guide](get-started/quickstart.md)
-3. **Basic Tutorial** → [Your First Experiment](tutorials-and-examples/tutorials/first-experiment.md)
-4. **Configuration Tutorial** → [Configuring Your First Model](tutorials-and-examples/tutorials/configuring-your-first-model.md)
+3. **Basic Tutorial** → [Your First Experiment](learning-resources/tutorials/first-experiment.md)
+4. **Configuration Tutorial** → [Configuring Your First Model](learning-resources/tutorials/configuring-your-first-model.md)
 
-### **Intermediate Path** (2-4 weeks)
+## **Intermediate Path** (2-4 weeks)
 
-1. **Experiment Management** → [Running Your First Experiment](tutorials-and-examples/tutorials/running-your-first-experiment.md)
-2. **Model Persistence** → [Saving and Loading Models](tutorials-and-examples/tutorials/saving-and-loading-models.md)
-3. **Hyperparameter Tuning** → [Hyperparameter Tuning Basics](tutorials-and-examples/tutorials/hyperparameter-tuning-basics.md)
-4. **Framework Examples** → [PyTorch Training](tutorials-and-examples/examples/ml-frameworks/pytorch-training.md)
+1. **Experiment Management** → [Running Your First Experiment](learning-resources/tutorials/running-your-first-experiment.md)
+2. **Model Persistence** → [Saving and Loading Models](learning-resources/tutorials/saving-and-loading-models.md)
+3. **Hyperparameter Tuning** → [Hyperparameter Tuning Basics](learning-resources/tutorials/hyperparameter-tuning-basics.md)
+4. **Framework Examples** → [PyTorch Training](learning-resources/examples/ml-frameworks/pytorch-training.md)
 
-### **Advanced Path** (4+ weeks)
+## **Advanced Path** (4+ weeks)
 
-1. **Real-World Examples** → [LLM Fine-tuning](tutorials-and-examples/examples/real-world/llm-fine-tuning.md)
-2. **Use Cases** → [Hyperparameter Optimization](tutorials-and-examples/use-cases/research/hyperparameter-optimization.md)
-3. **Production Workflows** → [ML Pipelines](tutorials-and-examples/use-cases/production/ml-pipelines.md)
+1. **Real-World Examples** → [LLM Fine-tuning](learning-resources/examples/real-world/llm-fine-tuning.md)
+2. **Use Cases** → [Hyperparameter Optimization](learning-resources/use-cases/research/hyperparameter-optimization.md)
+3. **Production Workflows** → [ML Pipelines](learning-resources/use-cases/production/ml-pipelines.md)
 4. **Advanced Configuration** → [Packaging Strategies](guides/packaging.md)
 
 ## Key Resources
@@ -167,14 +145,14 @@ Execute experiments across local, Docker, Slurm, and cloud environments.
 {bdg-warning}`Advanced`
 :::
 
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Best Practices
-:link: best-practices/index.md
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
+:link: references/index.md
 :link-type: doc
 
-Production-ready patterns for experiment management and team collaboration.
+Access CLI reference, configuration docs, FAQs, and complete API documentation.
 
 +++
-{bdg-secondary}`Production`
+{bdg-secondary}`Reference`
 :::
 
 :::::
@@ -183,6 +161,15 @@ Production-ready patterns for experiment management and team collaboration.
 
 ```{include} ../README.md
 :relative-docs: docs/
+```
+
+```{toctree}About NeMo Run Integrations
+:hidden:
+:caption: About NeMo Run
+:maxdepth: 2
+about/index.md
+about/key-features.md
+about/architecture.md
 ```
 
 ```{toctree}
@@ -204,16 +191,17 @@ guides/execution.md
 guides/management.md
 guides/packaging.md
 guides/ray.md
+guides/troubleshooting.md
 ```
 
 ```{toctree}
 :hidden:
 :caption: Learning Resources
 :maxdepth: 2
-tutorials-and-examples/index.md
-tutorials-and-examples/tutorials/index.md
-tutorials-and-examples/examples/index.md
-tutorials-and-examples/use-cases/index.md
+learning-resources/index.md
+learning-resources/tutorials/index.md
+learning-resources/examples/index.md
+learning-resources/use-cases/index.md
 ```
 
 ```{toctree}
@@ -229,32 +217,11 @@ integrations/ci-cd-pipelines.md
 
 ```{toctree}
 :hidden:
-:caption: Best Practices
+:caption: References
 :maxdepth: 2
-best-practices/index.md
-```
-
-```{toctree}
-:hidden:
-:caption: API Documentation
-:maxdepth: 2
-api-documentation/index.md
-api-documentation/api-reference.md
-reference/cli.md
-reference/faqs.md
-guides/troubleshooting.md
+references/index.md
+references/cli-reference.md
+references/configuration-reference.md
+references/faqs.md
 apidocs/index.rst
-```
-
-```{toctree}
-:hidden:
-:caption: Legacy Guides
-:maxdepth: 2
-old-guides/index.md
-old-guides/why-use-nemo-run.md
-old-guides/configuration.md
-old-guides/execution.md
-old-guides/management.md
-old-guides/ray.md
-old-guides/cli.md
 ```

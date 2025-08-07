@@ -375,7 +375,7 @@ with timing_context("Execution"):
 - `LogRetrievalError` - Unable to retrieve logs
 - `MetadataError` - Corrupted experiment metadata
 
-## Getting Help
+## Get Help
 
 ### Before Asking for Help
 
@@ -398,7 +398,7 @@ Include the following information:
 
 ## Need More Help?
 
-- Check the [FAQs](../reference/faqs) for additional solutions
+- Check the [FAQs](../references/faqs) for additional solutions
 - Explore the [About section](../about/index) for conceptual information
-- Review the [guides](index) for detailed feature documentation
+- Review the [Guides](index) for detailed feature documentation
 - Report issues on [GitHub](https://github.com/NVIDIA-NeMo/Run/issues)

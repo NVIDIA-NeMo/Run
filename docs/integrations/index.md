@@ -14,7 +14,17 @@ modality: "text-only"
 
 This section provides guides for integrating NeMo Run with popular ML frameworks, cloud platforms, monitoring tools, and CI/CD pipelines.
 
-## Integration Overview
+## What You'll Find Here
+
+This section contains everything you need to integrate NeMo Run with your existing tools and infrastructure:
+
+- **ML Framework integrations** for PyTorch, TensorFlow, JAX, and other popular frameworks
+- **Cloud platform connections** for AWS, GCP, Azure, and distributed computing
+- **Monitoring tool integrations** with WandB, MLflow, TensorBoard, and other tracking solutions
+- **CI/CD pipeline automation** for GitHub Actions, GitLab CI, Jenkins, and DevOps workflows
+- **Best practices and patterns** for building robust, scalable integrations
+
+## Integrations Overview
 
 ::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
@@ -65,17 +75,7 @@ Automate experiment execution with GitHub Actions, GitLab CI, Jenkins, and other
 
 :::::
 
-## Why Integrations Matter
-
-Integrations help you:
-
-- **Leverage Existing Tools** - Use your favorite frameworks and platforms
-- **Streamline Workflows** - Connect NeMo Run with your existing infrastructure
-- **Improve Monitoring** - Track experiments with familiar tools
-- **Automate Processes** - Integrate with CI/CD for automated experimentation
-- **Scale Effectively** - Use cloud resources and distributed computing
-
-## Getting Started with Integrations
+## Get Started with Integrations
 
 ### Prerequisites
 
@@ -174,20 +174,9 @@ with run.Experiment("training") as experiment:
 4. **Secure Credentials** - Use environment variables for sensitive information
 5. **Monitor Performance** - Track integration performance and optimize as needed
 
-## Integration Files
-
-```{toctree}
-:maxdepth: 2
-
-ml-frameworks.md
-cloud-platforms.md
-monitoring-tools.md
-ci-cd-pipelines.md
-```
-
 ## Need Help?
 
-- Check the [FAQs](../reference/faqs) for common integration questions
-- Explore the [About section](../about/index) for conceptual information
-- Review the [guides](../guides/index) for detailed feature documentation
+- Check the [FAQs](../references/faqs.md) for common integration questions
+- Explore the [About section](../about/index.md) for conceptual information
+- Review the [Guides](../guides/index.md) for detailed feature documentation
 - Report integration issues on [GitHub](https://github.com/NVIDIA-NeMo/Run/issues)

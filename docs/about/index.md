@@ -20,6 +20,59 @@ NeMo Run is a production-ready framework that provides a unified interface for t
 
 The framework is designed to handle the complexities of ML experiment management, including configuration versioning, environment-specific deployments, and comprehensive experiment tracking. NeMo Run supports multiple execution backends, including local, Docker, Slurm, Ray, and cloud platforms, providing flexibility for different compute requirements and infrastructure setups.
 
+::::{grid} 1 2 2 2
+:gutter: 2 2 2 2
+
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
+:link: ../get-started/quickstart
+:link-type: doc
+:link-alt: Quick Start guide
+:class-body: text-center
+
+Get up and running with NeMo Run in minutes with our step-by-step quick start guide.
+
++++
+{bdg-primary}`Getting Started` {bdg-secondary}`Beginner`
+:::
+
+:::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
+:link: ../get-started/install
+:link-type: doc
+:link-alt: Installation guide
+:class-body: text-center
+
+Install NeMo Run and set up your development environment with comprehensive installation instructions.
+
++++
+{bdg-info}`Setup` {bdg-secondary}`Environment`
+:::
+
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Architecture Overview
+:link: architecture
+:link-type: doc
+:link-alt: Architecture overview
+:class-body: text-center
+
+Understand NeMo Run's core architecture, components, and design principles for ML experiment management.
+
++++
+{bdg-warning}`Architecture` {bdg-secondary}`Design`
+:::
+
+:::{grid-item-card} {octicon}`star;1.5em;sd-mr-1` Key Features
+:link: key-features
+:link-type: doc
+:link-alt: Key features
+:class-body: text-center
+
+Explore NeMo Run's powerful features for configuration, execution, and experiment management.
+
++++
+{bdg-success}`Features` {bdg-secondary}`Capabilities`
+:::
+
+::::
+
 ## Key Benefits
 
 ### **Configuration Flexibility**
@@ -97,39 +150,6 @@ NeMo Run is built on a robust technology stack designed for performance and flex
 - **PyTorch**: Deep learning framework with advanced distributed training capabilities
 - **Docker**: Containerization for consistent execution environments
 - **Slurm**: High-performance computing scheduler for cluster execution
-
-## Core Architecture
-
-NeMo Run provides a unified interface for ML experiment lifecycle management:
-
-::::{grid} 1 1 1 3
-:gutter: 1 1 1 2
-
-:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
-:link: ../guides/configuration
-:link-type: doc
-:link-alt: Configuration guide
-
-Type-safe configuration with Fiddle integration
-:::
-
-:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
-:link: ../guides/execution
-:link-type: doc
-:link-alt: Execution guide
-
-Multi-environment execution (local, Docker, Slurm, cloud)
-:::
-
-:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-:link: ../guides/management
-:link-type: doc
-:link-alt: Management guide
-
-Experiment tracking and reproducibility
-:::
-
-::::
 
 ## Competitive Advantages
 

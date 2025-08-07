@@ -102,8 +102,8 @@ For detailed information, see our [About NeMo Run guide](docs/about/index.md).
 - **[Configuration Guide](docs/guides/configuration.md)** - Type-safe configuration management
 - **[Execution Guide](docs/guides/execution.md)** - Multi-environment execution
 - **[Management Guide](docs/guides/management.md)** - Experiment lifecycle management
-- **[CLI Reference](docs/reference/cli.md)** - Command-line interface documentation
-- **[FAQs](docs/reference/faqs.md)** - Frequently asked questions
+- **[CLI Reference](docs/references/cli-reference.md)** - Command-line interface documentation
+- **[FAQs](docs/references/faqs.md)** - Frequently asked questions
 
 ## 🎓 Tutorials
 

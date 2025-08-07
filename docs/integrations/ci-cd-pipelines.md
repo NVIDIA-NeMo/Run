@@ -630,6 +630,6 @@ experiment.status()
 
 ## Next Steps
 
-- Review [Best Practices](../best-practices/index) for production CI/CD workflows
-- Explore [Cloud Platform Integration](cloud-platforms) for cloud-based execution
-- Check [Monitoring Tools Integration](monitoring-tools) for experiment tracking
+- Review [Guides](../guides/index.md) for production CI/CD workflows
+- Explore [Cloud Platform Integration](cloud-platforms.md) for cloud-based execution
+- Check [Monitoring Tools Integration](monitoring-tools.md) for experiment tracking

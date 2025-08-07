@@ -948,7 +948,7 @@ def robust_training_with_monitoring(model_config, dataset, monitoring_tool):
 
 ## Next Steps
 
-- Explore [ML Frameworks Integration](ml-frameworks) for framework-specific monitoring
-- Learn about [Cloud Platform Integration](cloud-platforms) for cloud-based monitoring
-- Review [CI/CD Integration](ci-cd-pipelines) for automated monitoring
-- Check [Best Practices](../best-practices/index) for production monitoring
+- Explore [ML Frameworks Integration](ml-frameworks.md) for framework-specific monitoring
+- Learn about [Cloud Platform Integration](cloud-platforms.md) for cloud-based monitoring
+- Review [CI/CD Integration](ci-cd-pipelines.md) for automated monitoring
+- Check [Guides](../guides/index) for production monitoring

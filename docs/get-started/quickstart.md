@@ -267,4 +267,4 @@ with run.Experiment("script_execution") as exp:
 
 - Explore [Configuration Guide](../guides/configuration) for advanced patterns
 - Learn [Execution Guide](../guides/execution) for multi-environment setups
-- Check [Best Practices](../best-practices/index) for production workflows
+- Check [Guides](../guides/index) for production workflows

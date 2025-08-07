@@ -597,7 +597,7 @@ result = run.run(
 
 ## Next Steps
 
-- Explore [ML Frameworks Integration](ml-frameworks) for framework-specific cloud deployment
-- Learn about [Monitoring Tools Integration](monitoring-tools) for cloud experiment tracking
-- Review [CI/CD Integration](ci-cd-pipelines) for automated cloud deployment
-- Check [Best Practices](../best-practices/index) for production cloud deployments
+- Explore [ML Frameworks Integration](ml-frameworks.md) for framework-specific cloud deployment
+- Learn about [Monitoring Tools Integration](monitoring-tools.md) for cloud experiment tracking
+- Review [CI/CD Integration](ci-cd-pipelines.md) for automated cloud deployment
+- Check [Guides](../guides/index) for production cloud deployments
