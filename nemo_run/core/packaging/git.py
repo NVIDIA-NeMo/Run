@@ -141,9 +141,9 @@ class GitArchivePackager(Packager):
                 capture_output=True,
                 text=True,
             ).stdout.strip()
-            assert not bool(
-                untracked_files
-            ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
+            assert not bool(untracked_files), (
+                "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
+            )
 
         ctx = Context()
         # Build the base uncompressed archive, then separately generate all additional fragments.

@@ -17,8 +17,10 @@ import filecmp
 import os
 import shlex
 import subprocess
+import tarfile
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import invoke
@@ -418,3 +420,95 @@ def test_package_without_include_submodules(packager, temp_repo):
             ),
         )
         assert len(os.listdir(os.path.join(job_dir, "extracted_output", "submodule"))) == 0
+
+
+def _make_uncompressed_tar_from_dir(src_dir: Path, tar_path: Path):
+    # Create an uncompressed tar at tar_path from the contents of src_dir
+    # with files at the root of the archive
+    with tarfile.open(tar_path, mode="w") as tf:
+        for entry in sorted(src_dir.iterdir()):
+            tf.add(entry, arcname=entry.name)
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_concatenate_tar_files_non_linux_integration(tmp_path, monkeypatch):
+    # Force non-Linux path (extract+repack)
+    monkeypatch.setattr(os, "uname", lambda: SimpleNamespace(sysname="Darwin"))
+
+    # Prepare two small tar fragments
+    dir_a = tmp_path / "a"
+    dir_b = tmp_path / "b"
+    dir_a.mkdir()
+    dir_b.mkdir()
+    (dir_a / "fileA.txt").write_text("A")
+    (dir_b / "fileB.txt").write_text("B")
+
+    tar_a = tmp_path / "a.tar"
+    tar_b = tmp_path / "b.tar"
+    _make_uncompressed_tar_from_dir(dir_a, tar_a)
+    _make_uncompressed_tar_from_dir(dir_b, tar_b)
+
+    out_tar = tmp_path / "out.tar"
+    packager = GitArchivePackager()
+    ctx = MockContext()
+    packager._concatenate_tar_files(ctx, str(out_tar), [str(tar_a), str(tar_b)])
+
+    # Inputs removed
+    assert not tar_a.exists() and not tar_b.exists()
+
+    # Output contains both files at root
+    assert out_tar.exists()
+    with tarfile.open(out_tar, mode="r") as tf:
+        names = sorted(m.name for m in tf.getmembers() if m.isfile())
+    assert names == ["./fileA.txt", "./fileB.txt"]
+
+
+def test_concatenate_tar_files_linux_emits_expected_commands(monkeypatch, tmp_path):
+    # Simulate Linux branch; use a dummy Context that records commands instead of executing
+    monkeypatch.setattr(os, "uname", lambda: SimpleNamespace(sysname="Linux"))
+
+    class DummyContext:
+        def __init__(self):
+            self.commands: list[str] = []
+
+        def run(self, cmd: str, **_kwargs):
+            self.commands.append(cmd)
+
+        # Support ctx.cd(...) context manager API
+        def cd(self, _path: Path):
+            class _CD:
+                def __enter__(self_nonlocal):
+                    return self
+
+                def __exit__(self_nonlocal, exc_type, exc, tb):
+                    return False
+
+            return _CD()
+
+    # Fake inputs (do not need to exist since we don't execute)
+    tar1 = str(tmp_path / "one.tar")
+    tar2 = str(tmp_path / "two.tar")
+    tar3 = str(tmp_path / "three.tar")
+    out_tar = str(tmp_path / "out.tar")
+
+    ctx = DummyContext()
+    packager = GitArchivePackager()
+    packager._concatenate_tar_files(ctx, out_tar, [tar1, tar2, tar3])
+
+    # Expected sequence: cp first -> tar Af rest -> rm all inputs
+    assert len(ctx.commands) == 3
+    assert ctx.commands[0] == f"cp {shlex.quote(tar1)} {shlex.quote(out_tar)}"
+    assert (
+        ctx.commands[1] == f"tar Af {shlex.quote(out_tar)} {shlex.quote(tar2)} {shlex.quote(tar3)}"
+    )
+    assert ctx.commands[2] == f"rm {shlex.quote(tar1)} {shlex.quote(tar2)} {shlex.quote(tar3)}"
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_include_pattern_length_mismatch_raises(packager, temp_repo):
+    # Mismatch between include_pattern and include_pattern_relative_path should raise
+    packager.include_pattern = ["extra"]
+    packager.include_pattern_relative_path = ["/tmp", "/also/tmp"]
+    with tempfile.TemporaryDirectory() as job_dir:
+        with pytest.raises(ValueError, match="same length"):
+            packager.package(Path(temp_repo), job_dir, "mismatch")
