@@ -1244,17 +1244,17 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             self._cleanup(tunnels=False)
             if self._launched:
                 Path(os.path.join(self._exp_dir, self._DONE_FILE)).touch()
-                self.console.print(
-                    Syntax(
-                        self.GOODBYE_MESSAGE_PYTHON.format(
-                            exp_id=self._id,
-                            tasks=list(map(lambda job: job.id, self.jobs)),
-                        ),
-                        "python",
-                        theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
-                    )
-                )
                 if self._enable_goodbye_message:
+                    self.console.print(
+                        Syntax(
+                            self.GOODBYE_MESSAGE_PYTHON.format(
+                                exp_id=self._id,
+                                tasks=list(map(lambda job: job.id, self.jobs)),
+                            ),
+                            "python",
+                            theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
+                        )
+                    )
                     self.console.print(
                         Syntax(
                             self.GOODBYE_MESSAGE_BASH.format(
