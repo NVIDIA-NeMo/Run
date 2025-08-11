@@ -251,10 +251,10 @@ with run.Experiment("my_experiment") as exp:
 
 Now that you've completed your first experiment, you're ready to explore:
 
-1. **[Configuring Your First Model](configuring-your-first-model)** - Learn advanced configuration patterns
-2. **[Running Your First Experiment](running-your-first-experiment)** - Master experiment management and debugging
+1. **{doc}`Configuring Your First Model <configuring-your-first-model>`** - Learn advanced configuration patterns
+2. **{doc}`Running Your First Experiment <running-your-first-experiment>`** - Master experiment management and debugging
 3. **[Examples](../examples/index.md)** - See more complex examples
-4. **[Reference](../references/index.md)** - Explore the complete API
+4. **[Reference](../../references/index)** - Explore the complete API
 
 ## Troubleshooting
 

@@ -268,7 +268,9 @@ with run.Experiment("long-running-experiment") as exp:
     print(f"Experiment launched with ID: {experiment_id}")
 
     # Later, retrieve and monitor
-    retrieved_exp = run.get_experiment(experiment_id)
+    # Note: run.get_experiment() is not implemented in NeMo Run
+    # Use run.Experiment.from_id() or run.Experiment.from_title() instead
+    retrieved_exp = run.Experiment.from_id(experiment_id)
     print(retrieved_exp.status())
 ```
 

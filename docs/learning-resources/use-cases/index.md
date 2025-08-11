@@ -31,7 +31,7 @@ Through these use cases, you'll learn how to:
 :gutter: 2 2 2 2
 
 :::{grid-item-card} {octicon}`beaker;1.5em;sd-mr-1` Reproducible Research
-:link: research/reproducible-research.md
+:link: research/reproducible-research
 :link-type: doc
 :class-body: text-center
 
@@ -42,7 +42,7 @@ Ensure complete reproducibility of ML experiments across different environments 
 :::
 
 :::{grid-item-card} {octicon}`graph-up;1.5em;sd-mr-1` Hyperparameter Optimization
-:link: research/hyperparameter-optimization.md
+:link: research/hyperparameter-optimization
 :link-type: doc
 :class-body: text-center
 
@@ -53,7 +53,7 @@ Automate hyperparameter search with advanced optimization strategies including B
 :::
 
 :::{grid-item-card} {octicon}`workflow;1.5em;sd-mr-1` ML Pipelines
-:link: production/ml-pipelines.md
+:link: production/ml-pipelines
 :link-type: doc
 :class-body: text-center
 
@@ -64,7 +64,7 @@ Build robust, scalable ML pipelines for production environments with end-to-end 
 :::
 
 :::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Model Deployment
-:link: production/model-deployment.md
+:link: production/model-deployment
 :link-type: doc
 :class-body: text-center
 
@@ -75,7 +75,7 @@ Deploy ML models with confidence using versioning, A/B testing, monitoring, and 
 :::
 
 :::{grid-item-card} {octicon}`organization;1.5em;sd-mr-1` Experiment Tracking
-:link: collaboration/experiment-tracking.md
+:link: collaboration/experiment-tracking
 :link-type: doc
 :class-body: text-center
 
@@ -323,11 +323,11 @@ class ProductionMonitor:
 :hidden:
 :maxdepth: 2
 
-research/reproducible-research.md
-research/hyperparameter-optimization.md
-production/ml-pipelines.md
-production/model-deployment.md
-collaboration/experiment-tracking.md
+research/reproducible-research
+research/hyperparameter-optimization
+production/ml-pipelines
+production/model-deployment
+collaboration/experiment-tracking
 ```
 
 ## Next Steps

@@ -26,9 +26,9 @@ This tutorial will teach you how to:
 ## Prerequisites
 
 - Basic Python knowledge
-- Understanding of [Your First Experiment](first-experiment)
-- Understanding of [Configuring Your First Model](configuring-your-first-model)
-- Understanding of [Running Your First Experiment](running-your-first-experiment)
+- Understanding of {doc}`Your First Experiment <first-experiment>`
+- Understanding of {doc}`Configuring Your First Model <configuring-your-first-model>`
+- Understanding of {doc}`Running Your First Experiment <running-your-first-experiment>`
 
 ## Step 1: Basic Grid Search
 

@@ -567,7 +567,7 @@ def train_with_checkpoints(config):
 
 ## Next Steps
 
-- Explore [TensorFlow Training](tensorflow-training) for TensorFlow integration
-- Explore [Real-World Examples](../real-world/index.md) for advanced use cases
-- Learn about [Ray Integration](../../guides/ray.md) for distributed training
-- Review [Guides](../../guides/index.md) for production deployment
+- Explore {doc}`TensorFlow Training <tensorflow-training>` for TensorFlow integration
+- Try [LLM Fine-tuning](../real-world/llm-fine-tuning) for advanced real-world examples
+- Learn about [Ray Integration](../../../guides/ray.md) for distributed training
+- Review [Guides](../../../guides/index.md) for production deployment

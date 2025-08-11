@@ -354,7 +354,7 @@ print(f"Output: {logs.stdout}")
 
 1. **Check Experiment Status**:
    ```python
-   experiment = run.get_experiment(experiment_id)
+   experiment = run.Experiment.from_id(experiment_id)
    print(f"Status: {experiment.status}")
    print(f"Error: {experiment.error}")
    ```

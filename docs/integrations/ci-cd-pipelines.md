@@ -29,7 +29,7 @@ NeMo Run integrates with popular CI/CD platforms:
 
 ### Basic GitHub Actions Workflow
 
-```yaml
+```
 # .github/workflows/nemo-run-tests.yml
 name: NeMo Run Tests
 
@@ -77,7 +77,7 @@ jobs:
 
 ### Advanced GitHub Actions with GPU Support
 
-```yaml
+```
 # .github/workflows/nemo-run-gpu-tests.yml
 name: NeMo Run GPU Tests
 
@@ -141,7 +141,7 @@ jobs:
 
 ### Automated Model Training Pipeline
 
-```yaml
+```
 # .github/workflows/automated-training.yml
 name: Automated Model Training
 
@@ -205,7 +205,7 @@ jobs:
 
 ### Basic GitLab CI Pipeline
 
-```yaml
+```
 # .gitlab-ci.yml
 stages:
   - test
@@ -337,7 +337,7 @@ pipeline {
 
 ### Azure DevOps Pipeline
 
-```yaml
+```
 # azure-pipelines.yml
 trigger:
   - main
@@ -416,7 +416,7 @@ stages:
 
 ### CircleCI Configuration
 
-```yaml
+```
 # .circleci/config.yml
 version: 2.1
 

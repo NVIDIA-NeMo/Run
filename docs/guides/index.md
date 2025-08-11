@@ -66,10 +66,10 @@ Experiment lifecycle management with task orchestration, metadata tracking, and 
 {bdg-info}`Management` {bdg-secondary}`Experiments`
 :::
 
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Package Code for Deployment
 :link: packaging
 :link-type: doc
-:link-alt: Packaging Strategies
+:link-alt: Package Code for Deployment
 :class-body: text-center
 
 Code packaging strategies including GitArchive, Pattern, and Hybrid packagers for reproducible remote execution.
@@ -111,6 +111,6 @@ We recommend following these guides in order for the best learning experience:
 1. **[Configuration](configuration.md)** - Type-safe experiment configuration with Fiddle integration
 2. **[Execution](execution.md)** - Multi-environment execution strategies and task management
 3. **[Management](management.md)** - Experiment tracking, metadata, and reproducibility
-4. **[Packaging](packaging.md)** - Code deployment strategies for remote execution
+4. **[Package Code for Deployment](packaging.md)** - Code deployment strategies for remote execution
 5. **[Ray Integration](ray.md)** - Distributed computing capabilities (optional)
 6. **[Troubleshooting](troubleshooting.md)** - Debugging and problem resolution (as needed)

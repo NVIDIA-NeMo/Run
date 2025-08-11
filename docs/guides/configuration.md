@@ -236,7 +236,7 @@ json_config = export_config(config, "json")
 ### Advanced CLI Patterns
 
 ```python
-@run.cli_command
+@run.cli.entrypoint
 def train_llm(
     model_size: str = "7b",
     learning_rate: float = 1e-4,
@@ -269,7 +269,7 @@ def train_llm(
 
 ```python
 # Nested configuration overrides
-@run.cli_command
+@run.cli.entrypoint
 def train_with_overrides(
     model_hidden_size: int = 768,
     model_num_layers: int = 12,
@@ -299,7 +299,7 @@ def train_with_overrides(
 ### Simple CLI Integration
 
 ```python
-@run.cli_command
+@run.cli.entrypoint
 def train_cli(
     model_size: str = "medium",
     learning_rate: float = 0.001,

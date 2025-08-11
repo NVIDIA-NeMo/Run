@@ -6,7 +6,7 @@ categories: ["guides"]
 
 (packaging)=
 
-# NeMo Run Packaging Strategies
+# Package Code for Deployment
 
 NeMo Run provides flexible packaging strategies to deploy your code to remote execution environments. Understanding these packaging options is crucial for ensuring your experiments run correctly across different computing environments.
 

@@ -365,7 +365,7 @@ with run.Experiment("tensorflow_model_persistence") as experiment:
 
 ## Next Steps
 
-- Explore [PyTorch Training](pytorch-training) for PyTorch examples
-- Explore [Real-World Examples](../real-world/index.md) for advanced use cases
-- Learn about [Ray Integration](../../guides/ray.md) for distributed training
-- Check [Guides](../../guides/index.md) for production ML workflows
+- Explore {doc}`PyTorch Training <pytorch-training>` for PyTorch examples
+- Try [LLM Fine-tuning](../real-world/llm-fine-tuning) for advanced real-world examples
+- Learn about [Ray Integration](../../../guides/ray.md) for distributed training
+- Check [Guides](../../../guides/index.md) for production ML workflows

@@ -18,7 +18,7 @@ Welcome to the NeMo Run documentation! NeMo Run is NVIDIA's Python framework for
 :gutter: 2 2 2 2
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` About NeMo Run
-:link: about/index.md
+:link: about/index
 :link-type: doc
 :class-body: text-center
 
@@ -29,7 +29,7 @@ Explore NeMo Run's core concepts, architecture, key features, and benefits for M
 :::
 
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Get Started
-:link: get-started/index.md
+:link: get-started/index
 :link-type: doc
 :class-body: text-center
 
@@ -40,7 +40,7 @@ Set up your environment and run your first ML experiment with NeMo Run's type-sa
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Learning Resources
-:link: learning-resources/index.md
+:link: learning-resources/index
 :link-type: doc
 :class-body: text-center
 
@@ -51,7 +51,7 @@ Learn NeMo Run with step-by-step tutorials, working examples, and real-world use
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Guides
-:link: guides/index.md
+:link: guides/index
 :link-type: doc
 :class-body: text-center
 
@@ -62,7 +62,7 @@ Master NeMo Run with organized guides covering configuration, execution, managem
 :::
 
 :::{grid-item-card} {octicon}`plug;1.5em;sd-mr-1` Integrations
-:link: integrations/index.md
+:link: integrations/index
 :link-type: doc
 :class-body: text-center
 
@@ -73,7 +73,7 @@ Connect NeMo Run with CI/CD pipelines, ML frameworks, cloud platforms, and monit
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
-:link: references/index.md
+:link: references/index
 :link-type: doc
 :class-body: text-center
 
@@ -108,7 +108,7 @@ Follow this structured progression to master NeMo Run:
 1. **Real-World Examples** → [LLM Fine-tuning](learning-resources/examples/real-world/llm-fine-tuning.md)
 2. **Use Cases** → [Hyperparameter Optimization](learning-resources/use-cases/research/hyperparameter-optimization.md)
 3. **Production Workflows** → [ML Pipelines](learning-resources/use-cases/production/ml-pipelines.md)
-4. **Advanced Configuration** → [Packaging Strategies](guides/packaging.md)
+4. **Advanced Configuration** → [Package Code for Deployment](guides/packaging.md)
 
 ## Key Resources
 
@@ -116,7 +116,7 @@ Follow this structured progression to master NeMo Run:
 :gutter: 2 2 2 2
 
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
-:link: guides/ray.md
+:link: guides/ray
 :link-type: doc
 
 Scale ML experiments across multiple GPUs and nodes with Ray clusters.
@@ -126,7 +126,7 @@ Scale ML experiments across multiple GPUs and nodes with Ray clusters.
 :::
 
 :::{grid-item-card} {octicon}`plus;1.5em;sd-mr-1` Configuration Management
-:link: guides/configuration.md
+:link: guides/configuration
 :link-type: doc
 
 Master type-safe configuration with Fiddle integration for robust experiment setup.
@@ -136,7 +136,7 @@ Master type-safe configuration with Fiddle integration for robust experiment set
 :::
 
 :::{grid-item-card} {octicon}`zap;1.5em;sd-mr-1` Execution Strategies
-:link: guides/execution.md
+:link: guides/execution
 :link-type: doc
 
 Execute experiments across local, Docker, Slurm, and cloud environments.
@@ -146,7 +146,7 @@ Execute experiments across local, Docker, Slurm, and cloud environments.
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
-:link: references/index.md
+:link: references/index
 :link-type: doc
 
 Access CLI reference, configuration docs, FAQs, and complete API documentation.
@@ -163,65 +163,65 @@ Access CLI reference, configuration docs, FAQs, and complete API documentation.
 :relative-docs: docs/
 ```
 
-```{toctree}About NeMo Run Integrations
+```{toctree}
 :hidden:
 :caption: About NeMo Run
 :maxdepth: 2
-about/index.md
-about/key-features.md
-about/architecture.md
+about/index
+about/key-features
+about/architecture
 ```
 
 ```{toctree}
 :hidden:
 :caption: Get Started
 :maxdepth: 2
-get-started/index.md
-get-started/install.md
-get-started/quickstart.md
+get-started/index
+get-started/install
+get-started/quickstart
 ```
 
 ```{toctree}
 :hidden:
 :caption: Guides
 :maxdepth: 2
-guides/index.md
-guides/configuration.md
-guides/execution.md
-guides/management.md
-guides/packaging.md
-guides/ray.md
-guides/troubleshooting.md
+guides/index
+guides/configuration
+guides/execution
+guides/management
+guides/packaging
+guides/ray
+guides/troubleshooting
 ```
 
 ```{toctree}
 :hidden:
 :caption: Learning Resources
 :maxdepth: 2
-learning-resources/index.md
-learning-resources/tutorials/index.md
-learning-resources/examples/index.md
-learning-resources/use-cases/index.md
+learning-resources/index
+learning-resources/tutorials/index
+learning-resources/examples/index
+learning-resources/use-cases/index
 ```
 
 ```{toctree}
 :hidden:
 :caption: Integrations
 :maxdepth: 2
-integrations/index.md
-integrations/ml-frameworks.md
-integrations/cloud-platforms.md
-integrations/monitoring-tools.md
-integrations/ci-cd-pipelines.md
+integrations/index
+integrations/ml-frameworks
+integrations/cloud-platforms
+integrations/monitoring-tools
+integrations/ci-cd-pipelines
 ```
 
 ```{toctree}
 :hidden:
 :caption: References
 :maxdepth: 2
-references/index.md
-references/cli-reference.md
-references/configuration-reference.md
-references/faqs.md
-apidocs/index.rst
+references/index
+references/cli-reference
+references/configuration-reference
+references/faqs
+apidocs/index
 ```

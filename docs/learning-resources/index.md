@@ -28,7 +28,7 @@ This section contains everything you need to learn NeMo Run effectively:
 :gutter: 2 2 2 2
 
 :::{grid-item-card} {octicon}`mortar-board;1.5em;sd-mr-1` Tutorials
-:link: tutorials/index.md
+:link: tutorials/index
 :link-type: doc
 :link-alt: Tutorials
 :class-body: text-center
@@ -40,7 +40,7 @@ Step-by-step learning guides organized by difficulty level
 :::
 
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` Examples
-:link: examples/index.md
+:link: examples/index
 :link-type: doc
 :link-alt: Examples
 :class-body: text-center
@@ -52,7 +52,7 @@ Complete, runnable code examples demonstrating real-world use cases
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Use Cases
-:link: use-cases/index.md
+:link: use-cases/index
 :link-type: doc
 :link-alt: Use Cases
 :class-body: text-center
@@ -89,7 +89,6 @@ If you encounter issues:
 - **Check the [FAQ](../references/faqs.md)** for common questions
 - **Review the [CLI Reference](../references/cli-reference.md)** for detailed documentation
 - **Visit the [Troubleshooting Guide](../guides/troubleshooting.md)** for solutions
-- **Explore [Use Cases](use-cases/index.md)** for real-world examples
 
 ## Try It
 
@@ -103,6 +102,6 @@ After exploring tutorials, examples, and use cases:
 
 Continue your learning journey:
 
-- **Explore [Use Cases](use-cases/index.md)** relevant to your domain
+- **Master [Configuration Management](../guides/configuration.md)** for advanced setup patterns
 - **Review the [Guides](../guides/index.md)** for advanced features and best practices
 - **Check the [References](../references/index.md)** for complete API documentation

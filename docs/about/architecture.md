@@ -8,6 +8,115 @@ content_type: "concept"
 modality: "text-only"
 ---
 
+<style>
+.clickable-diagram {
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
+    border: 2px solid #4A90E2;
+    border-radius: 8px;
+    padding: 10px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.clickable-diagram:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+}
+
+.clickable-diagram:active {
+    transform: scale(0.98);
+}
+
+/* Modal styles for expanded view */
+.diagram-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+}
+
+.diagram-modal-content {
+    position: relative;
+    margin: 5% auto;
+    padding: 20px;
+    width: 90%;
+    max-width: 1200px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.diagram-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #666;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.diagram-modal-close:hover {
+    color: #333;
+}
+
+.diagram-modal img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const diagram = document.getElementById('architecture-diagram');
+
+    if (diagram) {
+        diagram.addEventListener('click', function() {
+            // Create modal
+            const modal = document.createElement('div');
+            modal.className = 'diagram-modal';
+            modal.innerHTML = `
+                <div class="diagram-modal-content">
+                    <span class="diagram-modal-close">&times;</span>
+                    <h3>NeMo Run Architecture Overview</h3>
+                    <div style="max-height: 80vh; overflow-y: auto;">${this.innerHTML}</div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            modal.style.display = 'block';
+
+            // Close modal functionality
+            const closeBtn = modal.querySelector('.diagram-modal-close');
+            closeBtn.addEventListener('click', function() {
+                modal.remove();
+            });
+
+            // Close on outside click
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+
+            // Close on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                }
+            });
+        });
+    }
+});
+</script>
+
 (architecture-overview)=
 
 # Architecture Overview
@@ -18,32 +127,53 @@ NeMo Run's architecture is designed around three core principles: **separation o
 
 NeMo Run follows a modular architecture that separates configuration, execution, and management concerns:
 
-```mermaid
-graph TB
-    A[Configuration Layer] --> B[Execution Layer]
-    B --> C[Management Layer]
-    A --> D[Type Safety & Validation]
-    B --> E[Multi-Environment Support]
-    C --> F[Experiment Tracking]
+<div class="clickable-diagram" id="architecture-diagram">
 
+```{mermaid}
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '18px', 'fontFamily': 'arial', 'primaryColor': '#4A90E2', 'primaryTextColor': '#333', 'primaryBorderColor': '#4A90E2', 'lineColor': '#666', 'secondaryColor': '#F5F5F5', 'tertiaryColor': '#E8F4FD' }}}%%
+graph LR
     subgraph "Configuration Layer"
-        A1[run.Config] --> A2[run.Partial]
-        A2 --> A3[Fiddle Integration]
+        A1[run.Config]
+        A2[run.Partial]
+        A3[Fiddle Integration]
+        A1 --> A2 --> A3
     end
 
     subgraph "Execution Layer"
-        B1[Executor Abstraction] --> B2[Local Executor]
-        B1 --> B3[Slurm Executor]
-        B1 --> B4[Ray Executor]
-        B1 --> B5[Docker Executor]
+        B1[Executor Abstraction]
+        B2[Local Executor]
+        B3[Slurm Executor]
+        B4[Ray Executor]
+        B5[Docker Executor]
+        B1 --> B2
+        B1 --> B3
+        B1 --> B4
+        B1 --> B5
     end
 
     subgraph "Management Layer"
-        C1[Experiment Tracking] --> C2[Metadata Capture]
-        C2 --> C3[Artifact Management]
-        C3 --> C4[Reproducibility]
+        C1[Experiment Tracking]
+        C2[Metadata Capture]
+        C3[Artifact Management]
+        C4[Reproducibility]
+        C1 --> C2 --> C3 --> C4
     end
+
+    A3 --> B1
+    B5 --> C1
+
+    classDef configStyle fill:#E8F4FD,stroke:#4A90E2,stroke-width:2px
+    classDef execStyle fill:#F0F8FF,stroke:#4A90E2,stroke-width:2px
+    classDef mgmtStyle fill:#F5F5F5,stroke:#4A90E2,stroke-width:2px
+
+    class A1,A2,A3 configStyle
+    class B1,B2,B3,B4,B5 execStyle
+    class C1,C2,C3,C4 mgmtStyle
 ```
+
+*Click the diagram to view it in full size*
+
+</div>
 
 ## Core Components
 

@@ -10,7 +10,7 @@ modality: "text-only"
 
 (saving-and-loading-models)=
 
-# Saving and Loading Models
+# Save and Load Models
 
 Learn how to save and load models using NeMo Run's serialization features to persist your trained models and configurations.
 
@@ -25,8 +25,8 @@ This tutorial will teach you how to:
 ## Prerequisites
 
 - Basic Python knowledge
-- Understanding of [Your First Experiment](first-experiment)
-- Understanding of [Configuring Your First Model](configuring-your-first-model)
+- Understanding of {doc}`Your First Experiment <first-experiment>`
+- Understanding of {doc}`Configuring Your First Model <configuring-your-first-model>`
 
 ## Step 1: Basic Model Saving
 
@@ -654,7 +654,7 @@ def save_model_with_validation(model, config, base_path: str):
 
 Now that you understand how to save and load models with NeMo Run, you can:
 
-1. Explore [Hyperparameter Tuning Basics](hyperparameter-tuning-basics)
+1. Explore {doc}`Hyperparameter Tuning Basics <hyperparameter-tuning-basics>`
 2. Learn about [Experiment Tracking](../use-cases/collaboration/experiment-tracking.md)
 3. Explore advanced training patterns in the [Examples](../examples/index.md) section
 

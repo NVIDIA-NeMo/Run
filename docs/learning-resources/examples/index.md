@@ -31,7 +31,7 @@ Through these examples, you'll learn how to:
 :gutter: 2 2 2 2
 
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` PyTorch Training
-:link: ml-frameworks/pytorch-training.md
+:link: ml-frameworks/pytorch-training
 :link-type: doc
 :class-body: text-center
 
@@ -42,7 +42,7 @@ Complete PyTorch training pipeline with distributed training, custom models, and
 :::
 
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` TensorFlow Training
-:link: ml-frameworks/tensorflow-training.md
+:link: ml-frameworks/tensorflow-training
 :link-type: doc
 :class-body: text-center
 
@@ -53,7 +53,7 @@ Complete TensorFlow training pipeline with distributed strategies, custom traini
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` LLM Fine-tuning
-:link: real-world/llm-fine-tuning.md
+:link: real-world/llm-fine-tuning
 :link-type: doc
 :class-body: text-center
 
@@ -152,18 +152,18 @@ with run.Experiment("example_name") as experiment:
 :hidden:
 :maxdepth: 2
 
-ml-frameworks/pytorch-training.md
-ml-frameworks/tensorflow-training.md
-real-world/llm-fine-tuning.md
+ml-frameworks/pytorch-training
+ml-frameworks/tensorflow-training
+real-world/llm-fine-tuning
 ```
 
 ## Examples Progression
 
 We recommend exploring these examples in order for the best learning experience:
 
-1. **[PyTorch Training](ml-frameworks/pytorch-training.md)** - Start with PyTorch integration for distributed training and custom model architectures
-2. **[TensorFlow Training](ml-frameworks/tensorflow-training.md)** - Master TensorFlow integration with distributed strategies and custom training loops
-3. **[LLM Fine-tuning](real-world/llm-fine-tuning.md)** - Advanced real-world example with instruction tuning and parameter-efficient methods
+1. **[PyTorch Training](ml-frameworks/pytorch-training)** - Start with PyTorch integration for distributed training and custom model architectures
+2. **[TensorFlow Training](ml-frameworks/tensorflow-training)** - Master TensorFlow integration with distributed strategies and custom training loops
+3. **[LLM Fine-tuning](real-world/llm-fine-tuning)** - Advanced real-world example with instruction tuning and parameter-efficient methods
 
 ## Next Steps
 

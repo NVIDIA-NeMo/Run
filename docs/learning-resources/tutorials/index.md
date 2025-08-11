@@ -29,7 +29,7 @@ Through these tutorials, you'll learn how to:
 :gutter: 2 2 2 2
 
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Your First Experiment
-:link: first-experiment.md
+:link: first-experiment
 :link-type: doc
 :class-body: text-center
 
@@ -39,8 +39,8 @@ Start your NeMo Run journey with a simple ML experiment. Learn installation, bas
 {bdg-success}`Beginner` {bdg-secondary}`Setup`
 :::
 
-:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuring Your First Model
-:link: configuring-your-first-model.md
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configure Your First Model
+:link: configuring-your-first-model
 :link-type: doc
 :class-body: text-center
 
@@ -50,8 +50,8 @@ Master type-safe configuration with `run.Config`. Learn dataclass integration, v
 {bdg-info}`Beginner` {bdg-secondary}`Configuration`
 :::
 
-:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Running Your First Experiment
-:link: running-your-first-experiment.md
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Run Your First Experiment
+:link: running-your-first-experiment
 :link-type: doc
 :class-body: text-center
 
@@ -61,8 +61,8 @@ Organize experiments with `run.Experiment` and `run.Partial`. Learn experiment m
 {bdg-info}`Beginner` {bdg-secondary}`Experiments`
 :::
 
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Saving and Loading Models
-:link: saving-and-loading-models.md
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Save and Load Models
+:link: saving-and-loading-models
 :link-type: doc
 :class-body: text-center
 
@@ -73,7 +73,7 @@ Persist your trained models with serialization. Learn checkpointing, metadata, a
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Perform Hyperparameter Tuning
-:link: hyperparameter-tuning-basics.md
+:link: hyperparameter-tuning-basics
 :link-type: doc
 :class-body: text-center
 
@@ -89,11 +89,11 @@ Optimize model performance with grid search, random search, and Bayesian optimiz
 
 We recommend following these tutorials in order for the best learning experience:
 
-1. **[Your First Experiment](first-experiment.md)** - Start here to learn the basics of NeMo Run installation, configuration, and execution
-2. **[Configuring Your First Model](configuring-your-first-model.md)** - Learn how to use `run.Config` for type-safe model configuration
-3. **[Running Your First Experiment](running-your-first-experiment.md)** - Master `run.Experiment` and `run.Partial` for organized experiment management
-4. **[Saving and Loading Models](saving-and-loading-models.md)** - Learn model persistence with proper serialization and metadata tracking
-5. **[Perform Hyperparameter Tuning](hyperparameter-tuning-basics.md)** - Master optimization techniques with grid search, random search, and Bayesian optimization
+1. **{doc}`Your First Experiment <first-experiment>`** - Start here to learn the basics of NeMo Run installation, configuration, and execution
+2. **{doc}`Configure Your First Model <configuring-your-first-model>`** - Learn how to use `run.Config` for type-safe model configuration
+3. **{doc}`Run Your First Experiment <running-your-first-experiment>`** - Master `run.Experiment` and `run.Partial` for organized experiment management
+4. **{doc}`Save and Load Models <saving-and-loading-models>`** - Learn model persistence with proper serialization and metadata tracking
+5. **{doc}`Perform Hyperparameter Tuning <hyperparameter-tuning-basics>`** - Master optimization techniques with grid search, random search, and Bayesian optimization
 
 ## Prerequisites
 
@@ -108,3 +108,14 @@ If you encounter issues while following these tutorials:
 - Check the [FAQ](../../references/faqs.md) for common questions
 - Review the [CLI Reference](../../references/cli-reference.md) for detailed documentation
 - Visit the [Troubleshooting Guide](../../guides/troubleshooting.md) for solutions to common problems
+
+```{toctree}
+:hidden:
+:maxdepth: 2
+
+first-experiment
+configuring-your-first-model
+running-your-first-experiment
+saving-and-loading-models
+hyperparameter-tuning-basics
+```

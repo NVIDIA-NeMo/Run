@@ -104,16 +104,21 @@ class ExperimentTracker:
 
     def _initialize_repository(self):
         """Initialize the experiment repository."""
-        run.ensure_directory(self.experiments_repository)
-        if not run.file_exists(self.metadata_file):
-            run.save_json({"experiments": {}}, self.metadata_file)
+        import os
+        os.makedirs(self.experiments_repository, exist_ok=True)
+        if not os.path.exists(self.metadata_file):
+            import json
+            with open(self.metadata_file, 'w') as f:
+                json.dump({"experiments": {}}, f)
 
     def track_experiment(self, experiment_name: str, description: str,
                         configuration: Dict[str, Any], tags: List[str] = None):
         """Track a new experiment."""
 
-        experiment_id = run.generate_experiment_id()
-        researcher = run.get_current_user()
+        import uuid
+        import datetime
+        experiment_id = str(uuid.uuid4())
+        researcher = os.getenv('USER', 'unknown')
 
         metadata = ExperimentMetadata(
             experiment_id=experiment_id,
@@ -121,10 +126,10 @@ class ExperimentTracker:
             description=description,
             researcher=researcher,
             team=self.team_name,
-            project=run.get_current_project(),
+            project=os.getcwd().split('/')[-1],  # Use current directory as project
             status="running",
-            created_date=run.get_timestamp(),
-            updated_date=run.get_timestamp(),
+            created_date=datetime.datetime.now().isoformat(),
+            updated_date=datetime.datetime.now().isoformat(),
             tags=tags or [],
             metrics={},
             configuration=configuration,
@@ -154,7 +159,7 @@ class ExperimentTracker:
             if hasattr(ExperimentMetadata, key):
                 experiment[key] = value
 
-        experiment["updated_date"] = run.get_timestamp()
+        experiment["updated_date"] = datetime.datetime.now().isoformat()
 
         # Store updated metadata
         self._store_metadata_dict(metadata)
@@ -244,12 +249,16 @@ class ExperimentTracker:
     def _load_metadata(self):
         """Load experiment metadata."""
 
-        return run.load_json(self.metadata_file)
+        import json
+        with open(self.metadata_file, 'r') as f:
+            return json.load(f)
 
     def _store_metadata_dict(self, metadata_dict: Dict[str, Any]):
         """Store metadata dictionary."""
 
-        run.save_json(metadata_dict, self.metadata_file)
+        import json
+        with open(self.metadata_file, 'w') as f:
+            json.dump(metadata_dict, f, indent=2)
 
     def _notify_team_new_experiment(self, metadata: ExperimentMetadata):
         """Notify team about new experiment."""
@@ -263,7 +272,9 @@ class ExperimentTracker:
             "timestamp": metadata.created_date
         }
 
-        run.send_notification(notification, self.team_name)
+        # Note: Notification system not implemented in NeMo Run
+        # This would integrate with your team's notification system
+        print(f"Notification sent to team {self.team_name}: {notification}")
 
     def _notify_collaborators(self, experiment: Dict[str, Any], collaborators: List[str]):
         """Notify collaborators about shared experiment."""
@@ -278,7 +289,9 @@ class ExperimentTracker:
         }
 
         for collaborator in collaborators:
-            run.send_notification(notification, collaborator)
+            # Note: Notification system not implemented in NeMo Run
+            # This would integrate with your team's notification system
+            print(f"Notification sent to {collaborator}: {notification}")
 
 # Initialize experiment tracker
 experiment_tracker = ExperimentTracker("ml_team")
@@ -668,6 +681,6 @@ report = team_collab.generate_team_report("month")
 ## Next Steps
 
 - Explore **[Configuration Guide](../../../guides/configuration.md)** for collaborative development patterns
-- Check **[Packaging Guide](../../../guides/packaging.md)** for reusable component patterns
+- Check **[Package Code for Deployment](../../../guides/packaging.md)** for reusable component patterns
 - Review **[Guides](../../../guides/index.md)** for optimization strategies
 - Consult **[References](../../../references/index.md)** for detailed API documentation

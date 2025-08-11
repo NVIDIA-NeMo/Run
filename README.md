@@ -1,7 +1,7 @@
 # NeMo Run
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/NVIDIA-NeMo/Run/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://docs.nvidia.com/nemo-run)
 [![PyPI](https://img.shields.io/badge/pypi-nemo--run-blue.svg)](https://pypi.org/project/nemo-run/)
 
@@ -137,7 +137,7 @@ Initial learning curve pays off with fluid and easy experimentation scaling.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+We welcome contributions! Please see our [Contributing Guide](https://github.com/NVIDIA-NeMo/Run/blob/main/CONTRIBUTING.md) for details on:
 
 - Code of Conduct
 - Development Setup
@@ -146,7 +146,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/NVIDIA-NeMo/Run/blob/main/LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
