@@ -6,11 +6,11 @@ tags: ["refactor-plan", "documentation", "nemo-run"]
 
 # NeMo Run Documentation Refactor Plan
 
-This document consolidates the refactor proposal, PR plan, and mapping diff for the NeMo Run documentation overhaul. It captures the goals, scope, structure, migration mapping, review process, and deployment timeline.
+This document presents the refactor proposal, PR plan, and mapping diff for the NeMo Run documentation project. It captures the goals, scope, structure, migration mapping, review process, and deployment timeline.
 
 ---
 
-## Executive Summary
+## Summary
 
 - Goal: Transform NeMo Run docs from a flat structure into a user-centric, hierarchical system with better navigation and coverage.
 - Coverage increase: 12 → 117 manually authored files (+73 Auto‑Generated API docs).
