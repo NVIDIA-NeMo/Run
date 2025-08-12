@@ -131,6 +131,9 @@ monitor-sidecar() {
 }
 monitor-sidecar &
 
+# Patch nsight.py before starting Ray head
+sed -i 's/context\.py_executable = " "\.join(self\.nsight_cmd) + " python"/context.py_executable = " ".join(self.nsight_cmd) + f" {context.py_executable}"/g' /opt/nemo_rl_venv/lib64/python*/site-packages/ray/_private/runtime_env/nsight.py
+
 cat <<EOFINNER | tee /launch-head.sh
 ray start --head \
     --disable-usage-stats \
@@ -205,6 +208,9 @@ monitor-sidecar() {
   done
 }
 monitor-sidecar &
+
+# Patch nsight.py before starting Ray worker
+sed -i 's/context\.py_executable = " "\.join(self\.nsight_cmd) + " python"/context.py_executable = " ".join(self.nsight_cmd) + f" {context.py_executable}"/g' /opt/nemo_rl_venv/lib64/python*/site-packages/ray/_private/runtime_env/nsight.py
 
 cat <<EOFINNER | tee /launch-worker.sh
 sleep 5
