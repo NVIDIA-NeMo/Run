@@ -13,7 +13,7 @@ This document presents the refactor proposal, PR plan, and mapping diff for the 
 ## Summary
 
 - Goal: Transform NeMo Run docs from a flat structure into a user-centric, hierarchical system with better navigation and coverage.
-- Coverage increase: 12 → 117 manually authored files (+73 Auto‑Generated API docs).
+- Coverage increase: 12 → ~45 manually authored files (+72 Auto‑Generated API docs).
 - Organization: 8 major sections aligned to user journeys and personas.
 - Status: Migration complete; review and deployment in progress; optimization planned.
 
@@ -46,11 +46,11 @@ docs/
 |---------|-------|---------|
 | `about/` | 3 | Project overview |
 | `get-started/` | 3 | Getting started |
-| `learning-resources/` | 4+ | Tutorials, examples, use cases |
+| `learning-resources/` | 17 | Tutorials, examples, use cases |
 | `guides/` | 7 | Practical how-to guides |
 | `integrations/` | 5 | Platform and tool integrations |
 | `references/` | 4 | CLI and configuration |
-| `apidocs/` | 73 | Auto‑Generated API reference |
+| `apidocs/` | 72 | Auto‑Generated API reference |
 | `_extensions/` | 8+ | Custom functionality |
 
 ---
@@ -126,7 +126,7 @@ High-level mapping from `archive/docs` to `docs` with enhanced content and reorg
 
 ## Content Standards and Enhancements
 
-- Front matter on every page (description, categories, tags, personas, difficulty, content type, modality); clear step-by-step guides with cross-references and consistent navigation
+- Front matter on most pages (description, categories, tags, personas, difficulty, content type, modality); clear step-by-step guides with cross-references and consistent navigation
 
 ## Technical Infrastructure
 
@@ -168,7 +168,7 @@ High-level mapping from `archive/docs` to `docs` with enhanced content and reorg
      - `docs/guides/ray.md`
      - `docs/guides/packaging.md`
      - `docs/learning-resources/examples/index.md`
-5. References & API Documentation (8 Files)
+5. References & API Documentation (10 Files)
    - Files for review:
      - `docs/references/index.md`
      - `docs/references/cli-reference.md`
@@ -191,7 +191,7 @@ High-level mapping from `archive/docs` to `docs` with enhanced content and reorg
 
 ## Total Count Summary
 
-- Total files: 117 curated docs + 73 Auto‑Generated API files
+- Total files: ~45 curated docs + 72 Auto‑Generated API files
 
 ## Implementation Status and Timeline
 
@@ -212,7 +212,7 @@ High-level mapping from `archive/docs` to `docs` with enhanced content and reorg
 ## Quality Assurance
 
 - Review process: content, structure, UX, technical, integration
-- Success indicators: improved navigation and search, modern platform capabilities, maintainability gains, and expanded documentation coverage (117 manual files + 73 API docs)
+- Success indicators: improved navigation and search, modern platform capabilities, maintainability gains, and expanded documentation coverage (~45 manual files + 72 API docs)
 
 ## Conclusion
 
