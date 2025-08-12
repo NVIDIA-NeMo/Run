@@ -41,6 +41,9 @@ DASHBOARD_AGENT_LISTEN_PORT=${DASHBOARD_AGENT_LISTEN_PORT:-52365}
 MIN_WORKER_PORT=${MIN_WORKER_PORT:-54001}
 MAX_WORKER_PORT=${MAX_WORKER_PORT:-54257}
 
+# Ray temp directory (inside container). Used by --temp-dir and log sync sidecar
+RAY_TEMP_DIR=${RAY_TEMP_DIR:-/ray-cluster}
+
 # Number seconds to sync logs from /tmp/ray/session_*/logs to $LOG_DIR/ray/
 RAY_LOG_SYNC_FREQUENCY=${RAY_LOG_SYNC_FREQUENCY:-}
 
@@ -145,8 +148,8 @@ log-sync-sidecar() {
   mkdir -p $LOG_DIR/ray
   while true; do
     sleep $RAY_LOG_SYNC_FREQUENCY
-    if ls /tmp/ray/session_[0-9]* > /dev/null 2>&1; then
-      for session_dir in /tmp/ray/session_[0-9]*/; do
+    if ls ${RAY_TEMP_DIR}/session_[0-9]* > /dev/null 2>&1; then
+      for session_dir in ${RAY_TEMP_DIR}/session_[0-9]*/; do
         if [[ -d "\$session_dir/logs" ]]; then
           session_name=\$(basename "\$session_dir")
           mkdir -p "$LOG_DIR/ray/\$session_name"
@@ -172,7 +175,7 @@ sed -i 's/context\.py_executable = " "\.join(self\.nsight_cmd) + " python"/conte
 cat <<EOFINNER | tee /launch-head.sh
 ray start --head \
     --disable-usage-stats \
-    --temp-dir=/ray-cluster \
+    --temp-dir=${RAY_TEMP_DIR} \
     --resources="{\"worker_units\": $gpus_per_node, \"slurm_managed_ray_cluster\": 1}" \
     --node-ip-address="$head_node_ip" \
     --port=${PORT} \
