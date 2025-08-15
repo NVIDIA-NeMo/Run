@@ -198,7 +198,7 @@ class TestSlurmExecutorExtended:
 
         with patch.object(executor, "get_launcher", return_value=launcher_mock):
             assert executor.get_nsys_entrypoint() == (
-                'bash -c \'GPU_METRICS_FLAG=""; if [ "$SLURM_PROCID" -eq 0 ]; then GPU_METRICS_FLAG="--gpu-metrics-devices=all"; fi; nsys',
+                'bash -c \'GPU_METRICS_FLAG=""; if echo "${GPU_METRICS_NODES}" | grep -q -w "${SLURM_NODEID}"; then GPU_METRICS_FLAG="--gpu-metrics-devices=${SLURM_LOCALID}"; fi; nsys',
                 "'",
             )
 
