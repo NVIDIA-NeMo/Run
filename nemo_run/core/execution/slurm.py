@@ -560,7 +560,7 @@ class SlurmExecutor(Executor):
         launcher = self.get_launcher()
         entrypoint, postfix = "nsys", ""
         if launcher.nsys_gpu_metrics:
-            entrypoint = 'bash -c \'GPU_METRICS_FLAG=""; if [ "$SLURM_PROCID" -eq 0 ]; then GPU_METRICS_FLAG="--gpu-metrics-devices=all"; fi; nsys'
+            entrypoint = 'bash -c \'GPU_METRICS_FLAG=""; if echo "${GPU_METRICS_NODES}" | grep -q -w "${SLURM_NODEID}"; then GPU_METRICS_FLAG="--gpu-metrics-devices=${SLURM_LOCALID}"; fi; nsys'
             postfix = "'"
         return (entrypoint, postfix)
 
