@@ -561,3 +561,233 @@ class TestSkypilotExecutor:
 
                 # Verify the returned task is our mock
                 assert result == mock_task_instance
+
+    def test_parse_infra_for_volume_config(self, mock_skypilot_imports):
+        """Test the _parse_infra_for_volume_config helper method."""
+
+        # Test k8s infra
+        executor_k8s = SkypilotExecutor(infra="k8s/my-context")
+        config = executor_k8s._parse_infra_for_volume_config()
+        assert config["cloud"] == "kubernetes"
+        assert config["region"] == "kubernetes"
+        assert config["zone"] == "kubernetes"
+
+        # Test AWS infra with region and zone
+        executor_aws = SkypilotExecutor(infra="aws/us-east-1/us-east-1a")
+        config = executor_aws._parse_infra_for_volume_config()
+        assert config["cloud"] == "aws"
+        assert config["region"] == "us-east-1"
+        assert config["zone"] == "us-east-1a"
+
+        # Test fallback to individual parameters
+        executor_fallback = SkypilotExecutor(
+            cloud="gcp", region="us-central1", zone="us-central1-a"
+        )
+        config = executor_fallback._parse_infra_for_volume_config()
+        assert config["cloud"] == "gcp"
+        assert config["region"] == "us-central1"
+        assert config["zone"] == "us-central1-a"
+
+    def test_volume_mounts_initialization(self, mock_skypilot_imports):
+        """Test that volume_mounts are properly stored during initialization."""
+        volume_mounts = [
+            {"path": "/data", "volume_name": "nemo-workspace", "size": "50Gi", "type": "k8s-pvc"}
+        ]
+
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            cloud="kubernetes",
+            cluster_name="test-cluster",
+            volume_mounts=volume_mounts,
+        )
+
+        # Verify volume_mounts are stored correctly
+        assert executor.volume_mounts == volume_mounts
+        assert len(executor.volume_mounts) == 1
+        assert executor.volume_mounts[0]["path"] == "/data"
+        assert executor.volume_mounts[0]["volume_name"] == "nemo-workspace"
+
+    def test_volume_mounts_none(self, mock_skypilot_imports):
+        """Test that volume_mounts can be None."""
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            cloud="kubernetes",
+            cluster_name="test-cluster",
+            volume_mounts=None,
+        )
+
+        # Verify volume_mounts is None
+        assert executor.volume_mounts is None
+
+    @patch("sky.task.Task")
+    @patch("sky.volumes.volume.VolumeMount")
+    @patch("sky.models.VolumeConfig")
+    def test_volume_mounts_to_task_processing(
+        self, mock_volume_config, mock_volume_mount, mock_task, mock_skypilot_imports
+    ):
+        """Test that volume_mounts are processed in to_task method."""
+        mock_task_instance = MagicMock()
+        mock_task.return_value = mock_task_instance
+
+        volume_mounts = [
+            {"path": "/data", "volume_name": "nemo-workspace", "size": "50Gi", "type": "k8s-pvc"}
+        ]
+
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            cloud="kubernetes",
+            region="kubernetes",
+            zone="kubernetes",
+            cluster_name="test-cluster",
+            volume_mounts=volume_mounts,
+        )
+
+        with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
+            mock_to_resources.return_value = MagicMock()
+
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                executor.job_dir = tmp_dir
+                executor.to_task("test_task", ["python", "script.py"])
+
+                # Verify volume processing was called (covers the processing logic)
+                mock_volume_mount.assert_called_once()
+                mock_volume_config.assert_called_once()
+
+    @patch("sky.task.Task")
+    @patch("sky.volumes.volume.VolumeMount")
+    @patch("sky.models.VolumeConfig")
+    def test_volume_mounts_with_infra(
+        self, mock_volume_config, mock_volume_mount, mock_task, mock_skypilot_imports
+    ):
+        """Test volume_mounts processing when using infra instead of cloud/region/zone."""
+        mock_task_instance = MagicMock()
+        mock_task.return_value = mock_task_instance
+
+        volume_mounts = [
+            {"path": "/data", "volume_name": "nemo-workspace", "size": "50Gi", "type": "k8s-pvc"}
+        ]
+
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            infra="k8s/kubernetes-admin@kubernetes",
+            cluster_name="test-cluster",
+            volume_mounts=volume_mounts,
+        )
+
+        with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
+            mock_to_resources.return_value = MagicMock()
+
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                executor.job_dir = tmp_dir
+                executor.to_task("test_task", ["python", "script.py"])
+
+                # Verify volume processing was called (covers the infra parsing logic)
+                mock_volume_mount.assert_called_once()
+                mock_volume_config.assert_called_once()
+
+    @patch("sky.task.Task")
+    @patch("sky.volumes.volume.VolumeMount")
+    @patch("sky.models.VolumeConfig")
+    def test_volume_mounts_with_aws_infra(
+        self, mock_volume_config, mock_volume_mount, mock_task, mock_skypilot_imports
+    ):
+        """Test volume_mounts with AWS infra format (cloud/region/zone)."""
+        mock_task_instance = MagicMock()
+        mock_task.return_value = mock_task_instance
+
+        volume_mounts = [
+            {"path": "/data", "volume_name": "test-vol", "size": "10Gi", "type": "gp2"}
+        ]
+
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            infra="aws/us-east-1/us-east-1a",
+            volume_mounts=volume_mounts,
+        )
+
+        with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
+            mock_to_resources.return_value = MagicMock()
+
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                executor.job_dir = tmp_dir
+                executor.to_task("test_task", ["python", "script.py"])
+
+                # Verify AWS infra parsing was covered
+                mock_volume_mount.assert_called_once()
+                mock_volume_config.assert_called_once()
+
+    @patch("sky.task.Task")
+    @patch("sky.volumes.volume.VolumeMount")
+    @patch("sky.models.VolumeConfig")
+    def test_volume_mounts_with_gcp_infra_wildcard(
+        self, mock_volume_config, mock_volume_mount, mock_task, mock_skypilot_imports
+    ):
+        """Test volume_mounts with GCP infra including wildcard zone."""
+        mock_task_instance = MagicMock()
+        mock_task.return_value = mock_task_instance
+
+        volume_mounts = [
+            {"path": "/data", "volume_name": "test-vol", "size": "10Gi", "type": "pd-ssd"}
+        ]
+
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            infra="gcp/us-central1/*",  # Wildcard zone should be skipped
+            volume_mounts=volume_mounts,
+        )
+
+        with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
+            mock_to_resources.return_value = MagicMock()
+
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                executor.job_dir = tmp_dir
+                executor.to_task("test_task", ["python", "script.py"])
+
+                # Verify wildcard zone handling was covered
+                mock_volume_mount.assert_called_once()
+                mock_volume_config.assert_called_once()
+
+    @patch("sky.task.Task")
+    @patch("sky.volumes.volume.VolumeMount")
+    @patch("sky.models.VolumeConfig")
+    def test_volume_mounts_fallback_individual_params(
+        self, mock_volume_config, mock_volume_mount, mock_task, mock_skypilot_imports
+    ):
+        """Test volume_mounts fallback to individual cloud/region/zone params when infra is None."""
+        mock_task_instance = MagicMock()
+        mock_task.return_value = mock_task_instance
+
+        volume_mounts = [
+            {"path": "/data", "volume_name": "test-vol", "size": "10Gi", "type": "gp2"}
+        ]
+
+        # Test with individual parameters (no infra) - covers fallback path
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            cloud="aws",
+            region="us-west-2",
+            zone="us-west-2a",
+            volume_mounts=volume_mounts,
+        )
+
+        with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
+            mock_to_resources.return_value = MagicMock()
+
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                executor.job_dir = tmp_dir
+                executor.to_task("test_task", ["python", "script.py"])
+
+                # Verify fallback to individual params was covered
+                mock_volume_mount.assert_called_once()
+                mock_volume_config.assert_called_once()
+
+    def test_supports_launcher_transform(self, mock_skypilot_imports):
+        """Test that supports_launcher_transform returns True."""
+        executor = SkypilotExecutor(
+            container_image="nvcr.io/nvidia/nemo:latest",
+            cloud="kubernetes",
+            cluster_name="test-cluster",
+        )
+
+        # Test the method returns True
+        assert executor.supports_launcher_transform() is True
