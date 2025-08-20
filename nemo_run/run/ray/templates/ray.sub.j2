@@ -47,6 +47,9 @@ RAY_TEMP_DIR=${RAY_TEMP_DIR:-/ray-cluster}
 # Number seconds to sync logs from /tmp/ray/session_*/logs to $LOG_DIR/ray/
 RAY_LOG_SYNC_FREQUENCY=${RAY_LOG_SYNC_FREQUENCY:-}
 
+# Timeout in seconds for Ray head node to start (default 10 minutes)
+RAY_HEAD_START_TIMEOUT=${RAY_HEAD_START_TIMEOUT:-600}
+
 # Directory setup
 export CLUSTER_DIR={{ cluster_dir }}
 mkdir -p $CLUSTER_DIR
@@ -208,9 +211,16 @@ EOF
 srun {{ common_srun_args }} --container-name=ray-head --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/{{ ray_log_prefix }}head.log bash -x -c "$head_cmd" &
 
 # Wait for the head node container to start and for Ray to be ready
+elapsed_time=0
 while ! (srun --overlap --nodes=1 --ntasks=1 -w $head_node test -f $LOG_DIR/STARTED_RAY_HEAD && srun --overlap --container-name=ray-head --nodes=1 --ntasks=1 -w $head_node ray status --address $ip_head 2>/dev/null); do
-  echo "[INFO][$(date)] Waiting for Ray head node container to start and be ready..."
+  if [[ $elapsed_time -ge $RAY_HEAD_START_TIMEOUT ]]; then
+    echo "[ERROR][$(date)] Ray head node failed to start within $RAY_HEAD_START_TIMEOUT seconds. Exiting..."
+    touch $LOG_DIR/ENDED
+    exit 1
+  fi
+  echo "[INFO][$(date)] Waiting for Ray head node container to start and be ready... ($elapsed_time/$RAY_HEAD_START_TIMEOUT seconds)"
   sleep 2
+  elapsed_time=$((elapsed_time + 2))
 done
 
 NUM_ACTORS=$((gpus_per_node * SLURM_JOB_NUM_NODES))
