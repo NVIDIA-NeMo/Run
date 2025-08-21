@@ -42,6 +42,8 @@ class ConfigMapPackager(Packager):
     namespace: str = "default"
     configmap_prefix: str = "nemo-workspace"
     configmap_id: Optional[str] = None  # Reusable configmap identifier
+    base_path: Optional[Path] = None
+    key_prefix: Optional[str] = None
 
     def __post_init__(self):
         """Initialize the Kubernetes client."""
@@ -101,6 +103,18 @@ class ConfigMapPackager(Packager):
         # Replace forward slashes with hyphens and sanitize for Kubernetes naming
         sanitized_key = configmap_key.replace("/", "-")
         return sanitize_kubernetes_name(sanitized_key)
+
+    def package_default(self, name: str) -> str:
+        """
+        Package using internal defaults so callers only provide a name.
+
+        - base_path: defaults to Path.cwd()
+        - key_prefix: defaults to the resolved name suffix (sanitized)
+        """
+        resolved_name = self.resolve_configmap_name(name)
+        path = self.base_path or Path.cwd()
+        job_dir = self.key_prefix or sanitize_kubernetes_name(name)
+        return self.package(path=path, job_dir=job_dir, name=resolved_name)
 
     def package(self, path: Path, job_dir: str, name: str) -> str:
         """
@@ -162,7 +176,16 @@ class ConfigMapPackager(Packager):
             logger.info(f"Created ConfigMap: {configmap_name} with {len(configmap_data)} files")
         except ApiException as e:
             if e.status == 409:
-                logger.info(f"ConfigMap {configmap_name} already exists")
+                # Update existing ConfigMap with new data
+                try:
+                    self.v1.replace_namespaced_config_map(
+                        name=configmap_name, namespace=self.namespace, body=body
+                    )
+                    logger.info(
+                        f"Replaced ConfigMap: {configmap_name} with {len(configmap_data)} files"
+                    )
+                except ApiException as e2:
+                    logger.error(f"Failed to replace ConfigMap {configmap_name}: {e2}")
             else:
                 logger.error(f"Failed to create ConfigMap {configmap_name}: {e}")
         return configmap_name

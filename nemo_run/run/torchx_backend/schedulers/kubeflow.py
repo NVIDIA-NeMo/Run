@@ -26,7 +26,6 @@ from torchx.specs.api import AppDef, AppState
 
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.kubeflow import KubeflowExecutor
-from nemo_run.core.packaging.configmap import ConfigMapPackager
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
 logger = logging.getLogger(__name__)
@@ -92,14 +91,8 @@ class KubeflowScheduler(SchedulerMixin):
 
             task = Script(inline="echo 'No task specified'")
 
-        # Stage files via ConfigMap if configured
-        try:
-            if isinstance(cfg.packager, ConfigMapPackager):
-                cfg.stage_files(cfg.default_task_dir, task)
-        except Exception as e:
-            logger.error(f"Failed to stage files via ConfigMapPackager: {e}")
-
-        job_id = cfg.create_trainjob(job_config["app"].name, task)
+        # Delegate fully to executor; it handles ConfigMap/CRT prep and TrainJob creation
+        job_id = cfg.submit(task, app.name)
 
         # Store job info for later reference
         self._apps[job_id] = {
@@ -186,23 +179,10 @@ class KubeflowScheduler(SchedulerMixin):
 
     def _appdef_to_kubeflow_config(self, app: AppDef, cfg: KubeflowExecutor) -> dict[str, Any]:
         """Convert AppDef to Kubeflow job configuration."""
-        # Extract the main role (assuming single role for now)
-        main_role = app.roles[0] if app.roles else None
-
-        if main_role:
-            # If we have a script with inline content, extract it
-            if len(main_role.args) >= 2 and main_role.args[0] == "python":
-                # This is a file-based execution
-                logger.info(f"File-based execution: {main_role.args[1]}")
-            elif len(main_role.args) >= 2 and main_role.args[0] == "-c":
-                # This is inline script execution
-                logger.info("Inline script execution detected")
-                logger.warning("Inline script execution not fully implemented yet")
-
+        # Return the config for executor submission
         return {
             "app": app,
             "executor": cfg,
-            "namespace": self.namespace,
         }
 
     def _map_kubeflow_status_to_torchx(self, kubeflow_status: str) -> AppState:
