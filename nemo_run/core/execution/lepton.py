@@ -55,6 +55,7 @@ class LeptonExecutor(Executor):
     lepton_job_dir: str = field(init=False, default="")
     custom_spec: dict[str, Any] = field(default_factory=dict)
     pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
+    reservation_config: Optional[dict[str, Any]] = None
 
     def stop_job(self, job_id: str):
         """
@@ -232,7 +233,7 @@ class LeptonExecutor(Executor):
             log=None,
             queue_config=None,
             stopped=None,
-            reservation_config=None,
+            reservation_config=self.reservation_config,
         )
         job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
 
