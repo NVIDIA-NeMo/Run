@@ -53,6 +53,7 @@ class LeptonExecutor(Executor):
     node_group: str = ""
     mounts: list[dict[str, Any]] = field(default_factory=list)
     lepton_job_dir: str = field(init=False, default="")
+    image_pull_secrets: list[str] = field(default_factory=list)  # Image pull secrets for container registry authentication
     custom_spec: dict[str, Any] = field(default_factory=dict)
     pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
 
@@ -249,7 +250,7 @@ class LeptonExecutor(Executor):
             max_job_failure_retry=None,
             envs=envs,
             mounts=[Mount(**mount) for mount in self.mounts],
-            image_pull_secrets=[],
+            image_pull_secrets=self.image_pull_secrets,
             ttl_seconds_after_finished=None,
             intra_job_communication=True,
             privileged=False,
