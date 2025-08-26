@@ -53,7 +53,9 @@ class LeptonExecutor(Executor):
     node_group: str = ""
     mounts: list[dict[str, Any]] = field(default_factory=list)
     lepton_job_dir: str = field(init=False, default="")
-    image_pull_secrets: list[str] = field(default_factory=list)  # Image pull secrets for container registry authentication
+    image_pull_secrets: list[str] = field(
+        default_factory=list
+    )  # Image pull secrets for container registry authentication
     custom_spec: dict[str, Any] = field(default_factory=dict)
     pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
 
