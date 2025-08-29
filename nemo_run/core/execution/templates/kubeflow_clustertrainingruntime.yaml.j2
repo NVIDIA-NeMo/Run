@@ -1,0 +1,38 @@
+apiVersion: trainer.kubeflow.org/v1alpha1
+kind: ClusterTrainingRuntime
+metadata:
+  name: {{ runtime_name }}
+  namespace: {{ namespace }}
+spec:
+  mlPolicy:
+    numNodes: {{ nodes }}
+    torch:
+      numProcPerNode: "auto"
+  template:
+    spec:
+      replicatedJobs:
+        - name: node
+          replicas: {{ nodes }}
+          template:
+            metadata:
+              labels:
+                trainer.kubeflow.org/trainjob-ancestor-step: trainer
+            spec:
+              template:
+                spec:
+                  volumes:
+                    - name: workspace
+                      configMap:
+                        name: {{ configmap_name }}
+                  containers:
+                    - name: node
+                      image: {{ image }}
+                      volumeMounts:
+                        - name: workspace
+                          mountPath: {{ volume_mount_path }}
+                      resources:
+                        requests: {}
+                        limits:
+                          {% if cpu_limit %}cpu: {{ cpu_limit }}{% endif %}
+                          {% if memory_limit %}memory: {{ memory_limit }}{% endif %}
+                          {% if gpus %}"nvidia.com/gpu": {{ gpus }}{% endif %}
