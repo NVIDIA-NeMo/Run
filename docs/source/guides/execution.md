@@ -295,6 +295,12 @@ def your_lepton_executor(nodes: int, gpus_per_node: int, container_image: str):
         mounts=[{"path": storage_path, "mount_path": mount_path}],
         # Optional: Add custom environment variables or PyTorch specs if needed
         env_vars=common_envs(),
+        # Optional: Specify a node reservation to schedule jobs with
+        # node_reservation="my-node-reservation",
+        # Optional: Specify commands to run at container launch prior to the job starting
+        # pre_launch_commands=["nvidia-smi"],
+        # Optional: Specify image pull secrets for authenticating with container registries
+        # image_pull_secrets=["my-image-pull-secret"],
         # packager=run.GitArchivePackager() # Choose appropriate packager
     )
     return executor

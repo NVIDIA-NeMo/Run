@@ -20,7 +20,12 @@ from leptonai.api.v1.types.deployment import (
     LeptonContainer,
     Mount,
 )
-from leptonai.api.v1.types.job import LeptonJob, LeptonJobState, LeptonJobUserSpec
+from leptonai.api.v1.types.job import (
+    LeptonJob,
+    LeptonJobState,
+    LeptonJobUserSpec,
+    ReservationConfig,
+)
 from leptonai.api.v1.types.replica import Replica
 
 from nemo_run.config import get_nemorun_home
@@ -51,6 +56,7 @@ class LeptonExecutor(Executor):
     shared_memory_size: int = 65536
     resource_shape: str = ""
     node_group: str = ""
+    node_reservation: str = ""
     mounts: list[dict[str, Any]] = field(default_factory=list)
     lepton_job_dir: str = field(init=False, default="")
     image_pull_secrets: list[str] = field(
@@ -260,8 +266,12 @@ class LeptonExecutor(Executor):
             log=None,
             queue_config=None,
             stopped=None,
-            reservation_config=None,
         )
+
+        if self.node_reservation:
+            job_spec.reservation_config = ReservationConfig(reservation_id=self.node_reservation)
+            job_spec.reservation_config.reservation_id = self.node_reservation
+
         job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
 
         created_job = client.job.create(job)
