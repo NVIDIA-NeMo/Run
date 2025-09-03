@@ -8,9 +8,9 @@ NeMo-Run Documentation
 
 NeMo-Run is a powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments. NeMo Run has three core responsibilities:
 
-1. `Configuration <./guides/configuration.html>`_
-2. `Execution <./guides/execution.html>`_
-3. `Management <./guides/management.html>`_
+1. :doc:`Configuration <guides/configuration>`
+2. :doc:`Execution <guides/execution>`
+3. :doc:`Management <guides/management>`
 
 Please click into each link to learn more.
 This is also the typical order Nemo Run users will follow to setup and launch experiments.
@@ -61,6 +61,6 @@ The ``hello_world`` tutorial series provides a comprehensive introduction to NeM
 
 You can find the tutorial series below:
 
-1. `Part 1: Hello World <../../../examples/hello-world/hello_world.ipynb>`_
-2. `Part 2: Hello Experiments <../../../examples/hello-world/hello_experiments.ipynb>`_
-3. `Part 3: Hello Scripts <../../../examples/hello-world/hello_scripts.py>`_
+1. `Part 1: Hello World <https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_world.ipynb>`_
+2. `Part 2: Hello Experiments <https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_experiments.ipynb>`_
+3. `Part 3: Hello Scripts <https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_scripts.py>`_
