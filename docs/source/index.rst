@@ -10,7 +10,7 @@ NeMo-Run is a powerful tool designed to streamline the configuration, execution 
 
 1. :doc:`Configuration <guides/configuration>`
 2. :doc:`Execution <guides/execution>`
-3. :doc:`Management <guides/management`
+3. :doc:`Management <guides/management>`
 
 Please click into each link to learn more.
 This is also the typical order Nemo Run users will follow to setup and launch experiments.
