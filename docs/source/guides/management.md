@@ -135,4 +135,4 @@ nemorun experiment cancel experiment_with_scripts_1720556256 0
 
 This information is specific to each experiment on how to manage it.
 
-See [this notebook](../../../examples/hello-world/hello_experiments.ipynb) for more details and a playable experience.
+See [this notebook](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_experiments.ipynb) for more details and a playable experience.
