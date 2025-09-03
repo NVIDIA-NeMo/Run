@@ -15,15 +15,12 @@
 
 import logging
 import os
+import re
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import yaml
-from kubeflow.trainer.api.trainer_client import TrainerClient
-from kubeflow.trainer.types.types import (
-    CustomTrainer,
-    Runtime,
-)
+from kubeflow.trainer import CustomTrainer, TrainerClient
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 
@@ -34,29 +31,6 @@ from nemo_run.core.packaging.base import sanitize_kubernetes_name
 from nemo_run.core.packaging.configmap import ConfigMapPackager
 
 logger = logging.getLogger(__name__)
-
-
-def _nemo_inline_entry_params(params: dict):
-    """Execute inline Script content using the SDK's func_args injection style.
-
-    The SDK injects a single positional dict when func_args is provided; this
-    function unpacks the dict and executes the content via bash or python.
-    """
-    if not isinstance(params, dict):
-        raise ValueError("Expected params to be a dict with keys 'script' and 'entrypoint'.")
-
-    script = params.get("script", "")
-    entrypoint = params.get("entrypoint", "bash")
-
-    # Self-contained to work when injected by the SDK: include imports here
-    import subprocess as _sp
-    import textwrap as _tw
-
-    script = _tw.dedent(script)
-    if "python" in entrypoint:
-        exec(script, {})
-        return
-    _sp.run(["bash", "-lc", script], check=True)
 
 
 @dataclass(kw_only=True)
@@ -88,9 +62,6 @@ class KubeflowExecutor(Executor):
             exp.run()
     """
 
-    #: Unique logical name for this executor; used for CRT and ConfigMap naming
-    name: str
-
     #: Number of nodes for distributed training
     nodes: int = 1
 
@@ -111,6 +82,9 @@ class KubeflowExecutor(Executor):
 
     #: Container image for training jobs
     image: str = "nvcr.io/nvidia/nemo:dev"
+
+    #: Training job filename
+    training_entry: str = "experiment"
 
     #: Volume mount path for staged files (default: /src)
     volume_mount_path: str = "/src"
@@ -177,9 +151,14 @@ class KubeflowExecutor(Executor):
     ):
         """Assign experiment and task information to the executor."""
         self.experiment_id = exp_id
+        self.experiment_name = re.sub(r"([_\d]+)", "", exp_id)
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
         self.job_name = task_id
+
+        logger.info(
+            f"KubeflowExecutor assigned: experiment_id={self.experiment_id}, job_name={self.job_name}"
+        )
 
     def set_detach_mode(self, detach: bool):
         """Set detach mode for the executor."""
@@ -237,15 +216,10 @@ class KubeflowExecutor(Executor):
             self._trainer_client = TrainerClient(namespace=self.namespace)
         return self._trainer_client
 
-    def _get_runtime(self, trainer=None) -> Runtime:
-        """Get the Runtime configuration for the training job."""
-        client = self._get_trainer_client()
-        runtime_name = self._runtime_name()
-        return client.get_runtime(runtime_name)
-
-    def _create_cluster_training_runtime(self, configmap_name: str) -> str:
+    def _create_cluster_training_runtime(self, configmap_name: str, sha: str) -> str:
         """Create or replace a ClusterTrainingRuntime bound to the given ConfigMap."""
-        runtime_name = self._runtime_name()
+        runtime_name = self._runtime_name(sha)
+
         if not hasattr(self, "_kubernetes_available") or not self._kubernetes_available:
             raise RuntimeError("Kubernetes is not available; cannot create ClusterTrainingRuntime")
 
@@ -265,7 +239,7 @@ class KubeflowExecutor(Executor):
             template_name="kubeflow_clustertrainingruntime.yaml.j2",
             variables=template_vars,
         )
-        runtime_body = yaml.safe_load(rendered)
+        runtime_body = yaml.safe_load(rendered)  # type: ignore[assignment]
 
         try:
             api_client.create_cluster_custom_object(
@@ -277,31 +251,124 @@ class KubeflowExecutor(Executor):
             logger.info(f"Created ClusterTrainingRuntime: {runtime_name}")
         except ApiException as e:
             if e.status == 409:
-                # Replace to ensure the ClusterTrainingRuntime is updated
-                api_client.replace_cluster_custom_object(
-                    group="trainer.kubeflow.org",
-                    version="v1alpha1",
-                    plural="clustertrainingruntimes",
-                    name=runtime_name,
-                    body=runtime_body,
-                )
-                logger.info(f"Replaced existing ClusterTrainingRuntime: {runtime_name}")
+                # Resource already exists, fetch it first to get resourceVersion
+                try:
+                    existing_runtime_obj = api_client.get_cluster_custom_object(
+                        group="trainer.kubeflow.org",
+                        version="v1alpha1",
+                        plural="clustertrainingruntimes",
+                        name=runtime_name,
+                    )
+                    existing_runtime: Dict[str, Any] = existing_runtime_obj  # type: ignore[assignment]
+                    # Update the resourceVersion in our new body
+                    runtime_body["metadata"]["resourceVersion"] = existing_runtime["metadata"][
+                        "resourceVersion"
+                    ]  # type: ignore[index]
+
+                    # Replace the existing ClusterTrainingRuntime
+                    api_client.replace_cluster_custom_object(
+                        group="trainer.kubeflow.org",
+                        version="v1alpha1",
+                        plural="clustertrainingruntimes",
+                        name=runtime_name,
+                        body=runtime_body,
+                    )
+                    logger.info(f"Replaced existing ClusterTrainingRuntime: {runtime_name}")
+                except Exception as replace_error:
+                    logger.error(
+                        f"Failed to replace existing ClusterTrainingRuntime: {replace_error}"
+                    )
+                    raise
             else:
-                logger.error(f"Failed to create/replace ClusterTrainingRuntime: {e}")
+                logger.error(f"Failed to create ClusterTrainingRuntime: {e}")
                 raise
         return runtime_name
 
-    def stage_files(self, task_dir: str, task=None) -> str:
-        """Stage files using the packager."""
-        if isinstance(self.packager, ConfigMapPackager):
-            return self.packager.package_default(self.name)
-        else:
-            return task_dir
+    def _get_additional_files(self, task) -> dict[str, tuple[str, str]]:
+        """Get additional files to stage based on task type.
+
+        Returns:
+            Dict mapping filename to (content, entrypoint) tuples
+        """
+        files_to_stage = {}
+
+        if task is None:
+            return files_to_stage
+
+        if hasattr(task, "inline") and task.inline:
+            # Script task - stage the script content in ConfigMap
+            content: Optional[str] = None
+            entrypoint = getattr(task, "entrypoint", "bash")
+
+            # Check if inline content is a file path (processed by TorchX packaging)
+            if task.inline.strip().startswith("/") and task.inline.strip().endswith(".sh"):
+                # This is a script file path created by TorchX packaging
+                script_path = task.inline.strip()
+                # Convert TorchX path to local path
+                local_script_path = script_path.replace(
+                    "/nemo_run/scripts/", f"{self.job_dir}/scripts/"
+                )
+                if os.path.exists(local_script_path):
+                    with open(local_script_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    logger.info(
+                        f"Read script content from TorchX-generated file: {local_script_path}"
+                    )
+                else:
+                    logger.warning(f"TorchX script file not found, skipping: {local_script_path}")
+                    return files_to_stage
+            else:
+                # Direct inline content
+                content = task.inline
+
+            if content:
+                files_to_stage[self.training_entry] = (content, entrypoint)
+                logger.info("Script task - will stage content in ConfigMap")
+
+        elif hasattr(task, "__fn_or_cls__"):
+            # Partial task - will be handled directly by CustomTrainer, no ConfigMap staging needed
+            logger.info(
+                "Partial task - will be passed directly to CustomTrainer, skipping ConfigMap staging"
+            )
+
+        return files_to_stage
+
+    def stage_files(self, task_dir: str, task=None) -> tuple[str, str]:
+        """Stage files using the packager.
+
+        Adds additional files based on task content and packages along with
+        any original files configured on the packager. Returns the ConfigMap name.
+        """
+        if not isinstance(self.packager, ConfigMapPackager):
+            return (task_dir, "")
+
+        # Get additional files to stage based on task type
+        additional_files = self._get_additional_files(task)
+
+        # Stage all additional files
+        experiment_id = self._get_experiment_identifier()
+        for filename, (content, entrypoint) in additional_files.items():
+            self.packager.add_file(experiment_id, filename, content, entrypoint=entrypoint)
+
+        try:
+            configmap_name, sha = self.packager.package_with_hash(experiment_id)
+            logger.info(f"Staged files into ConfigMap: {configmap_name} (sha={sha or 'n/a'})")
+            return (configmap_name, sha)
+        except Exception as e:
+            logger.error(f"Failed to stage files: {e}")
+            raise
+
+    def _get_experiment_identifier(self) -> str:
+        """Return experiment_id; raise if not assigned yet."""
+        if hasattr(self, "experiment_name") and self.experiment_name:
+            return f"{self.experiment_name}"
+        raise RuntimeError("Executor not assigned to experiment; missing experiment_name")
 
     def cleanup_files(self, task_dir: str, task=None):
         """Clean up staged files."""
         if isinstance(self.packager, ConfigMapPackager):
-            self.packager.cleanup(self.name)
+            # Use experiment-specific naming for cleanup
+            self.packager.cleanup(self._get_experiment_identifier())
 
     def _get_custom_trainer(self, task) -> CustomTrainer:
         """Get the CustomTrainer configuration for the training job."""
@@ -315,35 +382,40 @@ class KubeflowExecutor(Executor):
             resources_per_node["nvidia.com/gpu"] = str(self.gpus)
         trainer_kwargs["resources_per_node"] = resources_per_node
 
-        if hasattr(task, "inline") and task.inline:
-            trainer_kwargs["func"] = _nemo_inline_entry_params
-            trainer_kwargs["func_args"] = {
-                "script": task.inline,
-                "entrypoint": getattr(task, "entrypoint", "bash"),
-            }
-        elif hasattr(task, "__fn_or_cls__"):
+        if hasattr(task, "__fn_or_cls__"):
             trainer_kwargs["func"] = task.__fn_or_cls__
+            if hasattr(task, "__arguments__") and task.__arguments__:
+                trainer_kwargs["func_args"] = task.__arguments__
         else:
-            raise ValueError("Task must be a Script or Partial object")
+            # Script task - set python_file and check for bash scripts
+            trainer_kwargs["python_file"] = f"{self.volume_mount_path}/{self.training_entry}"
 
-        return CustomTrainer(**trainer_kwargs)
+            # Check if this is a bash script and set appropriate command
+            if hasattr(task, "inline") and task.inline:
+                entrypoint = getattr(task, "entrypoint", "bash")
+                if entrypoint and "bash" in entrypoint.lower():
+                    trainer_kwargs["command"] = ["/bin/bash"]
+                    logger.info("Using bash command for script execution")
+                # For Python scripts, let SDK auto-detect based on runtime
 
-    def _get_staged_file_path(self, filename: str) -> str:
-        """Get the staged file path for a given filename."""
-        if isinstance(self.packager, ConfigMapPackager):
-            # Use executor name for mounted path grouping
-            effective_dir = sanitize_kubernetes_name(self.name)
-            sanitized_filename = filename.replace("/", "-")
-            return f"{self.volume_mount_path}/{effective_dir}-{sanitized_filename}"
-        else:
-            return filename
+        # Debug logging to see what we're passing to CustomTrainer
+        logger.info(f"Creating CustomTrainer with kwargs: {trainer_kwargs}")
 
-    def create_trainjob(self, job_name: str, task) -> str:
+        trainer = CustomTrainer(**trainer_kwargs)
+
+        # Debug logging to see what CustomTrainer actually received
+        logger.info(f"CustomTrainer created with func: {trainer.func}")
+        logger.info(f"CustomTrainer created with func_args: {trainer.func_args}")
+        logger.info(f"CustomTrainer created with python_file: {trainer.python_file}")
+
+        return trainer
+
+    def create_trainjob(self, job_name: str, task, runtime_name: str) -> str:
         """Create a TrainJob using the Kubeflow SDK."""
         try:
             client = self._get_trainer_client()
             trainer = self._get_custom_trainer(task)
-            runtime = self._get_runtime(trainer=trainer)
+            runtime = client.get_runtime(runtime_name)
             job_id = client.train(runtime=runtime, trainer=trainer)
             logger.info(f"Created TrainJob: {job_id}")
             return job_id
@@ -379,40 +451,29 @@ class KubeflowExecutor(Executor):
             logger.error(f"Failed to get TrainJob logs: {e}")
             return {}
 
-    def prepare_runtime(self) -> str:
+    def prepare_runtime(self, task=None) -> tuple[str, str]:
         """Atomically prepare runtime dependencies for this executor.
 
         Steps:
-        - Upsert the ConfigMap for this executor's name (if using ConfigMapPackager)
-        - Create/replace the ClusterTrainingRuntime that references that ConfigMap
+        - Create a unique ConfigMap for this experiment that includes:
+          * Initial training code (from ConfigMapPackager)
+          * Dynamic experiment scripts (created during task execution)
+        - Create a unique ClusterTrainingRuntime that references that ConfigMap
 
-        Returns the runtime name. Raises on failure so callers don't proceed to submit().
+        Returns (runtime_name, sha). Raises on failure so callers don't proceed to submit().
         """
-        configmap_name: Optional[str] = None
-        if isinstance(self.packager, ConfigMapPackager):
-            try:
-                # package_default returns the fully resolved ConfigMap name (with prefix)
-                configmap_name = self.packager.package_default(self.name)
-                logger.info(f"Prepared ConfigMap: {configmap_name}")
-            except Exception as e:
-                logger.error(f"Failed to prepare ConfigMap for '{self.name}': {e}")
-                raise
+        # Stage files to ensure we have the latest content and ConfigMap
+        configmap_name, sha = self.stage_files(task_dir="", task=task)
 
+        # Create runtime bound to this ConfigMap
         try:
             runtime_name = self._create_cluster_training_runtime(
-                configmap_name=configmap_name or self.name
+                configmap_name=configmap_name, sha=sha
             )
             logger.info(f"Prepared runtime: {runtime_name}")
-            return runtime_name
+            return (runtime_name, sha)
         except Exception:
             raise
-
-    # Backwards-compatible helpers call the atomic method
-    def ensure_configmap(self) -> str:
-        return self.prepare_runtime()
-
-    def ensure_runtime(self) -> str:
-        return self.prepare_runtime()
 
     def submit(self, task, job_name: str) -> str:
         """
@@ -425,10 +486,10 @@ class KubeflowExecutor(Executor):
             raise RuntimeError("Executor not assigned to experiment")
 
         try:
-            # Prepare runtime dependencies on every submit; K8s upserts make this safe
-            self.prepare_runtime()
+            # Prepare runtime dependencies (stages files and creates runtime)
+            runtime_name, _ = self.prepare_runtime(task=task)
 
-            job_id = self.create_trainjob(job_name, task)
+            job_id = self.create_trainjob(job_name, task, runtime_name)
             logger.info(f"Submitted job {job_name} with ID: {job_id}")
             return job_id
 
@@ -464,5 +525,7 @@ class KubeflowExecutor(Executor):
         """Get information about the executor configuration."""
         return f"KubeflowExecutor (nodes={self.nodes}, gpus={self.gpus or 0})"
 
-    def _runtime_name(self) -> str:
-        return f"nemo-runtime-{sanitize_kubernetes_name(self.name)}"
+    def _runtime_name(self, sha: str) -> str:
+        """Build CRT name from the shared experiment identifier and sha."""
+        identifier = self._get_experiment_identifier()
+        return sanitize_kubernetes_name(f"nemo-runtime-{identifier}-{sha}")

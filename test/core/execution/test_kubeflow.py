@@ -21,17 +21,14 @@ from kubernetes import config
 from nemo_run.config import Partial, Script
 from nemo_run.core.execution.kubeflow import (
     KubeflowExecutor,
-    _nemo_inline_entry_params,
 )
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.configmap import ConfigMapPackager
 
 
 def test_kubeflow_executor_default_init():
-    """Test that KubeflowExecutor initializes with required name parameter."""
-    name = "testexec"
-
-    executor = KubeflowExecutor(name=name)
+    """Test that KubeflowExecutor initializes with defaults."""
+    executor = KubeflowExecutor()
 
     assert executor.nodes == 1
     assert executor.ntasks_per_node == 1
@@ -45,7 +42,6 @@ def test_kubeflow_executor_default_init():
 def test_kubeflow_executor_custom_init():
     """Test that KubeflowExecutor initializes with custom values."""
     custom_config = {
-        "name": "customexec",
         "nodes": 2,
         "ntasks_per_node": 4,
         "namespace": "training",
@@ -65,15 +61,15 @@ def test_kubeflow_executor_custom_init():
 def test_kubeflow_executor_validation():
     """Test parameter validation."""
     with pytest.raises(ValueError, match="nodes must be >= 1"):
-        KubeflowExecutor(name="test", nodes=0)
+        KubeflowExecutor(nodes=0)
 
     with pytest.raises(ValueError, match="ntasks_per_node must be >= 1"):
-        KubeflowExecutor(name="test", ntasks_per_node=0)
+        KubeflowExecutor(ntasks_per_node=0)
 
 
 def test_kubeflow_executor_assign():
     """Test that assign method sets the correct directories."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     exp_id = "exp-123"
     exp_dir = "/tmp/exp"
     task_id = "task-1"
@@ -90,7 +86,7 @@ def test_kubeflow_executor_assign():
 def test_kubeflow_executor_nnodes():
     """Test that nnodes returns the correct number of nodes."""
     expected_nodes = 3
-    executor = KubeflowExecutor(name="exec", nodes=expected_nodes)
+    executor = KubeflowExecutor(nodes=expected_nodes)
 
     result = executor.nnodes()
 
@@ -100,26 +96,14 @@ def test_kubeflow_executor_nnodes():
 def test_kubeflow_executor_nproc_per_node():
     """Test that nproc_per_node returns the correct number of processes."""
     expected_procs = 4
-    executor = KubeflowExecutor(name="exec", ntasks_per_node=expected_procs)
+    executor = KubeflowExecutor(ntasks_per_node=expected_procs)
 
     result = executor.nproc_per_node()
 
     assert result == expected_procs
 
 
-def test_kubeflow_executor_get_runtime():
-    """Test that _get_runtime fetches Runtime via SDK."""
-    executor = KubeflowExecutor(name="customexec", gpus=4, nodes=2)
-    mock_runtime_instance = MagicMock()
-
-    with patch("nemo_run.core.execution.kubeflow.TrainerClient") as mock_client:
-        mock_client_instance = MagicMock()
-        mock_client.return_value = mock_client_instance
-        mock_client_instance.get_runtime.return_value = mock_runtime_instance
-
-        result = executor._get_runtime()
-
-        assert result == mock_runtime_instance
+# _get_runtime was removed; runtime_name is passed explicitly
 
 
 @pytest.mark.parametrize(
@@ -127,7 +111,6 @@ def test_kubeflow_executor_get_runtime():
     [
         (
             {
-                "name": "exec",
                 "nodes": 2,
                 "gpus": 8,
                 "cpu_limit": "16",
@@ -137,7 +120,6 @@ def test_kubeflow_executor_get_runtime():
         ),
         (
             {
-                "name": "exec",
                 "nodes": 1,
                 "gpus": 4,
                 "volume_mount_path": "/custom/workspace",
@@ -151,6 +133,8 @@ def test_kubeflow_executor_get_custom_trainer_inline(executor_kwargs, expected_n
     script_task = Script(inline="python train.py")
     executor = KubeflowExecutor(**executor_kwargs)
     executor.packager = ConfigMapPackager()
+    # Simulate the assignment process to set the experiment name
+    executor.assign("exp-123", "/tmp/exp", "task-1", "task_dir")
     mock_trainer_instance = MagicMock()
 
     with patch("nemo_run.core.execution.kubeflow.CustomTrainer") as mock_trainer:
@@ -163,9 +147,9 @@ def test_kubeflow_executor_get_custom_trainer_inline(executor_kwargs, expected_n
 
         call_args = mock_trainer.call_args[1]
         assert call_args["num_nodes"] == expected_nodes
-        assert call_args.get("python_file") is None
-        assert call_args["func"] is _nemo_inline_entry_params
-        assert call_args["func_args"]["script"] == "python train.py"
+        # Should use the training_entry filename directly (simplified logic)
+        assert call_args.get("python_file") == "training_entry"
+        assert "func" not in call_args
 
         resources = call_args["resources_per_node"]
         if "cpu_limit" in executor_kwargs:
@@ -183,7 +167,9 @@ def test_kubeflow_executor_get_custom_trainer_function_based():
         return "function result"
 
     partial_task = Partial(dummy_function)
-    executor = KubeflowExecutor(name="exec", nodes=1, gpus=4)
+    executor = KubeflowExecutor(nodes=1, gpus=4)
+    # Simulate the assignment process to set the experiment name
+    executor.assign("exp-123", "/tmp/exp", "task-1", "task_dir")
     mock_trainer_instance = MagicMock()
 
     with patch("nemo_run.core.execution.kubeflow.CustomTrainer") as mock_trainer:
@@ -196,16 +182,39 @@ def test_kubeflow_executor_get_custom_trainer_function_based():
 
         call_args = mock_trainer.call_args[1]
         assert call_args["num_nodes"] == 1
-        assert call_args["func"] == dummy_function
-        assert call_args.get("script") is None
+        # Partial tasks use the function directly, not python_file
+        assert call_args.get("func") == dummy_function
+        assert "python_file" not in call_args
 
         resources = call_args["resources_per_node"]
         assert resources["nvidia.com/gpu"] == "4"
 
 
+def test_kubeflow_executor_get_custom_trainer_fallback():
+    """Test _get_custom_trainer fallback behavior when using non-ConfigMapPackager."""
+    script_task = Script(inline="python train.py")
+    executor = KubeflowExecutor()
+    # Use a different packager type to test fallback behavior
+    executor.packager = MagicMock()  # Not a ConfigMapPackager
+    mock_trainer_instance = MagicMock()
+
+    with patch("nemo_run.core.execution.kubeflow.CustomTrainer") as mock_trainer:
+        mock_trainer.return_value = mock_trainer_instance
+
+        result = executor._get_custom_trainer(script_task)
+
+        assert result == mock_trainer_instance
+        mock_trainer.assert_called_once()
+
+        call_args = mock_trainer.call_args[1]
+        assert call_args["num_nodes"] == 1
+        # Should fall back to using the TRAINING_ENTRY directly
+        assert call_args.get("python_file") == "training_entry"
+
+
 def test_kubeflow_executor_create_trainjob():
     """Test create_trainjob method."""
-    executor = KubeflowExecutor(name="exec", nodes=1)
+    executor = KubeflowExecutor(nodes=1)
     script_task = Script(inline="print('Training')")
     expected_job_id = "job-123"
 
@@ -214,7 +223,7 @@ def test_kubeflow_executor_create_trainjob():
         mock_client.return_value = mock_client_instance
         mock_client_instance.train.return_value = expected_job_id
 
-        result = executor.create_trainjob("test-job", script_task)
+        result = executor.create_trainjob("test-job", script_task, "nemo-runtime-exp-abc-12345678")
 
         assert result == expected_job_id
         mock_client_instance.train.assert_called_once()
@@ -224,7 +233,7 @@ def test_kubeflow_executor_create_trainjob():
 
 def test_kubeflow_executor_get_trainjob_status():
     """Test get_trainjob_status method."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     executor.packager = ConfigMapPackager()
     expected_status = "Running"
     job_name = "job-123"
@@ -244,7 +253,7 @@ def test_kubeflow_executor_get_trainjob_status():
 
 def test_kubeflow_executor_delete_trainjob():
     """Test delete_trainjob method."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     job_name = "job-123"
 
     with patch("nemo_run.core.execution.kubeflow.TrainerClient") as mock_client:
@@ -258,7 +267,7 @@ def test_kubeflow_executor_delete_trainjob():
 
 def test_kubeflow_executor_get_trainjob_logs():
     """Test get_trainjob_logs method."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     job_name = "job-123"
     expected_logs = {"logs": "test logs"}
 
@@ -275,7 +284,7 @@ def test_kubeflow_executor_get_trainjob_logs():
 
 def test_kubeflow_executor_get_trainer_client():
     """Test _get_trainer_client method."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     mock_client_instance = MagicMock()
 
     with patch("nemo_run.core.execution.kubeflow.TrainerClient") as mock_client:
@@ -297,7 +306,7 @@ def test_kubeflow_executor_post_init():
     expected_nodes = 1
     expected_ntasks = 1
 
-    executor = KubeflowExecutor(name="exec", nodes=expected_nodes, ntasks_per_node=expected_ntasks)
+    executor = KubeflowExecutor(nodes=expected_nodes, ntasks_per_node=expected_ntasks)
 
     assert executor.nodes == expected_nodes
     assert executor.ntasks_per_node == expected_ntasks
@@ -305,7 +314,7 @@ def test_kubeflow_executor_post_init():
 
 def test_kubeflow_executor_create_trainjob_with_error():
     """Test create_trainjob method with error handling."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     script_task = Script(inline="print('Training')")
     error_message = "TrainJob creation failed"
 
@@ -315,12 +324,12 @@ def test_kubeflow_executor_create_trainjob_with_error():
         mock_client_instance.train.side_effect = Exception(error_message)
 
         with pytest.raises(Exception, match=error_message):
-            executor.create_trainjob("test-job", script_task)
+            executor.create_trainjob("test-job", script_task, "nemo-runtime-exp-abc-12345678")
 
 
 def test_kubeflow_executor_get_trainjob_status_with_error():
     """Test get_trainjob_status method with error handling."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
 
     with patch("nemo_run.core.execution.kubeflow.TrainerClient") as mock_client:
         mock_client_instance = MagicMock()
@@ -334,7 +343,7 @@ def test_kubeflow_executor_get_trainjob_status_with_error():
 
 def test_kubeflow_executor_delete_trainjob_with_error():
     """Test delete_trainjob method with error handling."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
 
     with patch("nemo_run.core.execution.kubeflow.TrainerClient") as mock_client:
         mock_client_instance = MagicMock()
@@ -346,7 +355,7 @@ def test_kubeflow_executor_delete_trainjob_with_error():
 
 def test_kubeflow_executor_get_trainjob_logs_with_error():
     """Test get_trainjob_logs method with error handling."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
 
     with patch("nemo_run.core.execution.kubeflow.TrainerClient") as mock_client:
         mock_client_instance = MagicMock()
@@ -362,7 +371,7 @@ def test_kubeflow_executor_info():
     """Test info method."""
     expected_nodes = 2
     expected_gpus = 4
-    executor = KubeflowExecutor(name="exec", nodes=expected_nodes, gpus=expected_gpus)
+    executor = KubeflowExecutor(nodes=expected_nodes, gpus=expected_gpus)
 
     info = executor.info()
 
@@ -372,26 +381,30 @@ def test_kubeflow_executor_info():
 
 def test_kubeflow_executor_stage_files():
     """Test stage_files method."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     executor.packager = ConfigMapPackager()
     executor.experiment_id = "exp-123"
+    executor.experiment_name = "exp123"
     executor.experiment_dir = "/tmp/exp"
-    expected_configmap_name = "configmap-name"
+    expected_configmap_name = "nemo-workspace-exp-123-abcdef12"
+    expected_sha = "abcdef12"
 
-    with patch.object(executor.packager, "package") as mock_package:
-        mock_package.return_value = expected_configmap_name
+    with patch.object(executor.packager, "package_with_hash") as mock_package:
+        mock_package.return_value = (expected_configmap_name, expected_sha)
 
-        result = executor.stage_files("task-dir")
+        result_name, result_sha = executor.stage_files("task-dir", task=Script(inline="print('x')"))
 
-        assert result == expected_configmap_name
+        assert result_name == expected_configmap_name
+        assert result_sha == expected_sha
         mock_package.assert_called_once()
 
 
 def test_kubeflow_executor_cleanup_files():
     """Test cleanup_files method."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     executor.packager = ConfigMapPackager()
     executor.experiment_id = "exp-123"
+    executor.experiment_name = "exp123"
 
     with patch.object(executor.packager, "cleanup") as mock_cleanup:
         executor.cleanup_files("task-dir")
@@ -401,10 +414,12 @@ def test_kubeflow_executor_cleanup_files():
 
 def test_kubeflow_executor_get_staged_file_path():
     """Test _get_staged_file_path method."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     executor.packager = ConfigMapPackager()
     filename = "test.py"
-    expected_path = "/src/exec-test.py"
+    # Set experiment_name since we didn't call assign
+    executor.experiment_name = "expname"
+    expected_path = "/src/expname-test.py"
 
     result = executor._get_staged_file_path(filename)
 
@@ -413,7 +428,7 @@ def test_kubeflow_executor_get_staged_file_path():
 
 def test_kubeflow_executor_get_staged_file_path_non_configmap():
     """Test _get_staged_file_path with non-ConfigMap packager."""
-    executor = KubeflowExecutor(name="exec")
+    executor = KubeflowExecutor()
     from nemo_run.core.packaging import PatternPackager
 
     executor.packager = PatternPackager(include_pattern="*.py", relative_path=".")
@@ -425,12 +440,23 @@ def test_kubeflow_executor_get_staged_file_path_non_configmap():
 
 
 def test_kubeflow_executor_invalid_task():
-    """Test that KubeflowExecutor raises error for invalid task types."""
-    executor = KubeflowExecutor(name="exec", nodes=1)
+    """Test that KubeflowExecutor handles invalid task types by defaulting to python_file."""
+    executor = KubeflowExecutor(nodes=1)
     invalid_task = "invalid_task"
 
-    with pytest.raises(ValueError, match="Task must be a Script or Partial object"):
-        executor._get_custom_trainer(invalid_task)
+    mock_trainer_instance = MagicMock()
+    with patch("nemo_run.core.execution.kubeflow.CustomTrainer") as mock_trainer:
+        mock_trainer.return_value = mock_trainer_instance
+
+        result = executor._get_custom_trainer(invalid_task)
+
+        assert result == mock_trainer_instance
+        mock_trainer.assert_called_once()
+
+        call_args = mock_trainer.call_args[1]
+        # Invalid tasks default to using training_entry as python_file
+        assert call_args.get("python_file") == "training_entry"
+        assert "func" not in call_args
 
 
 def test_kubeflow_executor_kubernetes_setup():
@@ -440,7 +466,7 @@ def test_kubeflow_executor_kubernetes_setup():
             with patch("kubernetes.client.CoreV1Api") as mock_core:
                 mock_core.return_value.list_namespace.return_value = None
 
-                executor = KubeflowExecutor(name="test")
+                executor = KubeflowExecutor()
 
                 assert executor._kubernetes_available is True
 
@@ -458,14 +484,14 @@ def test_kubeflow_executor_kubernetes_setup_failure():
             with patch("kubernetes.client.CoreV1Api") as mock_core:
                 mock_core.return_value.list_namespace.side_effect = Exception("API error")
 
-                executor = KubeflowExecutor(name="test")
+                executor = KubeflowExecutor()
 
                 assert executor._kubernetes_available is False
 
 
 def test_kubeflow_executor_detach_mode():
     """Test detach mode setting."""
-    executor = KubeflowExecutor(name="test")
+    executor = KubeflowExecutor()
 
     executor.set_detach_mode(True)
 
@@ -478,7 +504,7 @@ def test_kubeflow_executor_detach_mode():
 
 def test_kubeflow_executor_macro_values():
     """Test macro_values method."""
-    executor = KubeflowExecutor(name="test")
+    executor = KubeflowExecutor()
 
     result = executor.macro_values()
 

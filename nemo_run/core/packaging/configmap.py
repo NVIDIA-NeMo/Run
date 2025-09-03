@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
@@ -41,9 +42,13 @@ class ConfigMapPackager(Packager):
     relative_path: str | List[str] = "."
     namespace: str = "default"
     configmap_prefix: str = "nemo-workspace"
-    configmap_id: Optional[str] = None  # Reusable configmap identifier
     base_path: Optional[Path] = None
     key_prefix: Optional[str] = None
+
+    # Internal store for additional in-memory files per experiment identifier
+    _additional_files: Dict[str, Dict[str, str]] = field(
+        default_factory=dict
+    )  # experiment_id -> {filename: content}
 
     def __post_init__(self):
         """Initialize the Kubernetes client."""
@@ -60,9 +65,7 @@ class ConfigMapPackager(Packager):
                 )
                 self.v1 = None
 
-    def get_container_file_path(
-        self, job_dir: str, filename: str, volume_mount_path: str = "/workspace"
-    ) -> str:
+    def get_container_file_path(self, filename: str, volume_mount_path: str = "/workspace") -> str:
         """
         Get the container file path for a given job_dir and filename.
 
@@ -77,13 +80,10 @@ class ConfigMapPackager(Packager):
         Returns:
             The full path where the file would be accessible in the container
         """
-        from pathlib import Path
+        rel_path = Path(f"{volume_mount_path}/{filename}")
+        return self._sanitize_configmap_key(rel_path)
 
-        rel_path = Path(filename)
-        configmap_key = self._sanitize_configmap_key(job_dir, rel_path)
-        return f"{volume_mount_path}/{configmap_key}"
-
-    def _sanitize_configmap_key(self, job_dir: Optional[str], rel_path: Path) -> str:
+    def _sanitize_configmap_key(self, rel_path: Path) -> str:
         """
         Sanitize a ConfigMap key to comply with Kubernetes ConfigMap key rules.
 
@@ -92,16 +92,13 @@ class ConfigMapPackager(Packager):
         the ConfigMap using the job_dir as a prefix.
 
         Args:
-            job_dir: Directory prefix for organizing files within the ConfigMap (can be None)
             rel_path: Relative path of the file from the base directory
 
         Returns:
             A sanitized ConfigMap key that complies with Kubernetes naming rules
         """
-        # Use job_dir as prefix to organize files within the ConfigMap
-        configmap_key = f"{job_dir}/{rel_path}" if job_dir else str(rel_path)
         # Replace forward slashes with hyphens and sanitize for Kubernetes naming
-        sanitized_key = configmap_key.replace("/", "-")
+        sanitized_key = str(rel_path).replace("/", "-")
         return sanitize_kubernetes_name(sanitized_key)
 
     def package_default(self, name: str) -> str:
@@ -115,6 +112,114 @@ class ConfigMapPackager(Packager):
         path = self.base_path or Path.cwd()
         job_dir = self.key_prefix or sanitize_kubernetes_name(name)
         return self.package(path=path, job_dir=job_dir, name=resolved_name)
+
+    def add_file(
+        self,
+        experiment_identifier: str,
+        filename: str,
+        content: str,
+        entrypoint: Optional[str] = None,
+    ) -> None:
+        """Add an in-memory file to be included for a specific experiment.
+
+        The content is normalized by ensuring a shebang exists at the top. The
+        interpreter is selected based on the provided entrypoint hint.
+
+        Args:
+            experiment_identifier: Logical experiment key used to group files
+            filename: The file name to expose inside the ConfigMap mount
+            content: Raw file content
+            entrypoint: Optional hint ("python" or "bash"), defaults to python
+        """
+        normalized = content or ""
+        leading = normalized.lstrip()
+        if not leading.startswith("#!"):
+            ep = (entrypoint or "python").lower()
+            shebang = "#!/usr/bin/env python3" if "python" in ep else "#!/usr/bin/env bash"
+            normalized = f"{shebang}\n{normalized}"
+
+        if experiment_identifier not in self._additional_files:
+            self._additional_files[experiment_identifier] = {}
+        self._additional_files[experiment_identifier][filename] = normalized
+
+    def package_with_hash(self, name: str) -> tuple[str, str]:
+        """Package files and return (configmap_name, sha) based on content.
+
+        This method collects files from disk based on include_pattern/relative_path
+        and merges them with any additional in-memory files previously added via
+        add_file(...). It computes a content hash over all entries (stable ordering)
+        and uses that to produce a deterministic ConfigMap name.
+
+        Args:
+            name: Experiment identifier used to group additional files and as key prefix
+
+        Returns:
+            Tuple of (configmap_name, sha256_hex)
+        """
+        base_path = self.base_path or Path.cwd()
+
+        # Collect files from disk
+        files_to_stage = self._find_files_to_package(base_path)
+
+        configmap_data: Dict[str, str] = {}
+        for file_path in files_to_stage:
+            rel_path = file_path.relative_to(base_path)
+            configmap_key = self._sanitize_configmap_key(rel_path)
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    configmap_data[configmap_key] = f.read()
+            except Exception as e:
+                logger.warning(f"Could not read file {file_path}: {e}")
+
+        # Merge additional in-memory files
+        for fname, fcontent in self._additional_files.get(name, {}).items():
+            rel_path = Path(fname)
+            configmap_key = self._sanitize_configmap_key(rel_path)
+            configmap_data[configmap_key] = fcontent
+
+        if not configmap_data:
+            logger.warning("No files found to package into ConfigMap")
+            # Fallback name without hash
+            return (self.resolve_configmap_name(name), "")
+
+        # Enforce size limit
+        total_size = sum(len(v.encode("utf-8")) for v in configmap_data.values())
+        if total_size > MAX_CONFIGMAP_SIZE:
+            logger.error(
+                f"Total content size ({total_size} bytes) exceeds ConfigMap limit ({MAX_CONFIGMAP_SIZE} bytes)."
+            )
+            return (self.resolve_configmap_name(name), "")
+
+        # Compute hash over sorted keys and contents
+        hasher = hashlib.sha256()
+        for key in sorted(configmap_data.keys()):
+            hasher.update(key.encode("utf-8"))
+            hasher.update(b"\0")
+            hasher.update(configmap_data[key].encode("utf-8"))
+
+        sha = hasher.hexdigest()[:8]
+        configmap_name = self.resolve_configmap_name(f"{name}-{sha}")
+
+        if self.v1 is None:
+            logger.warning("Kubernetes client not available, skipping ConfigMap creation")
+            return (configmap_name, sha)
+
+        body = client.V1ConfigMap(
+            metadata=client.V1ObjectMeta(name=configmap_name), data=configmap_data
+        )
+        try:
+            self.v1.create_namespaced_config_map(namespace=self.namespace, body=body)
+            logger.info(
+                f"Created ConfigMap: {configmap_name} with {len(configmap_data)} files (sha={sha})"
+            )
+        except ApiException as e:
+            if e.status == 409:
+                logger.info(
+                    f"ConfigMap already exists (content-addressed): {configmap_name} (sha={sha})"
+                )
+            else:
+                logger.error(f"Failed to create ConfigMap {configmap_name}: {e}")
+        return (configmap_name, sha)
 
     def package(self, path: Path, job_dir: str, name: str) -> str:
         """
@@ -157,7 +262,7 @@ class ConfigMapPackager(Packager):
         for file_path in files_to_stage:
             rel_path = file_path.relative_to(path)
             # Use the sanitization method to create a valid ConfigMap key
-            configmap_key = self._sanitize_configmap_key(job_dir, rel_path)
+            configmap_key = self._sanitize_configmap_key(rel_path)
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     configmap_data[configmap_key] = f.read()
@@ -195,12 +300,9 @@ class ConfigMapPackager(Packager):
         Resolve the full ConfigMap name from a caller-provided suffix.
 
         Centralizes naming logic so callers never assemble full names.
-        If configmap_id is set, it takes precedence and is sanitized.
-        Otherwise, returns "{configmap_prefix}-{name}".
+        Ensures the final name has the prefix exactly once.
         """
-        if self.configmap_id:
-            return f"{self.configmap_prefix}-{sanitize_kubernetes_name(self.configmap_id)}"
-        return f"{self.configmap_prefix}-{name}"
+        return sanitize_kubernetes_name(f"{self.configmap_prefix}-{name}")
 
     def _find_files_to_package(self, base_path: Path) -> List[Path]:
         """

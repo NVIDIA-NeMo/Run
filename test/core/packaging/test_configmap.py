@@ -88,92 +88,71 @@ class TestConfigMapPackager:
         assert packager.configmap_prefix == "custom-prefix"
 
     @pytest.mark.parametrize(
-        "job_dir,rel_path,expected_key",
+        "rel_path,expected_key",
         [
-            # Basic cases with job_dir
-            ("task-dir", Path("mistral.py"), "task-dir-mistral.py"),
-            ("workspace", Path("src/train.py"), "workspace-src-train.py"),
-            ("nemo-mistral", Path("config/model.yaml"), "nemo-mistral-config-model.yaml"),
-            # Cases without job_dir
-            ("", Path("mistral.py"), "mistral.py"),
-            (None, Path("train.py"), "train.py"),
-            # Cases with nested paths
-            ("task-dir", Path("src/models/mistral.py"), "task-dir-src-models-mistral.py"),
-            (
-                "workspace",
-                Path("configs/training/hyperparams.yaml"),
-                "workspace-configs-training-hyperparams.yaml",
-            ),
+            # Basic file names
+            (Path("mistral.py"), "mistral.py"),
+            (Path("train.py"), "train.py"),
+            # Files with nested paths (forward slashes become hyphens)
+            (Path("src/train.py"), "src-train.py"),
+            (Path("config/model.yaml"), "config-model.yaml"),
+            (Path("src/models/mistral.py"), "src-models-mistral.py"),
+            (Path("configs/training/hyperparams.yaml"), "configs-training-hyperparams.yaml"),
             # Edge cases
-            ("", Path("file.with.dots.py"), "file.with.dots.py"),
-            ("task-dir", Path("file.with.dots.py"), "task-dir-file.with.dots.py"),
+            (Path("file.with.dots.py"), "file.with.dots.py"),
             # Real-world examples
-            (
-                "mistral-training-task-dir",
-                Path("mistral.py"),
-                "mistral-training-task-dir-mistral.py",
-            ),
-            (
-                "nemo-mistral-workspace",
-                Path("src/training/script.py"),
-                "nemo-mistral-workspace-src-training-script.py",
-            ),
+            (Path("src/training/script.py"), "src-training-script.py"),
         ],
     )
-    def test_sanitize_configmap_key(self, job_dir, rel_path, expected_key):
+    def test_sanitize_configmap_key(self, rel_path, expected_key):
         """Test the _sanitize_configmap_key method with various inputs."""
         packager = ConfigMapPackager()
-        result = packager._sanitize_configmap_key(job_dir, rel_path)
+        result = packager._sanitize_configmap_key(rel_path)
         assert result == expected_key
 
     @pytest.mark.parametrize(
-        "job_dir,rel_path,expected_key",
+        "rel_path,expected_key",
         [
             # Test that forward slashes are properly replaced with hyphens
-            ("task/dir", Path("mistral.py"), "task-dir-mistral.py"),
-            ("workspace/subdir", Path("src/train.py"), "workspace-subdir-src-train.py"),
+            (Path("some/dir/mistral.py"), "some-dir-mistral.py"),
+            (Path("workspace/subdir/src/train.py"), "workspace-subdir-src-train.py"),
             (
-                "nemo/mistral/workspace",
-                Path("config/model.yaml"),
+                Path("nemo/mistral/workspace/config/model.yaml"),
                 "nemo-mistral-workspace-config-model.yaml",
             ),
             # Test with multiple forward slashes
-            ("task/dir/subdir", Path("file.py"), "task-dir-subdir-file.py"),
-            ("", Path("src/models/mistral.py"), "src-models-mistral.py"),
-            # Test with mixed forward slashes and hyphens
-            ("task-dir/subdir", Path("file.py"), "task-dir-subdir-file.py"),
-            ("workspace/sub-dir", Path("src/train.py"), "workspace-sub-dir-src-train.py"),
+            (Path("task/dir/subdir/file.py"), "task-dir-subdir-file.py"),
+            (Path("src/models/mistral.py"), "src-models-mistral.py"),
+            # Test with mixed forward slashes and existing hyphens
+            (Path("task-dir/subdir/file.py"), "task-dir-subdir-file.py"),
+            (Path("workspace/sub-dir/src/train.py"), "workspace-sub-dir-src-train.py"),
         ],
     )
-    def test_sanitize_configmap_key_forward_slash_replacement(
-        self, job_dir, rel_path, expected_key
-    ):
+    def test_sanitize_configmap_key_forward_slash_replacement(self, rel_path, expected_key):
         """Test that forward slashes are properly replaced with hyphens in ConfigMap keys."""
         packager = ConfigMapPackager()
-        result = packager._sanitize_configmap_key(job_dir, rel_path)
+        result = packager._sanitize_configmap_key(rel_path)
         assert result == expected_key
 
-    def test_sanitize_configmap_key_with_none_job_dir(self):
-        """Test _sanitize_configmap_key with None job_dir."""
+    def test_sanitize_configmap_key_with_simple_filename(self):
+        """Test _sanitize_configmap_key with simple filename."""
         packager = ConfigMapPackager()
-        result = packager._sanitize_configmap_key(None, Path("mistral.py"))
+        result = packager._sanitize_configmap_key(Path("mistral.py"))
         assert result == "mistral.py"
 
-    def test_sanitize_configmap_key_with_empty_string_job_dir(self):
-        """Test _sanitize_configmap_key with empty string job_dir."""
+    def test_sanitize_configmap_key_with_special_characters(self):
+        """Test _sanitize_configmap_key with special characters in filename."""
         packager = ConfigMapPackager()
-        result = packager._sanitize_configmap_key("", Path("mistral.py"))
-        assert result == "mistral.py"
+        result = packager._sanitize_configmap_key(Path("file_with_underscores.py"))
+        assert result == "file-with-underscores.py"
 
     def test_sanitize_configmap_key_with_complex_paths(self):
         """Test _sanitize_configmap_key with complex nested paths."""
         packager = ConfigMapPackager()
 
         # Test deeply nested paths
-        result = packager._sanitize_configmap_key(
-            "nemo/mistral/workspace/training", Path("src/models/transformers/mistral/config.py")
-        )
-        expected = "nemo-mistral-workspace-training-src-models-transformers-mistral-config.py"
+        result = packager._sanitize_configmap_key(Path("src/models/transformers/mistral/config.py"))
+        expected = "src-models-transformers-mistral-config.py"
         assert result == expected
 
     def test_find_files_to_package_with_multiple_patterns(self):
@@ -352,15 +331,8 @@ def temp_py_files(tmp_path):
     return tmp_path, [file1, file2, file3]
 
 
-@pytest.mark.parametrize(
-    "job_dir,expected_prefix",
-    [
-        ("test-job", "test-job"),
-        ("", ""),
-    ],
-)
-def test_package_creates_configmap_with_job_dir(temp_py_files, job_dir, expected_prefix):
-    """Test that package creates a ConfigMap with the correct data for different job_dir values."""
+def test_package_creates_configmap_with_job_dir(temp_py_files):
+    """Test that package creates a ConfigMap with the correct data."""
     tmp_path, files = temp_py_files
     mock_v1 = MagicMock()
 
@@ -369,7 +341,7 @@ def test_package_creates_configmap_with_job_dir(temp_py_files, job_dir, expected
         lambda self: setattr(self, "v1", mock_v1),
     ):
         packager = ConfigMapPackager(include_pattern="*.py", relative_path=".", namespace="test-ns")
-        configmap_name = packager.package(tmp_path, job_dir, "testjob")
+        configmap_name = packager.package(tmp_path, "test-job", "testjob")
 
         assert configmap_name == "nemo-workspace-testjob"
         assert mock_v1.create_namespaced_config_map.called
@@ -380,7 +352,7 @@ def test_package_creates_configmap_with_job_dir(temp_py_files, job_dir, expected
         data = kwargs["body"].data
         for file_path in files:
             rel_path = file_path.relative_to(tmp_path)
-            configmap_key = packager._sanitize_configmap_key(expected_prefix, rel_path)
+            configmap_key = packager._sanitize_configmap_key(rel_path)
             assert configmap_key in data
             assert data[configmap_key] == file_path.read_text()
 
