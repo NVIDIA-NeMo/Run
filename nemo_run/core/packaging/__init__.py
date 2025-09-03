@@ -14,8 +14,15 @@
 # limitations under the License.
 
 from nemo_run.core.packaging.base import Packager
+from nemo_run.core.packaging.configmap import ConfigMapPackager
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.packaging.hybrid import HybridPackager
 from nemo_run.core.packaging.pattern import PatternPackager
 
-__all__ = ["Packager", "GitArchivePackager", "PatternPackager", "HybridPackager"]
+__all__ = [
+    "Packager",
+    "ConfigMapPackager",
+    "GitArchivePackager",
+    "PatternPackager",
+    "HybridPackager",
+]
