@@ -98,7 +98,7 @@ class SkypilotExecutor(Executor):
     disk_size: Optional[Union[int, list[int]]] = None
     disk_tier: Optional[Union[str, list[str]]] = None
     ports: Optional[tuple[str]] = None
-    file_mounts: Optional[dict[str, str]] = None
+    file_mounts: Optional[dict[str, Any]] = None  # Can be str or dict configs
     cluster_name: Optional[str] = None
     setup: Optional[str] = None
     autodown: bool = False
@@ -371,9 +371,37 @@ cd /nemo_run/code
             envs=self.env_vars,
             num_nodes=self.num_nodes,
         )
-        file_mounts = self.file_mounts or {}
-        file_mounts["/nemo_run"] = self.job_dir
-        task.set_file_mounts(file_mounts)
+        # Process file_mounts - handle both string paths and storage configs
+        file_mounts_raw = self.file_mounts or {}
+        file_mounts_raw["/nemo_run"] = self.job_dir
+        
+        # Separate string mounts from storage configs (dicts)
+        string_mounts = {}
+        storage_configs = {}
+        
+        for dst_path, src in file_mounts_raw.items():
+            if isinstance(src, str):
+                # Regular file/directory mount
+                string_mounts[dst_path] = src
+            elif isinstance(src, dict):
+                # Storage configuration (will become sky.Storage)
+                storage_configs[dst_path] = src
+            else:
+                raise ValueError(f"Invalid file_mount type for {dst_path}: {type(src)}")
+        
+        # Set regular file mounts
+        task.set_file_mounts(string_mounts)
+        
+        # Handle storage configs - convert to Storage objects
+        if storage_configs:
+            from sky.data import Storage
+            storage_mounts = {}
+            for mount_path, config in storage_configs.items():
+                # Create Storage object from config dict
+                storage_obj = Storage.from_yaml_config(config)
+                storage_mounts[mount_path] = storage_obj
+            task.set_storage_mounts(storage_mounts)
+        
         task.set_resources(self.to_resources())
 
         if env_vars:
