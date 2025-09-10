@@ -59,6 +59,42 @@ class TestLeptonExecutor:
         assert executor.nemo_run_dir == "/workspace/nemo_run"
         assert executor.mounts == [{"path": "/workspace", "mount_path": "/workspace"}]
 
+    def test_init_with_node_reservation(self):
+        """Test initialization with node_reservation parameter."""
+        executor = LeptonExecutor(
+            resource_shape="gpu.8xh100-80gb",
+            node_group="my-node-group",
+            container_image="test-image",
+            nodes=2,
+            gpus_per_node=8,
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            node_reservation="my-reservation-id",
+        )
+
+        assert executor.node_reservation == "my-reservation-id"
+
+    def test_init_with_empty_node_reservation(self):
+        """Test initialization with empty node_reservation string."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            node_reservation="",
+        )
+
+        assert executor.node_reservation == ""
+
+    def test_init_without_node_reservation(self):
+        """Test initialization without node_reservation parameter (default behavior)."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+        )
+
+        assert executor.node_reservation == ""
+
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_stop_job(self, mock_APIClient):
         mock_instance = MagicMock()
@@ -343,6 +379,88 @@ class TestLeptonExecutor:
         executor.create_lepton_job("my-lepton-job")
 
         mock_client.job.create.assert_called_once()
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_with_reservation_config(self, mock_APIClient_class):
+        """Test create_lepton_job creates ReservationConfig when node_reservation is set."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            node_reservation="my-reservation-id",
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify that job.create was called with the correct ReservationConfig
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.reservation_config is not None
+        assert created_job.spec.reservation_config.reservation_id == "my-reservation-id"
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_without_reservation_config(self, mock_APIClient_class):
+        """Test create_lepton_job creates no ReservationConfig when node_reservation is not set."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            # No node_reservation set
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify that job.create was called with no ReservationConfig
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.reservation_config is None
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_with_empty_reservation_config(self, mock_APIClient_class):
+        """Test create_lepton_job creates no ReservationConfig when node_reservation is empty string."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            node_reservation="",  # Empty string
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify that job.create was called with no ReservationConfig
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.reservation_config is None
 
     def test_nnodes(self):
         executor = LeptonExecutor(
