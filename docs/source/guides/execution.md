@@ -205,12 +205,23 @@ def your_skypilot_executor(nodes: int, devices: int, container_image: str):
     return SkypilotExecutor(
         gpus="RTX5880-ADA-GENERATION",
         gpus_per_node=devices,
-        nodes = nodes
-        env_vars=common_envs()
+        num_nodes = nodes,
+        env_vars=common_envs(),
         container_image=container_image,
-        cloud="kubernetes",
+        infra="k8s/mycontext",
         # Optional to reuse Skypilot cluster
         cluster_name="tester",
+        volumes={
+            "nemo-workspace": "nemo-workspace"
+        },
+        volume_mounts=[
+            {
+                "path": "/data",
+                "volume_name": "nemo-workspace",
+                "size": "50Gi",
+                "type": "k8s-pvc"
+            }
+        ],
         setup="""
     conda deactivate
     nvidia-smi
