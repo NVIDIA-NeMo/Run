@@ -205,8 +205,8 @@ def your_skypilot_executor(nodes: int, devices: int, container_image: str):
     return SkypilotExecutor(
         gpus="RTX5880-ADA-GENERATION",
         gpus_per_node=devices,
-        nodes = nodes
-        env_vars=common_envs()
+        num_nodes=nodes,
+        env_vars=common_envs(),
         container_image=container_image,
         cloud="kubernetes",
         # Optional to reuse Skypilot cluster
