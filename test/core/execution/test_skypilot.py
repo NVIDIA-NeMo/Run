@@ -561,3 +561,160 @@ class TestSkypilotExecutor:
 
                 # Verify the returned task is our mock
                 assert result == mock_task_instance
+
+    @patch("sky.task.Task")
+    def test_to_task_with_storage_mounts(self, mock_task, mock_skypilot_imports):
+        # Create a mock task instance
+        mock_task_instance = MagicMock()
+        mock_task.return_value = mock_task_instance
+        mock_task_instance.set_file_mounts = MagicMock()
+        mock_task_instance.set_storage_mounts = MagicMock()
+        mock_task_instance.set_resources = MagicMock()
+
+        # Mock sky.data.Storage
+        mock_storage_class = MagicMock()
+        mock_storage_obj = MagicMock()
+        mock_storage_class.from_yaml_config.return_value = mock_storage_obj
+
+        executor = SkypilotExecutor(
+            container_image="test:latest",
+            storage_mounts={
+                "/workspace/outputs": {
+                    "name": "my-outputs",
+                    "store": "gcs",
+                    "mode": "MOUNT",
+                    "persistent": True,
+                }
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor.job_dir = tmp_dir
+
+            with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
+                mock_to_resources.return_value = MagicMock()
+
+                with patch("sky.data.Storage", mock_storage_class):
+                    result = executor.to_task("test_task")
+
+                    # Verify Storage.from_yaml_config was called with the config
+                    mock_storage_class.from_yaml_config.assert_called_once_with(
+                        {
+                            "name": "my-outputs",
+                            "store": "gcs",
+                            "mode": "MOUNT",
+                            "persistent": True,
+                        }
+                    )
+
+                    # Verify set_storage_mounts was called with Storage objects
+                    mock_task_instance.set_storage_mounts.assert_called_once()
+                    storage_mounts_call = mock_task_instance.set_storage_mounts.call_args[0][0]
+                    assert "/workspace/outputs" in storage_mounts_call
+                    assert storage_mounts_call["/workspace/outputs"] == mock_storage_obj
+
+    @patch("sky.task.Task")
+    def test_to_task_with_both_file_and_storage_mounts(self, mock_task, mock_skypilot_imports):
+        # Create a mock task instance
+        mock_task_instance = MagicMock()
+        mock_task.return_value = mock_task_instance
+        mock_task_instance.set_file_mounts = MagicMock()
+        mock_task_instance.set_storage_mounts = MagicMock()
+        mock_task_instance.set_resources = MagicMock()
+
+        # Mock sky.data.Storage
+        mock_storage_class = MagicMock()
+        mock_storage_obj = MagicMock()
+        mock_storage_class.from_yaml_config.return_value = mock_storage_obj
+
+        executor = SkypilotExecutor(
+            container_image="test:latest",
+            file_mounts={
+                "/workspace/code": "/local/path/to/code",
+            },
+            storage_mounts={
+                "/workspace/outputs": {
+                    "name": "my-outputs",
+                    "store": "s3",
+                    "mode": "MOUNT",
+                },
+                "/workspace/checkpoints": {
+                    "name": "my-checkpoints",
+                    "store": "gcs",
+                    "mode": "MOUNT_CACHED",
+                },
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor.job_dir = tmp_dir
+
+            with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
+                mock_to_resources.return_value = MagicMock()
+
+                with patch("sky.data.Storage", mock_storage_class):
+                    result = executor.to_task("test_task")
+
+                    # Verify file_mounts includes both user files and nemo_run
+                    file_mounts_call = mock_task_instance.set_file_mounts.call_args[0][0]
+                    assert "/workspace/code" in file_mounts_call
+                    assert file_mounts_call["/workspace/code"] == "/local/path/to/code"
+                    assert "/nemo_run" in file_mounts_call
+                    assert file_mounts_call["/nemo_run"] == tmp_dir
+
+                    # Verify Storage.from_yaml_config was called for both storage mounts
+                    assert mock_storage_class.from_yaml_config.call_count == 2
+
+                    # Verify set_storage_mounts was called with both Storage objects
+                    mock_task_instance.set_storage_mounts.assert_called_once()
+                    storage_mounts_call = mock_task_instance.set_storage_mounts.call_args[0][0]
+                    assert "/workspace/outputs" in storage_mounts_call
+                    assert "/workspace/checkpoints" in storage_mounts_call
+                    assert len(storage_mounts_call) == 2
+
+    @patch("sky.task.Task")
+    def test_to_task_without_storage_mounts(self, mock_task, mock_skypilot_imports):
+        # Test that set_storage_mounts is not called when storage_mounts is None
+        mock_task_instance = MagicMock()
+        mock_task.return_value = mock_task_instance
+        mock_task_instance.set_file_mounts = MagicMock()
+        mock_task_instance.set_storage_mounts = MagicMock()
+        mock_task_instance.set_resources = MagicMock()
+
+        executor = SkypilotExecutor(
+            container_image="test:latest",
+            file_mounts={"/workspace/code": "/local/path"},
+            storage_mounts=None,  # Explicitly set to None
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor.job_dir = tmp_dir
+
+            with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
+                mock_to_resources.return_value = MagicMock()
+
+                result = executor.to_task("test_task")
+
+                # Verify set_storage_mounts was NOT called
+                mock_task_instance.set_storage_mounts.assert_not_called()
+
+                # Verify file_mounts still works
+                mock_task_instance.set_file_mounts.assert_called_once()
+
+    def test_init_with_storage_mounts(self, mock_skypilot_imports):
+        # Test initialization with storage_mounts parameter
+        executor = SkypilotExecutor(
+            container_image="test:latest",
+            storage_mounts={
+                "/workspace/data": {
+                    "name": "training-data",
+                    "store": "s3",
+                    "mode": "MOUNT",
+                }
+            },
+        )
+
+        assert executor.storage_mounts is not None
+        assert "/workspace/data" in executor.storage_mounts
+        assert executor.storage_mounts["/workspace/data"]["name"] == "training-data"
+        assert executor.storage_mounts["/workspace/data"]["store"] == "s3"
