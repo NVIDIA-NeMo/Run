@@ -107,6 +107,7 @@ class SkypilotExecutor(Executor):
     cluster_config_overrides: Optional[dict[str, Any]] = None
     infra: Optional[str] = None
     network_tier: Optional[str] = None
+    retry_until_up: bool = False
     packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     def __post_init__(self):
@@ -410,7 +411,7 @@ cd /nemo_run/code
                 idle_minutes_to_autostop=self.idle_minutes_to_autostop,
                 down=self.autodown,
                 fast=True,
-                # retry_until_up=retry_until_up,
+                retry_until_up=self.retry_until_up,
                 # clone_disk_from=clone_disk_from,
             )
         )
