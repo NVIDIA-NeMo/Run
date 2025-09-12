@@ -20,7 +20,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Union
 
 import yaml
-from kubeflow.trainer import CustomTrainer, TrainerClient
+from kubeflow.trainer import CommandTrainer, TrainerClient
+from kubeflow.trainer.backends.kubernetes.types import KubernetesBackendConfig
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 
@@ -46,7 +47,7 @@ class KubeflowExecutor(Executor):
 
     Example:
 
-    .. code-block:: python
+    . code-block:: python
 
         # Configure executor for execution environment
         executor = KubeflowExecutor(
@@ -103,6 +104,9 @@ class KubeflowExecutor(Executor):
 
     #: Detach mode flag (set by experiment framework)
     _detach_mode: bool = field(init=False, default=False)
+
+    #: Enable tcpxo sidecar and related mounts/env in runtime template
+    enable_tcpxo: bool = False
 
     def __post_init__(self):
         """Validate executor configuration and setup Kubernetes access."""
@@ -213,7 +217,8 @@ class KubeflowExecutor(Executor):
         """Get or create a TrainerClient instance."""
         if self._trainer_client is None:
             # Initialize client with the executor's namespace
-            self._trainer_client = TrainerClient(namespace=self.namespace)
+            k8s_backend_config = KubernetesBackendConfig(namespace=self.namespace)
+            self._trainer_client = TrainerClient(backend_config=k8s_backend_config)
         return self._trainer_client
 
     def _create_cluster_training_runtime(self, configmap_name: str, sha: str) -> str:
@@ -234,6 +239,7 @@ class KubeflowExecutor(Executor):
             "cpu_limit": self.cpu_limit,
             "memory_limit": self.memory_limit,
             "gpus": self.gpus,
+            "enable_tcpxo": self.enable_tcpxo,
         }
         rendered = fill_template(
             template_name="kubeflow_clustertrainingruntime.yaml.j2",
@@ -326,10 +332,8 @@ class KubeflowExecutor(Executor):
                 logger.info("Script task - will stage content in ConfigMap")
 
         elif hasattr(task, "__fn_or_cls__"):
-            # Partial task - will be handled directly by CustomTrainer, no ConfigMap staging needed
-            logger.info(
-                "Partial task - will be passed directly to CustomTrainer, skipping ConfigMap staging"
-            )
+            # Partial support not implemented yet for CommandTrainer path
+            logger.warning("Partial tasks are not yet supported with Kubeflow CommandTrainer.")
 
         return files_to_stage
 
@@ -370,9 +374,14 @@ class KubeflowExecutor(Executor):
             # Use experiment-specific naming for cleanup
             self.packager.cleanup(self._get_experiment_identifier())
 
-    def _get_custom_trainer(self, task) -> CustomTrainer:
-        """Get the CustomTrainer configuration for the training job."""
-        trainer_kwargs: dict = {"num_nodes": self.nodes}
+    def _get_custom_trainer(self, task) -> CommandTrainer:
+        """Build a CommandTrainer for a Script task. Partial is not yet supported."""
+        # Reject Partial until implemented
+        if hasattr(task, "__fn_or_cls__"):
+            raise NotImplementedError(
+                "Partial tasks are not yet supported with Kubeflow CommandTrainer"
+            )
+
         resources_per_node: dict = {}
         if self.cpu_limit is not None:
             resources_per_node["cpu"] = self.cpu_limit
@@ -380,33 +389,36 @@ class KubeflowExecutor(Executor):
             resources_per_node["memory"] = self.memory_limit
         if self.gpus is not None:
             resources_per_node["nvidia.com/gpu"] = str(self.gpus)
-        trainer_kwargs["resources_per_node"] = resources_per_node
 
-        if hasattr(task, "__fn_or_cls__"):
-            trainer_kwargs["func"] = task.__fn_or_cls__
-            if hasattr(task, "__arguments__") and task.__arguments__:
-                trainer_kwargs["func_args"] = task.__arguments__
+        # Determine command/args based on entrypoint
+        entrypoint = getattr(task, "entrypoint", "bash") or "bash"
+        mounted_path = f"{self.volume_mount_path}/{self.training_entry}"
+
+        command: list[str]
+        args: list[str]
+        ep_lower = entrypoint.lower()
+        if "bash" in ep_lower:
+            command = ["/bin/bash"]
+            args = ["-c", mounted_path]
+        elif "python" in ep_lower:
+            command = ["python"]
+            args = [mounted_path]
         else:
-            # Script task - set python_file and check for bash scripts
-            trainer_kwargs["python_file"] = f"{self.volume_mount_path}/{self.training_entry}"
+            # Fallback: treat entrypoint as executable to run the staged file
+            command = [entrypoint]
+            args = [mounted_path]
 
-            # Check if this is a bash script and set appropriate command
-            if hasattr(task, "inline") and task.inline:
-                entrypoint = getattr(task, "entrypoint", "bash")
-                if entrypoint and "bash" in entrypoint.lower():
-                    trainer_kwargs["command"] = ["/bin/bash"]
-                    logger.info("Using bash command for script execution")
-                # For Python scripts, let SDK auto-detect based on runtime
+        trainer = CommandTrainer(
+            command=command,
+            args=args,
+            num_nodes=self.nodes,
+            resources_per_node=resources_per_node,
+        )
 
-        # Debug logging to see what we're passing to CustomTrainer
-        logger.info(f"Creating CustomTrainer with kwargs: {trainer_kwargs}")
-
-        trainer = CustomTrainer(**trainer_kwargs)
-
-        # Debug logging to see what CustomTrainer actually received
-        logger.info(f"CustomTrainer created with func: {trainer.func}")
-        logger.info(f"CustomTrainer created with func_args: {trainer.func_args}")
-        logger.info(f"CustomTrainer created with python_file: {trainer.python_file}")
+        logger.info(
+            f"CommandTrainer created with command={trainer.command}, args={trainer.args}, "
+            f"num_nodes={trainer.num_nodes}, resources_per_node={trainer.resources_per_node}"
+        )
 
         return trainer
 
@@ -442,11 +454,15 @@ class KubeflowExecutor(Executor):
         except Exception as e:
             logger.error(f"Failed to delete TrainJob: {e}")
 
-    def get_trainjob_logs(self, job_name: str, follow: bool = False) -> dict:
+    def get_trainjob_logs(self, job_name: str, follow: bool = False):
         """Get logs from a TrainJob."""
         try:
             client = self._get_trainer_client()
-            return client.get_job_logs(job_name, follow=follow)
+            logs_iter = client.get_job_logs(job_name, follow=follow)
+            # Some tests mock this as a dict; in real SDK it's an Iterator[str]
+            if isinstance(logs_iter, dict):
+                return logs_iter
+            return logs_iter
         except Exception as e:
             logger.error(f"Failed to get TrainJob logs: {e}")
             return {}
@@ -529,3 +545,17 @@ class KubeflowExecutor(Executor):
         """Build CRT name from the shared experiment identifier and sha."""
         identifier = self._get_experiment_identifier()
         return sanitize_kubernetes_name(f"nemo-runtime-{identifier}-{sha}")
+
+    def _get_staged_file_path(self, filename: str) -> str:
+        """Return path where a staged file would be mounted inside the container.
+
+        If using ConfigMapPackager, files are mounted under volume_mount_path with
+        experiment-specific prefix. Otherwise, return the filename unchanged.
+        """
+        if (
+            isinstance(self.packager, ConfigMapPackager)
+            and hasattr(self, "experiment_name")
+            and self.experiment_name
+        ):
+            return f"{self.volume_mount_path}/{self.experiment_name}-{filename}"
+        return filename

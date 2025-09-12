@@ -137,7 +137,7 @@ def test_kubeflow_executor_get_custom_trainer_inline(executor_kwargs, expected_n
     executor.assign("exp-123", "/tmp/exp", "task-1", "task_dir")
     mock_trainer_instance = MagicMock()
 
-    with patch("nemo_run.core.execution.kubeflow.CustomTrainer") as mock_trainer:
+    with patch("nemo_run.core.execution.kubeflow.CommandTrainer") as mock_trainer:
         mock_trainer.return_value = mock_trainer_instance
 
         result = executor._get_custom_trainer(script_task)
@@ -147,9 +147,10 @@ def test_kubeflow_executor_get_custom_trainer_inline(executor_kwargs, expected_n
 
         call_args = mock_trainer.call_args[1]
         assert call_args["num_nodes"] == expected_nodes
-        # Should use the training_entry filename directly (simplified logic)
-        assert call_args.get("python_file") == "training_entry"
-        assert "func" not in call_args
+        # CommandTrainer should be invoked with runtime-aware command/args
+        mounted_path = f"{executor.volume_mount_path}/{executor.training_entry}"
+        assert call_args.get("command") in (["/bin/bash"], ["python"], ["bash"])
+        assert mounted_path in " ".join(call_args.get("args", []))
 
         resources = call_args["resources_per_node"]
         if "cpu_limit" in executor_kwargs:
@@ -161,7 +162,7 @@ def test_kubeflow_executor_get_custom_trainer_inline(executor_kwargs, expected_n
 
 
 def test_kubeflow_executor_get_custom_trainer_function_based():
-    """Test _get_custom_trainer with function-based execution."""
+    """Partial is not supported yet with CommandTrainer path; expect error."""
 
     def dummy_function():
         return "function result"
@@ -170,24 +171,9 @@ def test_kubeflow_executor_get_custom_trainer_function_based():
     executor = KubeflowExecutor(nodes=1, gpus=4)
     # Simulate the assignment process to set the experiment name
     executor.assign("exp-123", "/tmp/exp", "task-1", "task_dir")
-    mock_trainer_instance = MagicMock()
 
-    with patch("nemo_run.core.execution.kubeflow.CustomTrainer") as mock_trainer:
-        mock_trainer.return_value = mock_trainer_instance
-
-        result = executor._get_custom_trainer(partial_task)
-
-        assert result == mock_trainer_instance
-        mock_trainer.assert_called_once()
-
-        call_args = mock_trainer.call_args[1]
-        assert call_args["num_nodes"] == 1
-        # Partial tasks use the function directly, not python_file
-        assert call_args.get("func") == dummy_function
-        assert "python_file" not in call_args
-
-        resources = call_args["resources_per_node"]
-        assert resources["nvidia.com/gpu"] == "4"
+    with pytest.raises(NotImplementedError):
+        _ = executor._get_custom_trainer(partial_task)
 
 
 def test_kubeflow_executor_get_custom_trainer_fallback():
@@ -198,7 +184,7 @@ def test_kubeflow_executor_get_custom_trainer_fallback():
     executor.packager = MagicMock()  # Not a ConfigMapPackager
     mock_trainer_instance = MagicMock()
 
-    with patch("nemo_run.core.execution.kubeflow.CustomTrainer") as mock_trainer:
+    with patch("nemo_run.core.execution.kubeflow.CommandTrainer") as mock_trainer:
         mock_trainer.return_value = mock_trainer_instance
 
         result = executor._get_custom_trainer(script_task)
@@ -208,8 +194,8 @@ def test_kubeflow_executor_get_custom_trainer_fallback():
 
         call_args = mock_trainer.call_args[1]
         assert call_args["num_nodes"] == 1
-        # Should fall back to using the TRAINING_ENTRY directly
-        assert call_args.get("python_file") == "training_entry"
+        mounted_path = f"{executor.volume_mount_path}/{executor.training_entry}"
+        assert mounted_path in " ".join(call_args.get("args", []))
 
 
 def test_kubeflow_executor_create_trainjob():
@@ -445,7 +431,7 @@ def test_kubeflow_executor_invalid_task():
     invalid_task = "invalid_task"
 
     mock_trainer_instance = MagicMock()
-    with patch("nemo_run.core.execution.kubeflow.CustomTrainer") as mock_trainer:
+    with patch("nemo_run.core.execution.kubeflow.CommandTrainer") as mock_trainer:
         mock_trainer.return_value = mock_trainer_instance
 
         result = executor._get_custom_trainer(invalid_task)
@@ -454,9 +440,9 @@ def test_kubeflow_executor_invalid_task():
         mock_trainer.assert_called_once()
 
         call_args = mock_trainer.call_args[1]
-        # Invalid tasks default to using training_entry as python_file
-        assert call_args.get("python_file") == "training_entry"
-        assert "func" not in call_args
+        # Invalid tasks are treated like script and use staged entry path
+        mounted_path = f"{executor.volume_mount_path}/{executor.training_entry}"
+        assert mounted_path in " ".join(call_args.get("args", []))
 
 
 def test_kubeflow_executor_kubernetes_setup():
