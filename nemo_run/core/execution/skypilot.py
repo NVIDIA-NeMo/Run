@@ -65,7 +65,22 @@ class SkypilotExecutor(Executor):
             network_tier="best",
             cluster_name="nemo_tester",
             file_mounts={
-                "nemo_run.whl": "nemo_run.whl"
+                "nemo_run.whl": "nemo_run.whl",
+                "/workspace/code": "/local/path/to/code",
+            },
+            storage_mounts={
+                "/workspace/outputs": {
+                    "name": "my-training-outputs",
+                    "store": "gcs",  # or "s3", "azure", etc.
+                    "mode": "MOUNT",
+                    "persistent": True,
+                },
+                "/workspace/checkpoints": {
+                    "name": "model-checkpoints",
+                    "store": "s3",
+                    "mode": "MOUNT",
+                    "persistent": True,
+                }
             },
             setup=\"\"\"
         conda deactivate
@@ -99,6 +114,7 @@ class SkypilotExecutor(Executor):
     disk_tier: Optional[Union[str, list[str]]] = None
     ports: Optional[tuple[str]] = None
     file_mounts: Optional[dict[str, str]] = None
+    storage_mounts: Optional[dict[str, dict[str, Any]]] = None  # Can be str or dict configs
     cluster_name: Optional[str] = None
     setup: Optional[str] = None
     autodown: bool = False
@@ -372,9 +388,22 @@ cd /nemo_run/code
             envs=self.env_vars,
             num_nodes=self.num_nodes,
         )
+        # Handle regular file mounts
         file_mounts = self.file_mounts or {}
         file_mounts["/nemo_run"] = self.job_dir
         task.set_file_mounts(file_mounts)
+
+        # Handle storage mounts separately
+        if self.storage_mounts:
+            from sky.data import Storage
+
+            storage_objects = {}
+            for mount_path, config in self.storage_mounts.items():
+                # Create Storage object from config dict
+                storage_obj = Storage.from_yaml_config(config)
+                storage_objects[mount_path] = storage_obj
+            task.set_storage_mounts(storage_objects)
+
         task.set_resources(self.to_resources())
 
         if env_vars:
