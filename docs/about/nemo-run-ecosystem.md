@@ -46,7 +46,7 @@ NeMo Run provides the operational bridge from modeling to execution. This sectio
 ### 1. Modeling Layer (NeMo Framework & Libraries)
 
 - **NeMo Libraries**: Specialized components for speech, language, and multimodal AI
-- **Model Implementations**: Pre-built architectures for LLMs, ASR, TTS, and multimodal models
+- **Model Implementations**: Pre-built architectures for large language models, ASR, TTS, and multimodal models
 - **Training Recipes**: Complete configurations defining model architectures, hyperparameters, and training procedures
 - **Data Processing**: Utilities for data curation, tokenization, and preprocessing
 - **Output**: Python functions and configurations that define "what to train"
@@ -55,7 +55,7 @@ NeMo Run provides the operational bridge from modeling to execution. This sectio
 
 - **Configuration**: `run.Config` / `run.Partial` for type-safe, Python-based experiment setup
 - **Packaging**: Intelligent code packaging strategies (git/pattern/hybrid) for reproducible deployments
-- **Executors**: Backend-agnostic execution support (Local, Docker, Slurm, Ray, Kubernetes, cloud platforms)
+- **Executors**: Backend-agnostic execution support (Local, Docker, SLURM, Ray, Kubernetes, cloud platforms)
 - **Management**: Automated capture of logs, metadata, checkpoints, and artifacts for reproducibility
 - **Purpose**: Defines "how to run" experiments across diverse computing environments
 
@@ -65,7 +65,7 @@ NeMo Run provides the operational bridge from modeling to execution. This sectio
 - **Container Platforms**: Docker environments, Kubernetes clusters, managed cloud services
 - **Storage Systems**: Distributed file systems, object storage, checkpoint repositories
 - **Monitoring & Observability**: Metrics collection, log aggregation, experiment tracking dashboards
-- **Resource Management**: Auto-scaling, quota management, environment isolation, and cost optimization
+- **Resource Management**: Auto scaling, quota management, environment isolation, and cost optimization
 
 <style>
 .clickable-diagram {
@@ -74,7 +74,7 @@ NeMo Run provides the operational bridge from modeling to execution. This sectio
     border: 2px solid #4A90E2;
     border-radius: 8px;
     padding: 10px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: transparent;
 }
 
 .clickable-diagram:hover {
@@ -164,10 +164,10 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.innerHTML = `
                 <div class="diagram-modal-content">
                     <span class="diagram-modal-close" aria-label="Close dialog">&times;</span>
-                    <h3>NeMo Ecosystem Overview</h3>
+                    <h3>NeMo Run Ecosystem Architecture</h3>
                     <div style="max-height: 80vh; overflow-y: auto;">${this.innerHTML}</div>
                     <div class="diagram-modal-description">
-                        This diagram shows how modeling (NeMo libraries) flows into orchestration (NeMo Run) and out to runtime (local, Docker, Slurm, Ray/K8s), while tracking hooks capture artifacts and metadata for reproducibility.
+                        This diagram illustrates the complete NeMo Run ecosystem architecture. The flow starts with the <strong>Modeling layer</strong> (NeMo Libraries for ASR, TTS, LLM, and multimodal models, along with training recipes and data processing). These components feed into the <strong>NeMo Run Orchestration layer</strong>, which provides type-safe configuration with run.Config/run.Partial, intelligent code packaging, and multiple execution backends. The orchestration layer then deploys to various <strong>Runtime environments</strong> including local workstations, GPU clusters, container platforms, and cloud services. Throughout this flow, the experiment management system captures logs, metadata, and artifacts, ensuring full reproducibility and traceability of ML experiments.
                     </div>
                 </div>
             `;
@@ -224,79 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <div class="clickable-diagram" id="ecosystem-diagram">
 
-```{mermaid}
-%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '20px', 'fontFamily': 'arial', 'fontWeight': 'bold', 'primaryColor': '#4A90E2', 'primaryTextColor': '#000', 'primaryBorderColor': '#4A90E2', 'lineColor': '#333', 'secondaryColor': '#F5F5F5', 'tertiaryColor': '#E8F4FD' }, 'flowchart': { 'nodeSpacing': 30, 'rankSpacing': 50, 'curve': 'linear' }}}%%
-flowchart TD
-    %% Modeling (NeMo Framework & Libraries)
-    subgraph Modeling["Modeling"]
-        I1["NeMo Libraries<br/>ASR | TTS | LLM | Multimodal"]
-        I2["Training Recipes<br/>Model configs & hyperparameters"]
-        I3["Data Processing<br/>Curation & preprocessing"]
-    end
-
-    %% Orchestration (NeMo Run)
-    subgraph Orchestration["NeMo Run"]
-        C1["run.Config / run.Partial<br/>Type-safe Python setup"]
-        P1["Code Packaging<br/>Git | Pattern | Hybrid"]
-
-        subgraph Execs["Executors"]
-            E1["Local"]
-            E2["Docker"]
-            E3["Slurm"]
-            E4["Ray / K8s"]
-            E5["Cloud"]
-        end
-
-        subgraph Mgmt["Experiment Management"]
-            M1["Experiment tracking"]
-            M2["Logs & metadata"]
-            M3["Artifacts & checkpoints"]
-        end
-    end
-
-    %% Runtime Infrastructure
-    subgraph Runtime["Runtime"]
-        O1["Local workstations<br/>Development & testing"]
-        O2["GPU clusters<br/>HPC & SLURM systems"]
-        O3["Container platforms<br/>Docker & Kubernetes"]
-        O4["Cloud platforms<br/>AWS | GCP | Azure"]
-        O5["Storage & monitoring<br/>Distributed FS & dashboards"]
-    end
-
-    %% Data flow from Modeling -> Orchestration -> Runtime
-    I1 --> C1
-    I2 --> C1
-    I3 --> C1
-    C1 --> P1
-    P1 --> E1
-    P1 --> E2
-    P1 --> E3
-    P1 --> E4
-    P1 --> E5
-
-    %% Executors to concrete runtime targets
-    E1 --> O1
-    E2 --> O3
-    E3 --> O2
-    E4 --> O3
-    E5 --> O4
-
-    %% Management signals to storage/monitoring
-    M1 -.-> O5
-    M2 -.-> O5
-    M3 -.-> O5
-
-    %% Styling
-    classDef modelingStyle fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
-    classDef runStyle fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#000
-    classDef runtimeStyle fill:#F1F8E9,stroke:#689F38,stroke-width:2px,color:#000
-    classDef trackingStyle fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
-
-    class I1,I2,I3 modelingStyle
-    class C1,P1,E1,E2,E3,E4,E5 runStyle
-    class O1,O2,O3,O4,O5 runtimeStyle
-    class M1,M2,M3 trackingStyle
-```
+![NeMo Run Ecosystem Diagram](../assets/nemo-run-ecosystem.png)
 
 *Click the diagram to view it in full size*
 

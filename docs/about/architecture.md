@@ -179,47 +179,7 @@ NeMo Run follows a modular architecture that separates configuration, execution,
 
 <div class="clickable-diagram" id="architecture-diagram" style="background-color: white;">
 
-```{mermaid}
-%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '14px', 'fontFamily': 'arial', 'fontWeight': 'bold', 'primaryColor': '#4A90E2', 'primaryTextColor': '#000', 'primaryBorderColor': '#4A90E2', 'lineColor': '#333', 'secondaryColor': '#F5F5F5', 'tertiaryColor': '#E8F4FD' }, 'flowchart': { 'nodeSpacing': 20, 'rankSpacing': 25 }}}%%
-graph LR
-    subgraph Config ["Configuration Layer"]
-        A1["run.Config"]
-        A2["run.Partial"]
-        A3["Fiddle Integration"]
-        A1 --> A2 --> A3
-    end
-
-    subgraph Exec ["Execution Layer"]
-        B1["Executor Abstraction"]
-        B2["Local Executor"]
-        B3["Slurm Executor"]
-        B4["Ray Executor"]
-        B5["Docker Executor"]
-        B1 --> B2
-        B1 --> B3
-        B1 --> B4
-        B1 --> B5
-    end
-
-    subgraph Mgmt ["Management Layer"]
-        C1["Experiment Tracking"]
-        C2["Metadata Capture"]
-        C3["Artifact Management"]
-        C4["Reproducibility"]
-        C1 --> C2 --> C3 --> C4
-    end
-
-    Config --> Exec
-    Exec --> Mgmt
-
-    classDef configStyle fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
-    classDef execStyle fill:#E8F5E8,stroke:#388E3C,stroke-width:2px,color:#000
-    classDef mgmtStyle fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
-
-    class A1,A2,A3 configStyle
-    class B1,B2,B3,B4,B5 execStyle
-    class C1,C2,C3,C4 mgmtStyle
-```
+![NeMo Run Core Architecture](../assets/nemo-run-architecture.png)
 
 *Click the diagram to view it in full size*
 
