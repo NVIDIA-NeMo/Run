@@ -419,11 +419,17 @@ cd /nemo_run/code
         dryrun: bool = False,
     ) -> tuple[Optional[int], Optional["backends.ResourceHandle"]]:
         from sky import backends, launch, stream_and_get
-        from sky.utils import common_utils
+
+        # Backward compatibility for SkyPilot 0.10.3+
+        # dump_yaml_str moved from sky.utils.common_utils to yaml_utils
+        try:
+            from sky.utils import yaml_utils
+        except ImportError:
+            from sky.utils import common_utils as yaml_utils
 
         task_yml = os.path.join(self.job_dir, "skypilot_task.yml")
         with open(task_yml, "w+") as f:
-            f.write(common_utils.dump_yaml_str(task.to_yaml_config()))
+            f.write(yaml_utils.dump_yaml_str(task.to_yaml_config()))
 
         backend = backends.CloudVmRayBackend()
         if num_nodes:
