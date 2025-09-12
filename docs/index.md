@@ -159,17 +159,15 @@ Access CLI reference, configuration docs, FAQs, and complete API documentation.
 
 ---
 
-```{include} ../README.md
-:relative-docs: docs/
-```
-
 ```{toctree}
 :hidden:
 :caption: About NeMo Run
 :maxdepth: 2
 about/index
+about/purpose
 about/key-features
 about/architecture
+about/nemo-run-ecosystem
 ```
 
 ```{toctree}

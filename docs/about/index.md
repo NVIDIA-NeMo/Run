@@ -20,10 +20,22 @@ NeMo Run is a production-ready framework that provides a unified interface for t
 
 The framework is designed to handle the complexities of ML experiment management, including configuration versioning, environment-specific deployments, and comprehensive experiment tracking. NeMo Run supports multiple execution backends, including local, Docker, Slurm, Ray, and cloud platforms, providing flexibility for different compute requirements and infrastructure setups.
 
-::::{grid} 1 2 2 2
+:::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
 
-:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
+::::{grid-item-card} {octicon}`info;1.5em;sd-mr-1` Purpose
+:link: purpose
+:link-type: doc
+:link-alt: Purpose of NeMo Run
+:class-body: text-center
+
+Why NeMo Run exists and the problems it solves in the NeMo ecosystem.
+
++++
+{bdg-secondary}`Overview` {bdg-secondary}`Concept`
+::::
+
+::::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
 :link: ../get-started/quickstart
 :link-type: doc
 :link-alt: Quick Start guide
@@ -33,9 +45,9 @@ Get up and running with NeMo Run in minutes with our step-by-step quick start gu
 
 +++
 {bdg-primary}`Getting Started` {bdg-secondary}`Beginner`
-:::
+::::
 
-:::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
+::::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
 :link: ../get-started/install
 :link-type: doc
 :link-alt: Installation guide
@@ -45,21 +57,21 @@ Install NeMo Run and set up your development environment with comprehensive inst
 
 +++
 {bdg-info}`Setup` {bdg-secondary}`Environment`
-:::
+::::
 
-:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Architecture Overview
+::::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Core Architecture
 :link: architecture
 :link-type: doc
-:link-alt: Architecture overview
+:link-alt: Core architecture
 :class-body: text-center
 
 Understand NeMo Run's core architecture, components, and design principles for ML experiment management.
 
 +++
 {bdg-warning}`Architecture` {bdg-secondary}`Design`
-:::
+::::
 
-:::{grid-item-card} {octicon}`star;1.5em;sd-mr-1` Key Features
+::::{grid-item-card} {octicon}`star;1.5em;sd-mr-1` Key Features
 :link: key-features
 :link-type: doc
 :link-alt: Key features
@@ -69,9 +81,9 @@ Explore NeMo Run's powerful features for configuration, execution, and experimen
 
 +++
 {bdg-success}`Features` {bdg-secondary}`Capabilities`
-:::
-
 ::::
+
+:::::
 
 ## Key Benefits
 

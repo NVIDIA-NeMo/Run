@@ -22,6 +22,7 @@ def bundle_javascript_modules(extension_dir: str, output_path: str, minify: bool
     module_files = [
         ("ui", "MarkdownProcessor.js"),
         ("ui", "ResponseRenderer.js"),
+        ("ui", "CopyToChat.js"),
         ("core", "ResponseProcessor.js"),
         ("core", "AIClient.js"),
         ("core", "main.js"),
@@ -31,7 +32,7 @@ def bundle_javascript_modules(extension_dir: str, output_path: str, minify: bool
     bundled_content = []
     bundled_content.append("// AI Assistant Bundle - Generated automatically")
     bundled_content.append(
-        "// Contains: MarkdownProcessor, ResponseRenderer, ResponseProcessor, AIClient, main, search-integration"
+        "// Contains: MarkdownProcessor, ResponseRenderer, CopyToChat, ResponseProcessor, AIClient, main, search-integration"
     )
     bundled_content.append("")
 

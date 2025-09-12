@@ -47,7 +47,7 @@ extensions = [
     "myst_codeblock_substitutions",  # Our custom MyST substitutions in code blocks
     "json_output",  # Generate JSON output for each page
     "search_assets",  # Enhanced search assets extension
-     # "ai_assistant",  # AI Assistant extension for intelligent search responses
+    "ai_assistant",  # AI Assistant extension for intelligent search responses
     "swagger_plugin_for_sphinx",  # For Swagger API documentation
     "sphinxcontrib.mermaid",  # For Mermaid diagrams
 ]
@@ -57,6 +57,7 @@ exclude_patterns = [
     "_build",
     "Thumbs.db",
     ".DS_Store",
+    "../README.md",                # Exclude main project README from docs build
     "_extensions/*/README.md",     # Exclude README files in extension directories
     "_extensions/README.md",       # Exclude main extensions README
     "_extensions/*/__pycache__",   # Exclude Python cache directories
@@ -116,11 +117,20 @@ myst_substitutions = {
     "company": "NVIDIA",
     "version": release,
     "current_year": "2025",
-    "github_repo": "update-me",
-    "docs_url": "update-me",
-    "support_email": "update-me",
+
+     # Links and contact (replace "update-me" placeholders)
+    "github_repo": "NVIDIA/NeMo-Run",
+    "docs_url": "https://docs.nvidia.com/nemo-run/",
+    "support_email": "nemo-run-support@nvidia.com",
+
+    # Technical requirements
     "min_python_version": "3.8",
     "recommended_cuda": "12.0+",
+    "min_gpu_memory": "16GB",
+
+    # Common commands/paths
+    "install_cmd": "pip install nemo-run",
+    "docker_image": "nvcr.io/nvidia/nemo-run:latest",
 }
 
 # Enable figure numbering

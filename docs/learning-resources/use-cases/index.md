@@ -41,7 +41,7 @@ Ensure complete reproducibility of ML experiments across different environments 
 {bdg-primary}`Research` {bdg-secondary}`Reproducibility`
 :::
 
-:::{grid-item-card} {octicon}`graph-up;1.5em;sd-mr-1` Hyperparameter Optimization
+:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Hyperparameter Optimization
 :link: research/hyperparameter-optimization
 :link-type: doc
 :class-body: text-center

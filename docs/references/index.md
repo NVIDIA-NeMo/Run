@@ -42,6 +42,7 @@ Complete command-line interface reference with all commands, options, and usage 
 {bdg-primary}`CLI` {bdg-secondary}`Commands`
 :::
 
+
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration Reference
 :link: configuration-reference
 :link-type: doc

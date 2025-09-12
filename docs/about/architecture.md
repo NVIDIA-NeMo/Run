@@ -71,6 +71,26 @@ modality: "text-only"
     height: auto;
     border-radius: 8px;
 }
+
+.diagram-modal-description {
+    margin-top: 12px;
+    color: #444;
+    line-height: 1.5;
+}
+
+/* Hide auxiliary buttons (Copy / Explain / Ask AI) inside the diagram area and modal */
+#architecture-diagram .copybtn,
+.diagram-modal .copybtn,
+#architecture-diagram .ai-assistant-button,
+.diagram-modal .ai-assistant-button,
+#architecture-diagram .ai-explain-button,
+.diagram-modal .ai-explain-button,
+#architecture-diagram .ai-toolbar,
+.diagram-modal .ai-toolbar,
+#architecture-diagram .ai-btn,
+.diagram-modal .ai-btn {
+    display: none !important;
+}
 </style>
 
 <script>
@@ -84,14 +104,44 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.className = 'diagram-modal';
             modal.innerHTML = `
                 <div class="diagram-modal-content">
-                    <span class="diagram-modal-close">&times;</span>
-                    <h3>NeMo Run Architecture Overview</h3>
+                    <span class="diagram-modal-close" aria-label="Close dialog">&times;</span>
+                    <h3>NeMo Run Core Architecture</h3>
                     <div style="max-height: 80vh; overflow-y: auto;">${this.innerHTML}</div>
+                    <div class="diagram-modal-description">
+                        This diagram illustrates NeMo Run’s three-layer architecture:
+                        the <strong>Configuration</strong> layer (type-safe configs and Fiddle integration),
+                        the <strong>Execution</strong> layer (environment-agnostic executors like Local, Slurm, Ray, Docker),
+                        and the <strong>Management</strong> layer (tracking, metadata, artifacts, reproducibility).
+                        Configuration flows into executors, and execution outputs are captured for management and analysis.
+                    </div>
                 </div>
             `;
 
             document.body.appendChild(modal);
             modal.style.display = 'block';
+
+            // Remove unwanted buttons from within the modal (Copy / Explain / Ask AI)
+            (function removeUnwantedButtons(root) {
+                // Remove entire AI toolbar if present
+                root.querySelectorAll('.ai-toolbar').forEach(el => el.remove());
+                root.querySelectorAll('.copybtn').forEach(el => el.remove());
+
+                const elements = root.querySelectorAll('button, a');
+                elements.forEach((el) => {
+                    const label = `${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''} ${el.textContent || ''}`.trim();
+                    if (/\b(copy|explain|ask ai)\b/i.test(label) || el.classList.contains('copybtn')) {
+                        el.style.display = 'none';
+                    }
+                });
+            })(modal);
+
+            // Also hide/remove toolbars in the inline diagram area
+            (function removeFromInlineDiagram() {
+                const container = document.getElementById('architecture-diagram');
+                if (!container) return;
+                container.querySelectorAll('.ai-toolbar, .copybtn').forEach(el => el.remove());
+                container.querySelectorAll('.ai-btn').forEach(el => el.style.display = 'none');
+            })();
 
             // Close modal functionality
             const closeBtn = modal.querySelector('.diagram-modal-close');
@@ -117,9 +167,9 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-(architecture-overview)=
+(core-architecture)=
 
-# Architecture Overview
+# Core Architecture
 
 NeMo Run's architecture is designed around three core principles: **separation of concerns**, **extensibility**, and **type safety**. The framework provides a unified interface for ML experiment lifecycle management while maintaining flexibility across diverse computing environments.
 
@@ -127,44 +177,44 @@ NeMo Run's architecture is designed around three core principles: **separation o
 
 NeMo Run follows a modular architecture that separates configuration, execution, and management concerns:
 
-<div class="clickable-diagram" id="architecture-diagram">
+<div class="clickable-diagram" id="architecture-diagram" style="background-color: white;">
 
 ```{mermaid}
-%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '18px', 'fontFamily': 'arial', 'primaryColor': '#4A90E2', 'primaryTextColor': '#333', 'primaryBorderColor': '#4A90E2', 'lineColor': '#666', 'secondaryColor': '#F5F5F5', 'tertiaryColor': '#E8F4FD' }}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '14px', 'fontFamily': 'arial', 'fontWeight': 'bold', 'primaryColor': '#4A90E2', 'primaryTextColor': '#000', 'primaryBorderColor': '#4A90E2', 'lineColor': '#333', 'secondaryColor': '#F5F5F5', 'tertiaryColor': '#E8F4FD' }, 'flowchart': { 'nodeSpacing': 20, 'rankSpacing': 25 }}}%%
 graph LR
-    subgraph "Configuration Layer"
-        A1[run.Config]
-        A2[run.Partial]
-        A3[Fiddle Integration]
+    subgraph Config ["Configuration Layer"]
+        A1["run.Config"]
+        A2["run.Partial"]
+        A3["Fiddle Integration"]
         A1 --> A2 --> A3
     end
 
-    subgraph "Execution Layer"
-        B1[Executor Abstraction]
-        B2[Local Executor]
-        B3[Slurm Executor]
-        B4[Ray Executor]
-        B5[Docker Executor]
+    subgraph Exec ["Execution Layer"]
+        B1["Executor Abstraction"]
+        B2["Local Executor"]
+        B3["Slurm Executor"]
+        B4["Ray Executor"]
+        B5["Docker Executor"]
         B1 --> B2
         B1 --> B3
         B1 --> B4
         B1 --> B5
     end
 
-    subgraph "Management Layer"
-        C1[Experiment Tracking]
-        C2[Metadata Capture]
-        C3[Artifact Management]
-        C4[Reproducibility]
+    subgraph Mgmt ["Management Layer"]
+        C1["Experiment Tracking"]
+        C2["Metadata Capture"]
+        C3["Artifact Management"]
+        C4["Reproducibility"]
         C1 --> C2 --> C3 --> C4
     end
 
-    A3 --> B1
-    B5 --> C1
+    Config --> Exec
+    Exec --> Mgmt
 
-    classDef configStyle fill:#E8F4FD,stroke:#4A90E2,stroke-width:2px
-    classDef execStyle fill:#F0F8FF,stroke:#4A90E2,stroke-width:2px
-    classDef mgmtStyle fill:#F5F5F5,stroke:#4A90E2,stroke-width:2px
+    classDef configStyle fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
+    classDef execStyle fill:#E8F5E8,stroke:#388E3C,stroke-width:2px,color:#000
+    classDef mgmtStyle fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
 
     class A1,A2,A3 configStyle
     class B1,B2,B3,B4,B5 execStyle
@@ -182,6 +232,7 @@ graph LR
 The configuration layer provides type-safe, serializable configuration management:
 
 #### **run.Config**
+
 - **Purpose**: Main configuration container with type validation
 - **Features**:
   - Automatic type checking using Python annotations
@@ -190,6 +241,7 @@ The configuration layer provides type-safe, serializable configuration managemen
   - Runtime validation and error reporting
 
 #### **run.Partial**
+
 - **Purpose**: Partial configuration for incremental updates
 - **Features**:
   - Selective parameter overrides
@@ -198,6 +250,7 @@ The configuration layer provides type-safe, serializable configuration managemen
   - Template-based configurations
 
 #### **Fiddle Integration**
+
 - **Purpose**: Robust configuration framework foundation
 - **Features**:
   - Google's battle-tested configuration system
@@ -210,6 +263,7 @@ The configuration layer provides type-safe, serializable configuration managemen
 The execution layer abstracts environment-specific details behind a unified interface:
 
 #### **Executor Abstraction**
+
 - **Purpose**: Environment-agnostic task execution
 - **Features**:
   - Plugin-based architecture for new environments
@@ -218,6 +272,7 @@ The execution layer abstracts environment-specific details behind a unified inte
   - Fault tolerance and retry logic
 
 #### **Supported Environments**
+
 - **Local**: Direct execution on the current machine
 - **Docker**: Containerized execution with isolation
 - **Slurm**: High-performance computing clusters
@@ -226,6 +281,7 @@ The execution layer abstracts environment-specific details behind a unified inte
 - **Cloud Platforms**: AWS, GCP, Azure integration
 
 #### **Code Packaging**
+
 - **Purpose**: Reproducible code deployment
 - **Strategies**:
   - **Git Archive**: Version-controlled code packaging
@@ -237,6 +293,7 @@ The execution layer abstracts environment-specific details behind a unified inte
 The management layer handles experiment lifecycle and tracking:
 
 #### **Experiment Tracking**
+
 - **Purpose**: Comprehensive experiment metadata capture
 - **Features**:
   - Automatic configuration snapshots
@@ -245,6 +302,7 @@ The management layer handles experiment lifecycle and tracking:
   - Performance monitoring
 
 #### **Metadata Management**
+
 - **Purpose**: Reproducible experiment reconstruction
 - **Features**:
   - Configuration versioning
@@ -253,6 +311,7 @@ The management layer handles experiment lifecycle and tracking:
   - Cross-reference support
 
 #### **Artifact Management**
+
 - **Purpose**: Comprehensive output collection
 - **Features**:
   - Automatic artifact discovery
@@ -284,6 +343,7 @@ The management layer handles experiment lifecycle and tracking:
 ## Extension Points
 
 ### Custom Executors
+
 ```python
 from nemo_run.core.execution import BaseExecutor
 
@@ -298,6 +358,7 @@ class CustomExecutor(BaseExecutor):
 ```
 
 ### Custom Configurations
+
 ```python
 from nemo_run import Config
 
@@ -312,6 +373,7 @@ class MyExperimentConfig(Config):
 ```
 
 ### Custom Artifact Collectors
+
 ```python
 from nemo_run.core.management import ArtifactCollector
 
@@ -324,16 +386,19 @@ class CustomCollector(ArtifactCollector):
 ## Performance Considerations
 
 ### **Configuration Validation**
+
 - Type checking happens at configuration time
 - Validation errors are caught early
 - IDE support provides real-time feedback
 
 ### **Execution Optimization**
+
 - Intelligent code packaging reduces transfer overhead
 - Parallel execution support for multiple tasks
 - Resource pooling and reuse
 
 ### **Management Efficiency**
+
 - Incremental metadata updates
 - Lazy artifact loading
 - Caching for frequently accessed data
@@ -341,11 +406,13 @@ class CustomCollector(ArtifactCollector):
 ## Security and Isolation
 
 ### **Environment Isolation**
+
 - Container-based execution provides process isolation
 - Resource limits prevent resource exhaustion
 - Network isolation for sensitive experiments
 
 ### **Configuration Security**
+
 - Type validation prevents injection attacks
 - Serialization validation ensures data integrity
 - Access control for sensitive configurations
@@ -353,16 +420,19 @@ class CustomCollector(ArtifactCollector):
 ## Integration Points
 
 ### **CI/CD Integration**
+
 - Configuration-driven deployment pipelines
 - Automated testing with NeMo Run
 - Continuous experiment monitoring
 
 ### **ML Framework Integration**
+
 - PyTorch, TensorFlow, and other framework support
 - Custom launcher integration
 - Framework-specific optimizations
 
 ### **Monitoring and Observability**
+
 - Integration with existing monitoring systems
 - Custom metrics collection
 - Alert and notification systems
@@ -370,16 +440,19 @@ class CustomCollector(ArtifactCollector):
 ## Best Practices
 
 ### **Configuration Design**
+
 - Use type annotations for all parameters
 - Implement custom validation where needed
 - Keep configurations modular and reusable
 
 ### **Execution Strategy**
+
 - Choose appropriate packaging strategy for your use case
 - Consider environment-specific optimizations
 - Plan for scalability from the start
 
 ### **Management Workflow**
+
 - Establish consistent naming conventions
 - Implement proper artifact organization
 - Regular cleanup of old experiments
@@ -387,12 +460,14 @@ class CustomCollector(ArtifactCollector):
 ## Future Architecture Directions
 
 ### **Planned Enhancements**
+
 - Enhanced distributed execution capabilities
 - Advanced workflow orchestration
 - Improved visualization and debugging tools
 - Extended cloud platform support
 
 ### **Community Contributions**
+
 - Plugin ecosystem for custom extensions
 - Community-driven executor implementations
 - Shared configuration templates and patterns
