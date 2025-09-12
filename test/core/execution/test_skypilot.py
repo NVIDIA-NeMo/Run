@@ -595,7 +595,7 @@ class TestSkypilotExecutor:
                 mock_to_resources.return_value = MagicMock()
 
                 with patch("sky.data.Storage", mock_storage_class):
-                    result = executor.to_task("test_task")
+                    executor.to_task("test_task")
 
                     # Verify Storage.from_yaml_config was called with the config
                     mock_storage_class.from_yaml_config.assert_called_once_with(
@@ -653,7 +653,7 @@ class TestSkypilotExecutor:
                 mock_to_resources.return_value = MagicMock()
 
                 with patch("sky.data.Storage", mock_storage_class):
-                    result = executor.to_task("test_task")
+                    executor.to_task("test_task")
 
                     # Verify file_mounts includes both user files and nemo_run
                     file_mounts_call = mock_task_instance.set_file_mounts.call_args[0][0]
@@ -693,7 +693,7 @@ class TestSkypilotExecutor:
             with patch.object(SkypilotExecutor, "to_resources") as mock_to_resources:
                 mock_to_resources.return_value = MagicMock()
 
-                result = executor.to_task("test_task")
+                executor.to_task("test_task")
 
                 # Verify set_storage_mounts was NOT called
                 mock_task_instance.set_storage_mounts.assert_not_called()
