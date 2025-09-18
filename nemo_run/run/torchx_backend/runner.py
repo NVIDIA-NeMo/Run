@@ -112,6 +112,7 @@ class Runner(TorchXRunner):
 
 def get_runner(
     component_defaults: Optional[dict[str, dict[str, str]]] = None,
+    detach_mode: bool = False,
     **scheduler_params: Any,
 ) -> Runner:
     """
@@ -143,6 +144,10 @@ def get_runner(
 
     """
     name = "nemo_run"
+
+    # Add detach_mode to scheduler_params for kubeflow scheduler
+    if detach_mode:
+        scheduler_params["detach_mode"] = detach_mode
 
     scheduler_factories = get_scheduler_factories()
     return Runner(name, scheduler_factories, component_defaults, scheduler_params=scheduler_params)

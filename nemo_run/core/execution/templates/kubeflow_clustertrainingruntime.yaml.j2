@@ -1,0 +1,157 @@
+apiVersion: trainer.kubeflow.org/v1alpha1
+kind: ClusterTrainingRuntime
+metadata:
+  name: {{ runtime_name }}
+  namespace: {{ namespace }}
+  labels:
+    trainer.kubeflow.org/framework: torch
+spec:
+  mlPolicy:
+    numNodes: {{ nodes }}
+    torch:
+      numProcPerNode: {{ num_proc_per_node }}
+  template:
+    spec:
+      replicatedJobs:
+        - name: node
+          replicas: 1
+          template:
+            metadata:
+              labels:
+                trainer.kubeflow.org/trainjob-ancestor-step: trainer
+            spec:
+              template:
+                metadata:
+                  {% if enable_tcpxo %}
+                  annotations:
+                    devices.gke.io/container.tcpxo-daemon: |
+                      - path: /dev/nvidia0
+                      - path: /dev/nvidia1
+                      - path: /dev/nvidia2
+                      - path: /dev/nvidia3
+                      - path: /dev/nvidia4
+                      - path: /dev/nvidia5
+                      - path: /dev/nvidia6
+                      - path: /dev/nvidia7
+                      - path: /dev/nvidiactl
+                      - path: /dev/nvidia-uvm
+                      - path: /dev/dmabuf_import_helper
+                    networking.gke.io/default-interface: eth0
+                    networking.gke.io/interfaces: |
+                      [
+                        {"interfaceName":"eth0","network":"default"},
+                        {"interfaceName":"eth1","network":"vpc1"},
+                        {"interfaceName":"eth2","network":"vpc2"},
+                        {"interfaceName":"eth3","network":"vpc3"},
+                        {"interfaceName":"eth4","network":"vpc4"},
+                        {"interfaceName":"eth5","network":"vpc5"},
+                        {"interfaceName":"eth6","network":"vpc6"},
+                        {"interfaceName":"eth7","network":"vpc7"},
+                        {"interfaceName":"eth8","network":"vpc8"}
+                      ]
+                  {% endif %}
+                spec:
+                  affinity:
+                    podAntiAffinity:
+                      requiredDuringSchedulingIgnoredDuringExecution:
+                        - labelSelector:
+                            matchExpressions:
+                              - key: jobset.sigs.k8s.io/replicatedjob-name
+                                operator: In
+                                values:
+                                  - node
+                          topologyKey: kubernetes.io/hostname
+                  volumes:
+                    - name: workspace
+                      configMap:
+                        name: {{ configmap_name }}
+                        defaultMode: 0755
+                    {% if storage_pvc_mounts %}
+                    {% for pvc in storage_pvc_mounts %}
+                    - name: {{ pvc.name }}
+                      persistentVolumeClaim:
+                        claimName: {{ pvc.claim_name }}
+                    {% endfor %}
+                    {% endif %}
+                    - name: libraries
+                      hostPath:
+                        path: /home/kubernetes/bin/nvidia/lib64
+                    - name: sys
+                      hostPath:
+                        path: /sys
+                    - name: proc-sys
+                      hostPath:
+                        path: /proc/sys
+                    - name: aperture-devices
+                      hostPath:
+                        path: /dev/aperture_devices
+                    - name: dshm
+                      emptyDir:
+                        medium: Memory
+                        sizeLimit: 2048Gi
+                  initContainers:
+                    {% if enable_tcpxo %}
+                    - name: tcpxo-daemon
+                      image: us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpxo/tcpgpudmarxd-dev:v1.0.15
+                      imagePullPolicy: Always
+                      restartPolicy: Always
+                      command: ["/bin/sh", "-c"]
+                      args:
+                        - |
+                          set -ex
+                          chmod 755 /fts/entrypoint_rxdm_container.sh
+                          /fts/entrypoint_rxdm_container.sh --num_hops=2 --num_nics=8 --uid= --alsologtostderr
+                      env:
+                        - name: LD_LIBRARY_PATH
+                          value: /usr/local/nvidia/lib64
+                      securityContext:
+                        capabilities:
+                          add:
+                            - NET_ADMIN
+                            - NET_BIND_SERVICE
+                      volumeMounts:
+                        - name: libraries
+                          mountPath: /usr/local/nvidia
+                        - name: sys
+                          mountPath: /hostsysfs
+                        - name: proc-sys
+                          mountPath: /hostprocsysfs
+                    {% endif %}
+                  containers:
+                    - name: node
+                      image: {{ image }}
+                      env:
+                        - name: LD_LIBRARY_PATH
+                          value: /usr/local/nvidia/lib64
+                        - name: NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY
+                          value: /dev/aperture_devices
+                      {% if env_from_secrets and env_from_secrets|length > 0 %}
+                      envFrom:
+                        {% for s in env_from_secrets %}
+                        - secretRef:
+                            name: {{ s }}
+                        {% endfor %}
+                      {% endif %}
+                      volumeMounts:
+                        - name: workspace
+                          mountPath: {{ workspace_mount_path }}
+                        {% if storage_pvc_mounts %}
+                        {% for pvc in storage_pvc_mounts %}
+                        - name: {{ pvc.name }}
+                          mountPath: {{ pvc.mount_path }}
+                          {% if pvc.read_only %}readOnly: true{% endif %}
+                        {% endfor %}
+                        {% endif %}
+                        - name: dshm
+                          mountPath: /dev/shm
+                        - name: aperture-devices
+                          mountPath: /dev/aperture_devices
+                      resources:
+                        requests:
+                          {% if cpu_limit %}cpu: {{ cpu_limit }}{% endif %}
+                          {% if memory_limit %}memory: {{ memory_limit }}{% endif %}
+                          {% if gpus %}"nvidia.com/gpu": {{ gpus }}{% endif %}
+                        limits:
+                          {% if cpu_limit %}cpu: {{ cpu_limit }}{% endif %}
+                          {% if memory_limit %}memory: {{ memory_limit }}{% endif %}
+                          {% if gpus %}"nvidia.com/gpu": {{ gpus }}{% endif %}

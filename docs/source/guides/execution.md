@@ -3,11 +3,13 @@
 After configuring NeMo-Run, the next step is to execute it. Nemo-Run decouples configuration from execution, allowing you to configure a function or task once and then execute it across multiple environments. With Nemo-Run, you can choose to execute a single task or multiple tasks simultaneously on different remote clusters, managing them under an experiment. This brings us to the core building blocks for execution: `run.Executor` and `run.Experiment`.
 
 Each execution of a single configured task requires an executor. Nemo-Run provides `run.Executor`, which are APIs to configure your remote executor and set up the packaging of your code. Currently we support:
+
 - `run.LocalExecutor`
 - `run.DockerExecutor`
 - `run.SlurmExecutor` with an optional `SSHTunnel` for executing on Slurm clusters from your local machine
 - `run.SkypilotExecutor` (available under the optional feature `skypilot` in the python package).
 - `run.LeptonExecutor`
+- `run.KubeflowExecutor`
 
 A tuple of task and executor form an execution unit. A key goal of NeMo-Run is to allow you to mix and match tasks and executors to arbitrarily define execution units.
 
@@ -19,17 +21,20 @@ The `run.Experiment` takes care of storing the run metadata, launching it on the
 > **_NOTE:_** All the experiment metadata is stored under `NEMORUN_HOME` env var on the machine where you launch the experiments. By default, the value for `NEMORUN_HOME` value is `~/.run`. Be sure to change this according to your needs.
 
 ## Executors
+
 Executors are dataclasses that configure your remote executor and set up the packaging of your code. All supported executors inherit from the base class `run.Executor`, but have configuration parameters specific to their execution environment. There is an initial cost to understanding the specifics of your executor and setting it up, but this effort is easily amortized over time.
 
 Each `run.Executor` has the two attributes: `packager` and `launcher`. The `packager` specifies how to package the code for execution, while the `launcher` determines which tool to use for launching the task.
 
 ### Launchers
+
 We support the following `launchers`:
+
 - `default` or `None`: This will directly launch your task without using any special launchers. Set `executor.launcher = None` (which is the default value) if you don't want to use a specific launcher.
 - `torchrun` or `run.Torchrun`: This will launch the task using `torchrun`. See the `Torchrun` class for configuration options. You can use it using `executor.launcher = "torchrun"` or `executor.launcher = Torchrun(...)`.
 - `ft` or `run.core.execution.FaultTolerance`: This will launch the task using NVIDIA's fault tolerant launcher. See the `FaultTolerance` class for configuration options. You can use it using `executor.launcher = "ft"` or `executor.launcher = FaultTolerance(...)`.
 
-> **_NOTE:_** Launcher may not work very well with `run.Script`. Please report any issues at https://github.com/NVIDIA-NeMo/Run/issues.
+> **_NOTE:_** Launcher may not work very well with `run.Script`. Please report any issues at <https://github.com/NVIDIA-NeMo/Run/issues>.
 
 ### Packagers
 
@@ -43,31 +48,38 @@ The packager support matrix is described below:
 | SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | DGXCloudExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | LeptonExecutor   | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| KubeflowExecutor | run.ConfigMapPackager |
 
 `run.Packager` is a passthrough base packager.
 
 `run.GitArchivePackager` uses `git archive` to package your code. Refer to the API reference for `run.GitArchivePackager` to see the exact mechanics of packaging using `git archive`.
 At a high level, it works in the following way:
+
 1. base_path = `git rev-parse --show-toplevel`.
 2. Optionally define a subpath as `base_path/GitArchivePackager.subpath` by setting `subpath` attribute on `GitArchivePackager`.
 3. `cd base_path && git archive --format=tar.gz --output={output_file} {GitArchivePackager.subpath}:{subpath}`
 
 This extracted tar file becomes the working directory for your job. As an example, given the following directory structure with `subpath="src"`:
+
 ```
 - docs
 - src
   - your_library
 - tests
 ```
+
 Your working directory at the time of execution will look like:
+
 ```
 - your_library
 ```
+
 If you're executing a Python function, this working directory will automatically be included in your Python path.
 
 > **_NOTE:_** git archive doesn't package uncommitted changes. In the future, we may add support for including uncommitted changes while honoring `.gitignore`.
 
 `run.PatternPackager` is a packager that uses a pattern to package your code. It is useful for packaging code that is not under version control. For example, if you have a directory structure like this:
+
 ```
 - docs
 - src
@@ -86,6 +98,7 @@ cd {relative_path} && find {relative_include_pattern} -type f
 Each sub-packager in the `sub_packagers` dictionary is assigned a key, which becomes the directory name under which its contents are placed in the final archive. If `extract_at_root` is set to `True`, all contents are placed directly in the root of the archive, potentially overwriting files if names conflict.
 
 Example:
+
 ```python
 import nemo_run as run
 import os
@@ -100,9 +113,11 @@ hybrid_packager = run.HybridPackager(
 # Usage with an executor:
 # executor.packager = hybrid_packager
 ```
+
 This would create an archive where the contents of `src` are under a `code/` directory and matched `configs/*.yaml` files are under a `configs/` directory.
 
 ### Defining Executors
+
 Next, We'll describe details on setting up each of the executors below.
 
 #### LocalExecutor
@@ -137,6 +152,7 @@ run.DockerExecutor(
 The SlurmExecutor enables launching the configured task on a Slurm Cluster with Pyxis.  Additionally, you can configure a `run.SSHTunnel`, which enables you to execute tasks on the Slurm cluster from your local machine while NeMo-Run manages the SSH connection for you. This setup supports use cases such as launching the same task on multiple Slurm clusters.
 
 Below is an example of configuring a Slurm Executor
+
 ```python
 def your_slurm_executor(nodes: int = 1, container_image: str = DEFAULT_IMAGE):
     # SSH Tunnel
@@ -197,9 +213,11 @@ The `dependency_type` parameter specifies the type of dependency relationship:
 This functionality enables you to create complex workflows with proper orchestration between different tasks, such as starting a training job only after data preparation is complete, or running an evaluation only after training finishes successfully.
 
 #### SkypilotExecutor
+
 This executor is used to configure [Skypilot](https://skypilot.readthedocs.io/en/latest/docs/index.html). Make sure Skypilot is installed using `pip install "nemo_run[skypilot]"` and atleast one cloud is configured using `sky check`.
 
 Here's an example of the `SkypilotExecutor` for Kubernetes:
+
 ```python
 def your_skypilot_executor(nodes: int, devices: int, container_image: str):
     return SkypilotExecutor(
@@ -228,7 +246,7 @@ As demonstrated in the examples, defining executors in Python offers great flexi
 
 The `DGXCloudExecutor` integrates with a DGX Cloud cluster's Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
 
-> **_WARNING:_** Currently, the `DGXCloudExecutor` is only supported when launching experiments *from* a pod running on the DGX Cloud cluster itself. Furthermore, this launching pod must have access to a Persistent Volume Claim (PVC) where the experiment/job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
+> **_WARNING:_** Currently, the `DGXCloudExecutor` is only supported when launching experiments _from_ a pod running on the DGX Cloud cluster itself. Furthermore, this launching pod must have access to a Persistent Volume Claim (PVC) where the experiment/job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
 
 Here's an example configuration:
 
@@ -309,3 +327,233 @@ def your_lepton_executor(nodes: int, gpus_per_node: int, container_image: str):
 executor = your_lepton_executor(nodes=4, gpus_per_node=8, container_image="your-nemo-image")
 
 ```
+
+#### KubeflowExecutor
+
+The `KubeflowExecutor` enables launching distributed training jobs on Kubernetes using the Kubeflow Trainer SDK. It follows Kubeflow's separation of concerns where infrastructure teams create ClusterTrainingRuntime resources, and application teams use existing runtimes to submit training jobs.
+
+The executor supports both file-based and function-based execution modes, and uses `ConfigMapPackager` to stage files into Kubernetes ConfigMaps for training.
+
+> **_NOTE:_** The `KubeflowExecutor` requires a pre-configured ClusterTrainingRuntime to be available in your Kubernetes cluster. This runtime should be created by your infrastructure team and include the necessary volume mounting configurations.
+
+Here's an example configuration:
+
+```python
+from nemo_run.core.packaging.configmap import ConfigMapPackager
+from nemo_run.core.execution.kubeflow import KubeflowExecutor
+
+def your_kubeflow_executor(nodes: int = 2, gpus_per_node: int = 4):
+    # Configure the ConfigMapPackager for staging files
+    packager = ConfigMapPackager(
+        include_pattern="*.py",
+        relative_path=".",
+        namespace="default"
+    )
+
+    executor = KubeflowExecutor(
+        # Basic configuration
+        nodes=nodes,
+        ntasks_per_node=gpus_per_node,
+        namespace="default",
+        runtime_name="torch-distributed-nemo",  # Created by infrastructure team
+
+        # Resource configuration
+        cpu_request="4",
+        cpu_limit="8",
+        memory_request="8Gi",
+        memory_limit="16Gi",
+        gpus=gpus_per_node,
+
+        # File-based execution
+        python_file="train.py",  # File to execute
+
+        # Packager for staging files
+        packager=packager,
+    )
+    return executor
+
+# Example usage:
+executor = your_kubeflow_executor(nodes=2, gpus_per_node=4)
+```
+
+##### File-Based Execution
+
+For file-based execution, the executor stages your Python files to a ConfigMap and runs the specified file:
+
+```python
+# Configure executor for file-based execution
+executor = KubeflowExecutor(
+    python_file="mistral.py",  # File to execute
+    packager=ConfigMapPackager(include_pattern="*.py"),
+    runtime_name="torch-distributed-nemo",
+    nodes=2,
+    gpus=4
+)
+
+# Usage with Experiment
+with run.Experiment("mistral_training") as exp:
+    # The executor handles running the staged files
+    pass
+```
+
+##### Function-Based Execution
+
+For function-based execution, the executor serializes your function and executes it:
+
+```python
+def my_training_function():
+    """Training function that will be serialized and executed."""
+    import torch
+    print("Training started!")
+    # Your training logic here
+    print("Training completed!")
+
+# Configure executor for function-based execution
+executor = KubeflowExecutor(
+    func=my_training_function,
+    runtime_name="torch-distributed-nemo",
+    nodes=2,
+    gpus=4
+)
+
+# Usage with Experiment
+with run.Experiment("mistral_training") as exp:
+    exp.add(my_training_function)  # Function is serialized and shipped
+```
+
+##### Advanced Configuration
+
+For more complex scenarios, you can configure additional options:
+
+```python
+def advanced_kubeflow_executor():
+    # Custom packager configuration
+    packager = ConfigMapPackager(
+        include_pattern=["*.py", "*.yaml", "*.json"],
+        relative_path=".",
+        namespace="default",
+        configmap_prefix="my-workspace"
+    )
+
+    return KubeflowExecutor(
+        # Basic configuration
+        nodes=4,
+        ntasks_per_node=8,
+        namespace="ml-training",
+        runtime_name="torch-distributed-nemo",
+
+        # Resource configuration
+        cpu_request="8",
+        cpu_limit="16",
+        memory_request="32Gi",
+        memory_limit="64Gi",
+        gpus=8,
+
+        # File-based execution
+        python_file="distributed_training.py",
+
+        # Packager
+        packager=packager,
+    )
+```
+
+##### File Staging with ConfigMapPackager
+
+The `ConfigMapPackager` stages your files into Kubernetes ConfigMaps for training:
+
+```python
+from nemo_run.core.packaging.configmap import ConfigMapPackager
+
+# Basic configuration
+packager = ConfigMapPackager(
+    include_pattern="*.py",        # Files to include
+    relative_path=".",             # Base path for files
+    namespace="default",           # Kubernetes namespace
+    configmap_prefix="nemo-workspace"  # ConfigMap name prefix
+)
+
+# Advanced file staging
+packager = ConfigMapPackager(
+    include_pattern=["*.py", "*.yaml", "*.json", "configs/*"],
+    relative_path=".",
+    namespace="default"
+)
+
+# Stage specific directories
+packager = ConfigMapPackager(
+    include_pattern="src/**/*.py",
+    relative_path=".",
+    namespace="default"
+)
+```
+
+> **_NOTE:_** ConfigMaps have a 1MB size limit. For larger files, consider using PVC-based staging (future feature) or Git-based staging with volume mounts.
+
+##### Prerequisites
+
+Before using the `KubeflowExecutor`, ensure:
+
+1. **Kubernetes cluster is accessible**
+   - `kubectl` is installed and configured
+   - You have access to the target cluster: `kubectl cluster-info`
+   - Proper authentication and authorization are set up
+
+2. **Kubeflow Trainer is installed** in your Kubernetes cluster
+   - Trainer controller is running: `kubectl get pods -n kubeflow-system`
+   - Custom resources are available: `kubectl get crd | grep trainer`
+
+3. **ClusterTrainingRuntime is created** by your infrastructure team (e.g., `torch-distributed-nemo`)
+   - Verify runtime exists: `kubectl get clustertrainingruntimes`
+   - Check runtime configuration: `kubectl describe clustertrainingruntime torch-distributed-nemo`
+
+4. **NeMo Run with Kubernetes support** is installed
+   - Install with Kubernetes extras: `pip install "nemo_run[kubernetes]"`
+   - Verify ConfigMapPackager is available: `python -c "from nemo_run.core.packaging.configmap import ConfigMapPackager; print('ConfigMapPackager available')"`
+
+5. **Target namespace exists** and you have permissions to create resources
+   - Check namespace: `kubectl get namespace <your-namespace>`
+   - Verify permissions: `kubectl auth can-i create trainjobs -n <your-namespace>`
+
+##### Architecture
+
+The `KubeflowExecutor` follows Kubeflow's separation of concerns:
+
+- **Infrastructure Team**: Creates and manages ClusterTrainingRuntime resources with volume mounting, security, and networking configurations
+- **Application Team**: Uses existing ClusterTrainingRuntime to submit TrainJob resources via NeMo Run
+- **NeMo Run**: Handles file staging via ConfigMapPackager and job submission via Kubeflow Trainer SDK
+
+This architecture provides better security, standardization, and scalability across teams.
+
+##### Monitoring and Debugging
+
+You can monitor your Kubeflow jobs using standard Kubernetes commands:
+
+```bash
+# List TrainJobs
+kubectl get trainjobs -n default
+
+# Get job details
+kubectl describe trainjob <job-name> -n default
+
+# Get pod logs
+kubectl logs -f <pod-name> -n default
+
+# List ConfigMaps
+kubectl get configmaps -n default
+```
+
+##### Troubleshooting
+
+Common issues and solutions:
+
+1. **ClusterTrainingRuntime not found**
+   - Contact your infrastructure team to create the runtime
+
+2. **ConfigMap size exceeded**
+   - Reduce file size or use different staging strategy
+
+3. **Kubeflow SDK not available**
+   - Install kubeflow-trainer package: `pip install kubeflow-trainer`
+
+4. **Kubernetes client not configured**
+   - Configure kubectl or set KUBECONFIG environment variable

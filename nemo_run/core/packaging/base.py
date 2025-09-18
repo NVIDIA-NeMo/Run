@@ -23,6 +23,22 @@ from nemo_run.config import ConfigurableMixin
 logger = logging.getLogger(__name__)
 
 
+def sanitize_kubernetes_name(name: str) -> str:
+    """
+    Sanitize a string to be used as a Kubernetes resource name.
+
+    Replaces underscores with hyphens to comply with RFC 1123 subdomain rules.
+    This is a common pattern used across the codebase for Kubernetes resource naming.
+
+    Args:
+        name: The string to sanitize
+
+    Returns:
+        A sanitized string suitable for use as a Kubernetes resource name
+    """
+    return name.replace("_", "-")
+
+
 @dataclass(kw_only=True)
 class Packager(ConfigurableMixin):
     """
