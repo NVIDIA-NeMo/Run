@@ -167,7 +167,6 @@ about/index
 about/purpose
 about/key-features
 about/architecture
-about/nemo-run-ecosystem
 ```
 
 ```{toctree}

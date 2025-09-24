@@ -13,7 +13,7 @@ This document presents the refactor proposal, PR plan, and mapping diff for the 
 ## Summary
 
 - Goal: Transform NeMo Run docs from a flat structure into a user-centric, hierarchical system with better navigation and coverage.
-- Coverage increase: 12 → ~45 manually authored files (+72 Auto‑Generated API docs).
+- Coverage increase: 12 → ~44 manually authored files (+72 Auto‑Generated API docs).
 - Organization: 8 major sections aligned to user journeys and personas.
 - Status: Migration complete; review and deployment in progress; optimization planned.
 
@@ -44,7 +44,7 @@ docs/
 
 | Section | Files | Purpose |
 |---------|-------|---------|
-| `about/` | 3 | Project overview |
+| `about/` | 5 | Project overview |
 | `get-started/` | 3 | Getting started |
 | `learning-resources/` | 17 | Tutorials, examples, use cases |
 | `guides/` | 7 | Practical how-to guides |
@@ -85,6 +85,11 @@ High-level mapping from `archive/docs` to `docs` with enhanced content and reorg
 | `archive/docs/source/guides/ray.md` | `docs/guides/ray.md` | Moved | Content expanded (9.8KB → 27KB); improved structure |
 | `archive/docs/source/guides/cli.md` | `docs/references/cli-reference.md` | Merged | CLI guide relocated to References as a dedicated CLI reference; original guide removed |
 | `archive/docs/source/guides/why-use-nemo-run.md` | N/A | Integrated | Concepts integrated across `docs/about/key-features.md`, guides, and landing pages |
+| N/A | `docs/about/purpose.md` | New | Purpose and vision page under About |
+| N/A | `docs/about/nemo-run-ecosystem.md` | New | Ecosystem architecture and integration overview |
+| N/A | `docs/guides/packaging.md` | New | Packaging strategies (GitArchive/Pattern/Hybrid) and workflows |
+| N/A | `docs/guides/troubleshooting.md` | New | Central troubleshooting guidance and common fixes |
+| N/A | `docs/references/configuration-reference.md` | New | Authoritative configuration reference with formats and rules |
 
 ### New Infrastructure
 
@@ -110,7 +115,7 @@ High-level mapping from `archive/docs` to `docs` with enhanced content and reorg
 ### New Content Areas
 
 - Get Started: `get-started/index.md`, `install.md`, `quickstart.md`
-- About: `about/index.md`, `architecture.md`, `key-features.md`
+- About: `about/index.md`, `architecture.md`, `key-features.md`, `purpose.md`, `nemo-run-ecosystem.md`
 - Learning Resources: `tutorials/`, `examples/`, `use-cases/`, `index.md`
 - Integrations: `ci-cd-pipelines.md`, `cloud-platforms.md`, `ml-frameworks.md`, `monitoring-tools.md`, `index.md`
 - References: `cli-reference.md`, `configuration-reference.md`, `faqs.md`, `index.md`
@@ -134,73 +139,39 @@ High-level mapping from `archive/docs` to `docs` with enhanced content and reorg
 - Custom extensions: AI assistant, content gating, JSON output, enhanced search assets
 - Improved indexing and search relevance
 
-## Deployment Strategy
-
-### Pull Request Groups (6)
-
-1. Core Setup & Getting Started (6 Files)
-   - Files for review:
-     - `docs/conf.py`
-     - `docs/index.md`
-     - `docs/README.md`
-     - `docs/get-started/index.md`
-     - `docs/get-started/install.md`
-     - `docs/get-started/quickstart.md`
-2. Configuration & Execution (4 Files)
-   - Files for review:
-     - `docs/guides/configuration.md`
-     - `docs/guides/execution.md`
-     - `docs/references/configuration-reference.md`
-     - `docs/references/cli-reference.md`
-3. Management & Troubleshooting (4 Files)
-   - Files for review:
-     - `docs/guides/management.md`
-     - `docs/guides/troubleshooting.md`
-     - `docs/references/faqs.md`
-     - `docs/BUILD_INSTRUCTIONS.md`
-4. Integrations & Advanced Topics (8 Files)
-   - Files for review:
-     - `docs/integrations/index.md`
-     - `docs/integrations/ci-cd-pipelines.md`
-     - `docs/integrations/cloud-platforms.md`
-     - `docs/integrations/ml-frameworks.md`
-     - `docs/integrations/monitoring-tools.md`
-     - `docs/guides/ray.md`
-     - `docs/guides/packaging.md`
-     - `docs/learning-resources/examples/index.md`
-5. References & API Documentation (10 Files)
-   - Files for review:
-     - `docs/references/index.md`
-     - `docs/references/cli-reference.md`
-     - `docs/references/configuration-reference.md`
-     - `docs/references/faqs.md`
-     - `docs/apidocs/index.rst`
-     - `docs/apidocs/api/api.md`
-     - `docs/apidocs/cli/cli.md`
-     - `docs/apidocs/config/config.md`
-     - `docs/apidocs/core/core.md`
-     - `docs/apidocs/run/run.md`
-6. About & Learning Resources (6 Files)
-   - Files for review:
-     - `docs/about/index.md`
-     - `docs/about/architecture.md`
-     - `docs/about/key-features.md`
-     - `docs/learning-resources/index.md`
-     - `docs/learning-resources/tutorials/index.md`
-     - `docs/learning-resources/examples/index.md`
-
 ## Total Count Summary
 
-- Total files: ~45 curated docs + 72 Auto‑Generated API files
+- Total files: ~44 curated docs + 72 Auto‑Generated API files
 
 ## Implementation Status and Timeline
 
-- Phase 1: Foundation—Complete
+- Phase 1: Foundation—In Progress
   - Structure design, content creation, extensions, review process setup
-- Phase 2: Deployment—In Progress
+- Phase 2: Deployment—Planned
   - Reviews, stakeholder feedback, QA, production deployment
 - Phase 3: Optimization—Planned
   - User feedback, performance monitoring, search relevance tuning, content gap fixes, technical debt cleanup, maintainer training
+
+## Plan of Action
+
+- Goal: finish, review, and ship the refactor with low risk.
+
+- Do next
+  - Close content gaps; normalize front matter; add cross-links.
+  - Verify `_extensions/`; produce clean HTML/JSON builds; check search relevance.
+  - Check information architecture and UX (sidebars, landing pages, titles).
+  - Complete content and technical reviews; improve accessibility and readability.
+  - Prepare release candidate build; update redirects; bump version and tag.
+  - Post-launch: track analytics and search; triage feedback into backlog.
+
+- Milestones
+  - Sprint 1: content freeze, information architecture and UX verified, clean build baseline
+  - Sprint 2: release candidate and reviews
+  - Sprint 3: launch
+  - Sprint 4: post-launch tuning
+
+- Acceptance
+  - Clean builds, complete navigation, accurate references, strong troubleshooting, no known 404s.
 
 ## Risk Mitigation
 
@@ -212,7 +183,7 @@ High-level mapping from `archive/docs` to `docs` with enhanced content and reorg
 ## Quality Assurance
 
 - Review process: content, structure, UX, technical, integration
-- Success indicators: improved navigation and search, modern platform capabilities, maintainability gains, and expanded documentation coverage (~45 manual files + 72 API docs)
+- Success indicators: improved navigation and search, modern platform capabilities, maintainability gains, and expanded documentation coverage (~44 manual files + 72 API docs)
 
 ## Conclusion
 
