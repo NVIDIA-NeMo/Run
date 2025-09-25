@@ -37,6 +37,8 @@ pip install evaluate  # for evaluation metrics
 
 ## Complete Example
 
+Work through a practical fine‑tuning workflow from data to deployment.
+
 ### Step 1: Dataset Preparation
 
 ```python
@@ -392,6 +394,8 @@ with run.Experiment("llm_deployment") as experiment:
 
 ## Advanced Features
 
+Extend the fine‑tuning workflow with memory‑efficient adapters, richer monitoring, and other enhancements that simplify running large models at scale.
+
 ### QLoRA (Quantized LoRA)
 
 ```python
@@ -489,6 +493,8 @@ with run.Experiment("qlora_fine_tuning") as experiment:
 
 ## Monitoring and Logging
 
+Track training with structured logs and external tools for visibility.
+
 ```python
 def monitor_training(
     model_config: ModelConfig,
@@ -536,6 +542,8 @@ with run.Experiment("monitored_llm_training") as experiment:
 ```
 
 ## Next Steps
+
+Explore more examples and distributed training options.
 
 - Explore [PyTorch Training](../ml-frameworks/pytorch-training) for other ML framework examples
 - Learn about [Ray Integration](../../../guides/ray.md) for distributed training

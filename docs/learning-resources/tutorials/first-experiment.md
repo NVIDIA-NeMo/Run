@@ -16,12 +16,16 @@ Welcome to NeMo Run! This tutorial will guide you through creating and running y
 
 ## What You'll Learn
 
+A quick snapshot of the goals for this tutorial.
+
 - Install and configure NeMo Run
 - Create your first configuration
 - Run a simple training experiment
 - Understand basic NeMo Run concepts
 
 ## Prerequisites
+
+Make sure your environment and skills meet these basics.
 
 - **Python 3.10+** with pip
 - **Basic ML knowledge** (PyTorch, training loops)
@@ -148,13 +152,9 @@ print("✅ Configuration created successfully!")
 Now let's execute your experiment:
 
 ```python
-# Simple execution
-result = run.run(config)
+# Simple execution (no return value)
+run.run(config)
 print(f"Training completed!")
-print(f"Final loss: {result['final_loss']:.4f}")
-print(f"Model size: {result['model_size']}")
-print(f"Learning rate: {result['learning_rate']}")
-print(f"Epochs: {result['epochs']}")
 ```
 
 Congratulations! You've just run your first NeMo Run experiment. Let's break down what happened:
@@ -189,12 +189,8 @@ with run.Experiment(name="hyperparameter_sweep") as exp:
         name="high_lr"
     )
 
-# Execute all experiments
-results = exp.run()
-
-# Compare results
-for name, result in results.items():
-    print(f"{name}: Loss = {result['final_loss']:.4f}")
+    # Execute all experiments (no return value)
+    exp.run()
 ```
 
 This demonstrates how NeMo Run can:
@@ -203,6 +199,8 @@ This demonstrates how NeMo Run can:
 - Organize results by experiment name
 
 ## Understanding the Concepts
+
+Learn the core primitives used throughout NeMo Run.
 
 ### Configuration (`run.Config`)
 
@@ -230,10 +228,10 @@ config = run.Config(train_model, model_config=ModelConfig(hidden_size=768))
 
 ```python
 # Simple execution
-result = run.run(config)
+run.run(config)
 
 # Execution with custom executor
-result = run.run(config, executor=run.LocalExecutor())
+run.run(config, executor=run.LocalExecutor())
 ```
 
 ### Experiments (`run.Experiment`)
@@ -244,7 +242,7 @@ result = run.run(config, executor=run.LocalExecutor())
 with run.Experiment("my_experiment") as exp:
     exp.add(config1, name="task1")
     exp.add(config2, name="task2")
-    results = exp.run()
+    exp.run()
 ```
 
 ## Next Steps
@@ -257,6 +255,8 @@ Now that you've completed your first experiment, you're ready to explore:
 4. **[Reference](../../references/index)** - Explore the complete API
 
 ## Troubleshooting
+
+Fix common issues you may encounter while following this tutorial.
 
 ### Common Issues
 

@@ -10,7 +10,7 @@ modality: "text-only"
 
 (get-started)=
 
-# Get Started with NeMo Run
+# About Getting Started with NeMo Run
 
 NeMo Run is NVIDIA's Python framework for configuring, executing, and managing ML experiments across diverse computing environments. This section will help you get up and running quickly with NeMo Run.
 
@@ -70,18 +70,21 @@ Install NeMo Run and configure your environment properly
 Before getting started, ensure you have:
 
 ### Technical Skills
+
 - **Basic Python knowledge** (functions, classes, imports)
 - **Fundamental ML concepts** (training loops, loss functions, optimization)
 - **Familiarity with PyTorch** or TensorFlow (recommended)
 - **Command line experience** (basic terminal usage)
 
 ### Development Environment
+
 - **Code editor** (VS Code, PyCharm, or similar)
 - **Version control** (Git) for experiment tracking
 - **Virtual environment** management (conda, venv, or similar)
 - **Jupyter notebooks** (optional but recommended)
 
 ### Computing Resources
+
 - **Local development machine** with sufficient resources
 - **Cloud access** (AWS, GCP, Azure) for scaling experiments
 - **Cluster access** (Slurm, Kubernetes) for distributed training
@@ -90,11 +93,13 @@ Before getting started, ensure you have:
 ## Installation Options
 
 ### Standard Installation
+
 ```bash
 pip install nemo-run
 ```
 
 ### Development Installation
+
 ```bash
 git clone https://github.com/NVIDIA-NeMo/Run.git
 cd Run
@@ -102,6 +107,7 @@ pip install -e .
 ```
 
 ### GPU Support
+
 ```bash
 # For CUDA support
 pip install nemo-run[gpu]
@@ -128,3 +134,28 @@ After completing the setup:
 3. **Check out [Examples](../learning-resources/examples/index.md)** for real-world patterns
 4. **Review the [Guides](../guides/index.md)** for advanced features
 5. **Join the community** on [GitHub Discussions](https://github.com/NVIDIA-NeMo/Run/discussions)
+
+## Learning Path
+
+Follow this structured progression to master NeMo Run:
+
+### Beginner Path (0–2 weeks)
+
+1. Installation and Setup → [Installation Guide](install.md)
+2. First Experiment → [Quickstart Guide](quickstart.md)
+3. Basic Tutorial → [Your First Experiment](../learning-resources/tutorials/first-experiment.md)
+4. Configuration Tutorial → [Configuring Your First Model](../learning-resources/tutorials/configuring-your-first-model.md)
+
+### Intermediate Path (2–4 weeks)
+
+1. Experiment Management → [Running Your First Experiment](../learning-resources/tutorials/running-your-first-experiment.md)
+2. Model Persistence → [Saving and Loading Models](../learning-resources/tutorials/saving-and-loading-models.md)
+3. Hyperparameter Tuning → [Hyperparameter Tuning Basics](../learning-resources/tutorials/hyperparameter-tuning-basics.md)
+4. Framework Examples → [PyTorch Training](../learning-resources/examples/ml-frameworks/pytorch-training.md)
+
+### Advanced Path (4+ weeks)
+
+1. Real-World Examples → [LLM Fine-tuning](../learning-resources/examples/real-world/llm-fine-tuning.md)
+2. Use Cases → [Hyperparameter Optimization](../learning-resources/use-cases/research/hyperparameter-optimization.md)
+3. Production Workflows → [ML Pipelines](../learning-resources/use-cases/production/ml-pipelines.md)
+4. Advanced Configuration → [Package Code for Deployment](../guides/packaging.md)

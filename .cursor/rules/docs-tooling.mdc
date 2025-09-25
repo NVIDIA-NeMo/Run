@@ -7,6 +7,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 ### Block Tokens (Multi-line Elements)
 
 **Extended Block Tokens (MyST-specific):**
+
 - `FrontMatter` - YAML block at document start enclosed by `---`
 - `Directives` - Enclosed in 3+ backticks with `{directive_name}`
 - `Math` - `$$` or `\[...\]` for multi-line math
@@ -16,6 +17,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - `Admonitions` - `:::{note} content :::` (optional syntax)
 
 **CommonMark Block Tokens:**
+
 - `HTMLBlock` - Valid HTML elements
 - `BlockCode` - Indented code (4 spaces/tab)
 - `Heading` - `#` level 1-6 headings
@@ -30,6 +32,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 ### Inline Tokens (Single-line Elements)
 
 **Extended Inline Tokens (MyST-specific):**
+
 - `Role` - `{rolename}` with backtick content
 - `Target` - `(target_name)=` anchor definitions
 - `Math` - `$...$` inline math
@@ -37,6 +40,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - `LineComment` - `%` comments within lines
 
 **CommonMark Inline Tokens:**
+
 - `CodeSpan` - Backtick-enclosed code
 - `HTMLSpan` - Inline HTML elements
 - `Link` - `[text](url)` and `[text][ref]` links
@@ -50,12 +54,13 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 
 ## Core Structure
 
-- **Headers:**  
-  - Every header (including subheaders) must have a unique relref label above it in the format `(section-article-header)=`.  
-  - Example: `(evaluate-jobs-create)=`  
-  - Use lowercase, hyphens, and abbreviate as needed.  
+- **Headers:**
+  - Every header (including subheaders) must have a unique relref label above it in the format `(section-article-header)=`.
+  - Example: `(evaluate-jobs-create)=`
+  - Use lowercase, hyphens, and abbreviate as needed.
   - Avoid duplicate labels across the project.
   - **Example:**
+
     ```markdown
     (evaluate-jobs-create)=
     # Create Evaluation Job
@@ -67,6 +72,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Target Headers:**
   - Use target headers for sections you want to reference elsewhere
   - **Example:**
+
     ```markdown
     (my-target-header)=
     ## My Important Section
@@ -76,6 +82,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - Use YAML front matter at document start for metadata
   - Special keys: `orphan`, `html_meta`, `title`, `author`, `date`
   - **Example:**
+
     ```markdown
     ---
     orphan: true
@@ -92,6 +99,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Text Formatting:**
   - Use standard markdown formatting for emphasis
   - **Example:**
+
     ```markdown
     *italic text*
     **bold text**
@@ -102,6 +110,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Quotes:**
   - Use standard markdown quote syntax for callouts
   - **Example:**
+
     ```markdown
     > This is an important quote or callout
     ```
@@ -109,11 +118,12 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Thematic Breaks:**
   - Use `---` for horizontal dividers between sections
   - **Example:**
+
     ```markdown
     This is the end of one section.
-    
+
     ---
-    
+
     ## New Section
     ```
 
@@ -121,9 +131,10 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - Use `% comment text` for internal notes (won't appear in rendered output)
   - ⚠️ **Important**: Comments terminate the previous block, creating paragraph breaks
   - **Example:**
+
     ```markdown
     % This is a comment for internal use
-    
+
     First paragraph.
     % This comment creates a paragraph break
     Second paragraph.
@@ -133,19 +144,20 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - Use `+++` for metadata or document structure breaks
   - Intended for mapping to cell-based formats like Jupyter notebooks
   - **Example:**
+
     ```markdown
     This is content.
-    
+
     +++
     {"meta": "data"}
-    
+
     More content here.
     ```
 
 ## Visual Elements
 
 - **Emojis:**
-  - Use emojis sparingly for visual enhancement
+  - Do not use emojis for visual enhancement
   - Common useful emojis:
     - 👍 (thumbs-up), 📌 (pin), 💡 (lightbulb)
     - 📚 (books), 🚀 (rocket), ⭐ (star)
@@ -155,6 +167,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Font Awesome Icons:**
   - Use `{fa}` role for Font Awesome icons (if supported)
   - **Example:**
+
     ```markdown
     {fa}`check` - checkmark icon
     {fa}`warning` - warning icon
@@ -162,10 +175,11 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 
 ## Links and References
 
-- **Internal References:**  
-  - Use `{ref}` for internal links, referencing the relref label.  
+- **Internal References:**
+  - Use `{ref}` for internal links, referencing the relref label.
   - Check for existing relref labels before creating new ones.
   - **Example:**
+
     ```markdown
     {ref}`header_target` - uses section title as link text
     {ref}`my text <header_target>` - custom link text
@@ -174,6 +188,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Cross-References:**
   - Use `{any}` role for flexible cross-references
   - **Example:**
+
     ```markdown
     {any}`my text <header_target>` - flexible reference
     ```
@@ -182,6 +197,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - Use `{doc}` to reference other documents
   - ⚠️ **Important**: Use absolute addressing with `/` and WITHOUT the file extension
   - **Example:**
+
     ```markdown
     {doc}`/advanced/configuration` - absolute path, no extension
     {doc}`Configuration Guide </advanced/configuration>` - with custom text
@@ -190,6 +206,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **External Links:**
   - Use standard markdown link syntax
   - **Example:**
+
     ```markdown
     [Jupyter Book](https://jupyterbook.org)
     [Link with title](https://example.com "Title text")
@@ -201,6 +218,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - ⚠️ **Important**: Referencing sections requires the `.md` extension
   - Supports nested syntax (bold, math, etc.)
   - **Example:**
+
     ```markdown
     [Link to section](./other-file.md#section-anchor)
     [Absolute link](/docs/guide.md#getting-started)
@@ -214,6 +232,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - Use `$equation$` for inline math
   - Alternative: `\(equation\)` format
   - **Example:**
+
     ```markdown
     The equation is $E = mc^2$ in the text.
     Alternatively: \(E = mc^2\)
@@ -222,11 +241,12 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Block Math:**
   - Use `$$equation$$` or `\[...\]` for block equations
   - **Example:**
+
     ```markdown
     $$
     \int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
     $$
-    
+
     \[
     E = mc^2
     \]
@@ -235,19 +255,22 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Math Directives:**
   - Use math directive for referenced equations
   - **Example:**
+
     ```markdown
     ```{math}
     :label: my-equation
-    
+
     E = mc^2
     ```
-    
+
     See equation {eq}`my-equation` for the famous formula.
+
     ```
 
 - **AMSMath Syntax:**
   - Use AMSMath environments for complex equations
   - **Example:**
+
     ```markdown
     ```{math}
     \begin{align}
@@ -255,13 +278,14 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
     a_{21} &= b_{21} & a_{22} &= b_{22}
     \end{align}
     ```
-    
+
     ```{math}
     \begin{pmatrix}
     a & b \\
     c & d
     \end{pmatrix}
     ```
+
     ```
 
 - **Math Configuration:**
@@ -274,6 +298,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Basic Images:**
   - Use standard markdown image syntax with alt text
   - **Example:**
+
     ```markdown
     ![Alt text describing the image](path/to/image.png)
     ```
@@ -281,22 +306,25 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Figure Directives:**
   - Use figure directive for complex images with captions and references
   - **Example:**
+
     ```markdown
     ```{figure} path/to/image.png
     :name: my-figure
     :alt: Alternative text
     :align: center
     :width: 80%
-    
+
     This is the figure caption.
     ```
-    
+
     See {numref}`my-figure` for details.
+
     ```
 
 - **HTML Images:**
   - Use HTML img tag when more control is needed
   - **Example:**
+
     ```markdown
     <img src="path/to/image.png" alt="Description" width="400" class="custom-class">
     ```
@@ -304,16 +332,18 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Figures with Links:**
   - Wrap figures in links when needed
   - **Example:**
+
     ```markdown
     [![Alt text](image.png)](link-target)
     ```
 
 ## Code and Execution
 
-- **Code Samples:**  
-  - Use dropdowns for code blocks longer than 10 lines or for any code that may distract from the main flow.  
+- **Code Samples:**
+  - Use dropdowns for code blocks longer than 10 lines or for any code that may distract from the main flow.
   - Title dropdowns meaningfully (e.g., "Python Example", "Full YAML Config").
   - **Example:**
+
     ```markdown
     :::{dropdown} Python Example
     :icon: code-square
@@ -323,12 +353,15 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
         print("Hello, world!")
     # ...more code...
     ```
+
     :::
+
     ```
 
 - **Inline Code:**
   - Use backticks for inline code elements
   - **Example:**
+
     ```markdown
     Use the `pip install` command to install packages.
     ```
@@ -337,49 +370,56 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - Specify language for proper syntax highlighting
   - Add line numbers when helpful
   - **Example:**
+
     ```markdown
     ```python
     def example_function():
         return "Hello, world!"
     ```
-    
+
     ```bash
     :linenos:
-    
+
     echo "Hello World!"
     ls -la
     ```
+
     ```
 
 - **Executable Code Cells:**
   - Use code-cell directive for executable content
   - **Example:**
+
     ```markdown
     ```{code-cell} python
     :tags: [hide-input]
-    
+
     import numpy as np
     result = np.array([1, 2, 3])
     print(result)
     ```
+
     ```
 
 - **Code Cell Tags:**
   - Use tags to control code cell display
   - Available tags: `hide-input`, `hide-output`, `hide-cell`, `remove-input`, `remove-output`, `remove-cell`, `full-width`, `scroll-output`, `margin`, `raises-exception`
   - **Example:**
+
     ```markdown
     ```{code-cell} python
     :tags: [hide-input, scroll-output]
-    
+
     for i in range(100):
         print(f"Line {i}")
     ```
+
     ```
 
 - **Code Cell Metadata:**
   - Use MyST-NB metadata for enhanced code cell presentation
   - **Example:**
+
     ```markdown
     ```{code-cell} python
     ---
@@ -396,18 +436,20 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
     plt.plot([1, 2, 3], [1, 4, 2])
     plt.show()
     ```
+
     ```
 
 ## Interactive Elements
 
-- **Tabs:**  
-  - Use tab-sets for alternative options (e.g., curl vs. python, CLI vs. UI).  
+- **Tabs:**
+  - Use tab-sets for alternative options (e.g., curl vs. python, CLI vs. UI).
   - Each tab should have a clear, descriptive title.
   - Use the `:sync:` attribute for tab-sets to synchronize tab selection across the page.
   - **Example:**
+
     ```markdown
     :::: {tab-set}
-   
+
     ::: {tab-item} Python
     :sync: sync-pyth
     `requests.get("https://api.example.com")`
@@ -419,10 +461,11 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
     ::::
     ```
 
-- **Cards:**  
-  - Use grid card links for parent/overview pages with multiple links to subtopics or guides.  
+- **Cards:**
+  - Use grid card links for parent/overview pages with multiple links to subtopics or guides.
   - Each card should have a short title and a 1–2 sentence description.
   - **Example:**
+
     ```markdown
     :::: {grid} 1 2 2 2
     :gutter: 1 1 1 2
@@ -439,43 +482,49 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Margin Notes:**
   - Use margin directive for side notes
   - **Example:**
+
     ```markdown
     This is main content.
-    
+
     :::{margin}
     This is a margin note that appears on the side.
     :::
-    
+
     More main content continues here.
     ```
 
 ## Lists and Tables
 
-- **Lists/Tables:**  
-  - Use lists or tables for short, related items, steps, or comparisons.  
+- **Lists/Tables:**
+  - Use lists or tables for short, related items, steps, or comparisons.
   - Prefer tables for side-by-side feature or parameter comparisons.
   - **Example (Table):**
+
     ```markdown
     | Feature | Supported |
     |---------|-----------|
     | Tabs    | Yes       |
     | Cards   | Yes       |
     ```
+
   - **Example (List):**
+
     ```markdown
     - Step 1: Do this
     - Step 2: Do that
     ```
+
   - Prefer myst list tables for advanced tables over markdown tables
 
 - **MyST List Tables:**
   - Use list-table directive for complex tables
   - **Example:**
+
     ```markdown
     ```{list-table} Feature Comparison
     :header-rows: 1
     :name: feature-table
-    
+
     * - Feature
       - Basic
       - Advanced
@@ -486,32 +535,34 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
       - No
       - Yes
     ```
-    
+
     See {numref}`feature-table` for details.
+
     ```
 
 ## Admonitions and Callouts
 
-- **Admonitions:**  
+- **Admonitions:**
   - Use admonitions sparingly because they interrupt the flow of information.
     - Use a note to identify surprising or unexpected behavior.
     - Use a warning to identify risk of physical injury or data loss.
     - Use a tip to reveal a positive behavior in the software that someone might not discover on their own.
   - Available types: `note`, `warning`, `tip`, `important`, `caution`, `danger`, `attention`, `hint`, `seealso`, `error`
   - **Example:**
+
     ```markdown
     :::{note}
     You must have an API key before proceeding.
     :::
-    
+
     :::{warning}
     This operation will permanently delete your data.
     :::
-    
+
     :::{tip}
     Use keyboard shortcuts to speed up your workflow.
     :::
-    
+
     :::{error}
     This configuration will cause system failure.
     :::
@@ -520,13 +571,14 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Referenceable Admonitions:**
   - Add names to admonitions for referencing
   - **Example:**
+
     ```markdown
     :::{note}
     :name: important-note
-    
+
     This is a referenceable note.
     :::
-    
+
     Refer back to {ref}`important-note` for details.
     ```
 
@@ -538,9 +590,10 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - Manual numbering: Use integers for specific footnote numbers
   - Auto-numbering: Use text labels for automatic numbering
   - **Example:**
+
     ```markdown
     Manual numbered footnote[^3] and auto-numbered footnote[^myref].
-    
+
     [^3]: This is a manually-numbered footnote.
     [^myref]: This is an auto-numbered footnote.
     ```
@@ -548,28 +601,31 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Extended Footnotes:**
   - Include multiple paragraphs by indenting 4+ spaces
   - **Example:**
+
     ```markdown
     Extended footnote example[^long].
-    
+
     [^long]: This is the first paragraph of the footnote.
-    
+
         This is the second paragraph, indented by 4 spaces.
-        
+
         - Even lists work
         - With multiple items
-        
+
         More content continues here.
     ```
 
 - **Citations:**
   - Use cite directive for academic references (requires bibliography file)
   - **Example:**
+
     ```markdown
     This research was published by {cite}`author2023paper`.
-    
+
     ```{bibliography}
     :filter: docname in docnames
     ```
+
     ```
 
 ## HTML Metadata
@@ -577,6 +633,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **HTML Meta Tags:**
   - Use `html_meta` in front matter for SEO and social media
   - **Example:**
+
     ```markdown
     ---
     html_meta:
@@ -592,6 +649,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Global HTML Metadata:**
   - Configure in `conf.py` with `myst_html_meta`
   - **Example:**
+
     ```python
     myst_html_meta = {
         "description lang=en": "Default description",
@@ -605,17 +663,19 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **HTML Blocks:**
   - Use HTML when MyST syntax is insufficient
   - **Example:**
+
     ```markdown
     <div class="custom-class">
     This is custom HTML content.
     </div>
-    
+
     <tagname>Custom content</tagname>
     ```
 
 - **Custom Div Blocks:**
   - Use div directive for custom styling
   - **Example:**
+
     ```markdown
     :::{div} custom-class
     This content will have the custom-class applied.
@@ -625,24 +685,27 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 - **Variable Gluing:**
   - Use glue for dynamic content in executable notebooks
   - **Example:**
+
     ```markdown
     ```{code-cell} python
     from myst_nb import glue
     result = 42
     glue("my_variable", result)
     ```
-    
+
     The result is {glue:}`my_variable`.
+
     ```
 
 - **Structure Breaks:**
   - Use `+++` to break paragraphs when needed
   - **Example:**
+
     ```markdown
     This is one paragraph.
-    
+
     +++
-    
+
     This starts a new paragraph structure.
     ```
 
@@ -658,6 +721,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - ✅ **Best Practice**: Use absolute addressing with `/` and file extensions
   - ⚠️ **Important**: Section references require the `.md` extension
   - **Example:**
+
     ```markdown
     [Link to section](./file.md#section-anchor)
     [Absolute link](/docs/guide.md#getting-started)
@@ -667,6 +731,7 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
   - ⚠️ **Important**: `%` comments terminate previous blocks
   - This creates paragraph breaks even within what appears to be continuous text
   - **Example:**
+
     ```markdown
     First line
     % comment here breaks the paragraph
@@ -691,9 +756,9 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 
 ## Accessibility Guidelines
 
-- **Accessibility:**  
-  - Add alt text to images.  
-  - Use descriptive tab and dropdown titles.  
+- **Accessibility:**
+  - Add alt text to images.
+  - Use descriptive tab and dropdown titles.
   - Ensure tables and lists are readable by screen readers.
   - Avoid ableist language like "see", "above", "below".
   - Use "refer to" instead of "see"
@@ -702,8 +767,8 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 
 ## Style & Consistency
 
-- **Style & Consistency:**  
-  - Follow the style guide for tone, terminology, and formatting.  
+- **Style & Consistency:**
+  - Follow the style guide for tone, terminology, and formatting.
   - Use consistent abbreviations and naming conventions.
   - Maintain consistent indentation in nested directives.
   - Use meaningful names for references and labels.
@@ -723,8 +788,8 @@ Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these
 
 ## Getting Help
 
-- **If Unsure:**  
-  - Check existing docs for examples.  
+- **If Unsure:**
+  - Check existing docs for examples.
   - Ask for clarification if a rule or pattern is unclear.
   - Refer to the [MyST syntax cheatsheet](https://jupyterbook.org/en/stable/reference/cheatsheet.html) for comprehensive examples.
   - Consult the [practical MyST guide](https://jdsalaro.com/cheatsheet/sphinx-myst-markdown/) for real-world examples and gotchas.

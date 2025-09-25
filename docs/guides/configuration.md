@@ -8,10 +8,12 @@ content_type: "guide"
 modality: "text-only"
 ---
 
-# Configure NeMo Run
+(guides-configure-experiments)=
+# Configure Experiments
 
 Configure NeMo Run experiments with type-safe, Python-first patterns. Learn how to define configurations in Python, map them to YAML, and run with raw scripts when appropriate.
 
+(guides-supported-config-systems)=
 ## Supported Configuration Systems
 
 NeMo Run supports two configuration systems:
@@ -21,10 +23,12 @@ NeMo Run supports two configuration systems:
 
 Future versions may add a YAML/Hydra-based system with interoperability between Python and YAML.
 
+(guides-python-meets-yaml)=
 ## Python Meets Yet Another Markup Language
 
 Configure a Llama 3 pre-training run in NeMo 2.0 using the Python-based configuration system. For brevity, use default settings.
 
+(guides-configure-in-python)=
 ### Configure in Python
 
 First, review the Python-based configuration system in NeMo Run. The pre-training recipe for Llama 3 looks like this:
@@ -135,7 +139,9 @@ In this context, this corresponds to:
      seq_length: 16384
 ```
 
-> Note: This example uses the [Hydra instantiation](https://hydra.cc/docs/advanced/instantiate_objects/overview/) syntax.
+:::{note}
+This example uses the [Hydra instantiation](https://hydra.cc/docs/advanced/instantiate_objects/overview/) syntax.
+:::
 
 Perform Python operations on the `config` variable rather than directly on the class. For example:
 
@@ -201,6 +207,7 @@ This section provides a concise overview of the Python-based configuration syste
 
 Either option works. The goal is seamless and robust interoperability, with improvements planned for future versions. In the meantime, please report issues via GitHub.
 
+(guides-raw-scripts)=
 ## Raw Scripts
 
 Configure pre-training in NeMo Run with raw scripts and commands:
@@ -217,4 +224,4 @@ bash ./scripts/run_pretraining.sh
 ```
 
 Run the configured instance in any supported environment via executors.
-See the [Execution](./execution.md) guide to learn how to define executors.
+See the [Launch Workloads](./execution.md) guide to learn how to define executors.

@@ -60,11 +60,10 @@ with run.Experiment("my_first_experiment") as experiment:
         name="high_lr_long"
     )
 
-    # Run the experiment
-    results = experiment.run()
+    # Run the experiment (no return value)
+    experiment.run()
 
 print("Experiment completed!")
-print(f"Results: {results}")
 ```
 
 ## Step 2: Using Partial Functions
@@ -73,6 +72,7 @@ print(f"Results: {results}")
 
 ```python
 import nemo_run as run
+import fiddle as fdl
 
 # Define a more complex training function
 def train_neural_network(
@@ -117,13 +117,13 @@ large_network = run.Partial(
     epochs=15
 )
 
-# Test the partial functions
+# Test the partial functions (build then execute)
 print("Testing small network:")
-small_result = small_network()
+small_result = fdl.build(small_network)()
 print(f"Small network result: {small_result}")
 
 print("\nTesting large network:")
-large_result = large_network()
+large_result = fdl.build(large_network)()
 print(f"Large network result: {large_result}")
 ```
 
@@ -191,10 +191,8 @@ with run.Experiment("config_experiment") as experiment:
         name="large_model"
     )
 
-    # Run the experiment
-    results = experiment.run()
-
-print(f"Experiment results: {results}")
+    # Run the experiment (no return value)
+    experiment.run()
 ```
 
 ## Step 4: Advanced Experiment Patterns
@@ -262,8 +260,8 @@ for exp_name, configs in experiment_configs.items():
             name="main_run"
         )
 
-        results = experiment.run()
-        print(f"Results for {exp_name}: {results}")
+        experiment.run()
+        print(f"Completed {exp_name}")
 ```
 
 ## Step 5: Experiment Best Practices
@@ -298,8 +296,8 @@ def run_hyperparameter_experiment():
                 name=f"lr_{lr}"
             )
 
-        results = experiment.run()
-        return results
+        experiment.run()
+        return None
 
 # 3. Use meaningful run names
 def run_model_comparison():
@@ -372,8 +370,8 @@ def compare_architectures():
         return results
 
 # Run your experiment
-results = compare_architectures()
-print(f"Architecture comparison results: {results}")
+compare_architectures()
+print("Architecture comparison completed")
 ```
 
 ## Next Steps

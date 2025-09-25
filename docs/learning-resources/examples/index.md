@@ -27,6 +27,8 @@ Through these examples, you'll learn how to:
 
 ## Examples Overview
 
+Browse featured examples across frameworks and real‑world scenarios.
+
 ::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
 
@@ -68,6 +70,8 @@ Real-world LLM fine-tuning with LoRA, QLoRA, instruction tuning, and production 
 
 
 ## Get Started with Examples
+
+Prepare your environment, run the examples, and iterate safely.
 
 ### Prerequisites
 
@@ -119,6 +123,8 @@ with run.Experiment("example_name") as experiment:
 
 ## Best Practices
 
+Use these guidelines to structure and optimize your example projects.
+
 ### Code Organization
 
 - **Modular design**: Separate configuration, training, and evaluation
@@ -143,6 +149,8 @@ with run.Experiment("example_name") as experiment:
 
 
 ## Get Help
+
+Use these resources if you run into issues.
 
 - **Stuck on an example?** Check the [Troubleshooting Guide](../../guides/troubleshooting.md)
 - **Need more examples?** Explore our [Use Cases](../use-cases/index.md) section

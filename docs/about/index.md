@@ -18,7 +18,7 @@ NeMo Run is NVIDIA's Python framework for configuring, executing, and managing M
 
 NeMo Run is a production-ready framework that provides a unified interface for the complete ML experiment lifecycle. It combines type-safe configuration management with flexible execution across multiple environments, from local development to distributed clusters.
 
-The framework is designed to handle the complexities of ML experiment management, including configuration versioning, environment-specific deployments, and comprehensive experiment tracking. NeMo Run supports multiple execution backends, including local, Docker, Slurm, Ray, and cloud platforms, providing flexibility for different compute requirements and infrastructure setups.
+NeMo Run handles the complexities of ML experiment management, including configuration versioning, environment-specific deployments, and comprehensive experiment tracking. It supports multiple execution backends—local, Docker, Slurm, Ray, and cloud platforms—providing flexibility for different compute requirements and infrastructure setups.
 
 :::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
@@ -41,7 +41,7 @@ Why NeMo Run exists and the problems it solves in the NeMo ecosystem.
 :link-alt: Quick Start guide
 :class-body: text-center
 
-Get up and running with NeMo Run in minutes with our step-by-step quick start guide.
+Get up and running with NeMo Run in minutes with the step-by-step quick start guide.
 
 +++
 {bdg-primary}`Getting Started` {bdg-secondary}`Beginner`
@@ -85,9 +85,12 @@ Explore NeMo Run's powerful features for configuration, execution, and experimen
 
 :::::
 
+(about-key-benefits)=
 ## Key Benefits
 
-### **Configuration Flexibility**
+Understand how NeMo Run’s design translates into practical advantages for configuration, execution, and experiment management.
+
+### Configuration Flexibility
 
 NeMo Run's Python-based configuration system provides unprecedented flexibility and type safety:
 
@@ -97,7 +100,7 @@ NeMo Run's Python-based configuration system provides unprecedented flexibility 
 - **YAML Interoperability**: Support for external configuration files with seamless Python integration
 - **Dynamic Configuration**: Runtime configuration updates and overrides without code changes
 
-### **Execution Modularity**
+### Execution Modularity
 
 The framework's execution system enables true environment independence:
 
@@ -107,7 +110,7 @@ The framework's execution system enables true environment independence:
 - **Launcher Integration**: Support for torchrun, fault tolerance, and custom launchers
 - **Resource Management**: Automatic resource allocation and cleanup
 
-### **Experiment Management**
+### Experiment Management
 
 Comprehensive experiment tracking and management capabilities:
 
@@ -117,16 +120,22 @@ Comprehensive experiment tracking and management capabilities:
 - **Dependency Management**: Complex workflow orchestration with task dependencies
 - **Artifact Management**: Comprehensive artifact collection and storage
 
+(about-target-users)=
 ## Target Users
+
+NeMo Run serves multiple roles across ML teams. Use this guide to see how each audience benefits.
 
 - **ML Researchers**: Conduct reproducible experiments with version-controlled configurations
 - **ML Engineers**: Build production ML pipelines with environment-agnostic execution
 - **DevOps Engineers**: Manage multi-environment deployments and infrastructure automation
 - **Data Scientists**: Prototype and scale ML experiments with minimal infrastructure overhead
 
+(about-use-cases)=
 ## Use Cases
 
-### **ML Research & Development**
+Explore common scenarios where NeMo Run streamlines workflows, from research to production operations.
+
+### ML Research and Development
 
 NeMo Run excels in research environments where experimentation and reproducibility are crucial:
 
@@ -135,7 +144,7 @@ NeMo Run excels in research environments where experimentation and reproducibili
 - **Reproducible Research**: Ensure experiments can be exactly reproduced
 - **Collaborative Research**: Share configurations and results across teams
 
-### **Production ML Pipelines**
+### Production ML Pipelines
 
 For ML engineers building production systems:
 
@@ -144,7 +153,7 @@ For ML engineers building production systems:
 - **Scalability**: Scale from local development to distributed clusters
 - **Monitoring**: Built-in experiment tracking and monitoring
 
-### **DevOps & Infrastructure**
+### DevOps and Infrastructure
 
 For teams managing ML infrastructure:
 
@@ -153,6 +162,7 @@ For teams managing ML infrastructure:
 - **Integration**: Works with existing CI/CD pipelines and infrastructure
 - **Cost Management**: Efficient resource utilization across platforms
 
+(about-key-technologies)=
 ## Key Technologies
 
 NeMo Run is built on a robust technology stack designed for performance and flexibility:
@@ -163,9 +173,12 @@ NeMo Run is built on a robust technology stack designed for performance and flex
 - **Docker**: Containerization for consistent execution environments
 - **Slurm**: High-performance computing scheduler for cluster execution
 
+(about-competitive-advantages)=
 ## Competitive Advantages
 
-### **vs. Traditional Scripts**
+See how NeMo Run compares to traditional scripts and other ML frameworks across configuration, execution, and tracking.
+
+### vs. Traditional Scripts
 
 | Traditional Approach | NeMo Run |
 |---------------------|----------|
@@ -175,7 +188,7 @@ NeMo Run is built on a robust technology stack designed for performance and flex
 | Difficult reproducibility | One-command reproduction |
 | Limited scalability | Built-in scaling capabilities |
 
-### **vs. Other ML Frameworks**
+### vs. Other ML Frameworks
 
 **Configuration Management**
 
@@ -192,46 +205,52 @@ NeMo Run is built on a robust technology stack designed for performance and flex
 - **NeMo Run**: Built-in tracking with full reproducibility
 - **Others**: Often requires external tracking systems
 
+(about-technical-advantages)=
 ## Technical Advantages
 
-### **Architecture Benefits**
+Dive deeper into architectural, performance, and developer-experience benefits that improve day‑to‑day work.
+
+### Architecture Benefits
 
 - **Separation of Concerns**: Clean separation between configuration, execution, and management
 - **Extensibility**: Plugin architecture for custom functionality
 - **Type Safety**: Leverages Python's type system for validation
 - **IDE Support**: Full autocomplete and type checking support
 
-### **Performance Benefits**
+### Performance Benefits
 
 - **Efficient Packaging**: Intelligent code packaging strategies
 - **Resource Optimization**: Automatic resource allocation and cleanup
 - **Parallel Execution**: Support for concurrent task execution
 - **Caching**: Built-in caching for improved performance
 
-### **Developer Experience**
+### Developer Experience
 
 - **Rich CLI**: Type-safe command-line interface with autocomplete
 - **Visualization**: Built-in configuration visualization with graphviz
 - **Debugging**: Comprehensive logging and debugging capabilities
 - **Documentation**: Automatic documentation generation from configurations
 
+(about-real-world-impact)=
 ## Real-World Impact
 
-### **Research Productivity**
+These outcomes highlight how NeMo Run improves productivity, operations, and collaboration in practice.
+
+### Research Productivity
 
 - **Faster Experimentation**: Reduced time from idea to results
 - **Better Collaboration**: Shared configurations and reproducible results
 - **Reduced Errors**: Type safety and validation prevent configuration mistakes
 - **Improved Insights**: Better tracking and analysis of experiments
 
-### **Operational Efficiency**
+### Operational Efficiency
 
 - **Reduced Infrastructure Overhead**: Unified management across environments
 - **Lower Costs**: Efficient resource utilization and automatic cleanup
 - **Faster Deployment**: Streamlined deployment processes
 - **Better Monitoring**: Comprehensive experiment tracking and status monitoring
 
-### **Team Collaboration**
+### Team Collaboration
 
 - **Shared Standards**: Consistent configuration and execution patterns
 - **Knowledge Transfer**: Easy sharing of experiments and configurations
@@ -242,5 +261,7 @@ NeMo Run is built on a robust technology stack designed for performance and flex
 :caption: About NeMo Run
 :maxdepth: 2
 :hidden:
-
+purpose
+key-features
+architecture
 ```

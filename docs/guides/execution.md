@@ -1,11 +1,14 @@
-# Execute NeMo Run
+(guides-execute-workloads)=
+# Launch Workloads
 
 Execute NeMo Run workloads consistently on local machines and remote clusters. This guide covers requirements, executors, launchers, packagers, and workflows from single tasks to full experiments.
 
+(guides-execution-model)=
 ## Execution Model
 
 After configuring NeMo Run, the next step is execution. NeMo Run decouples configuration from execution, allowing you to configure a function or task once and then execute it across multiple environments. You can execute a single task or multiple tasks simultaneously on different remote clusters, managing them under an experiment.
 
+(guides-core-building-blocks)=
 ## Core Building Blocks
 
 This brings us to the core building blocks for execution: `run.Executor` and `run.Experiment`.
@@ -18,6 +21,7 @@ Each execution of a single configured task requires an executor. NeMo Run provid
 - `run.SkypilotExecutor` (available under the optional feature `skypilot` in the Python package).
 - `run.LeptonExecutor`
 
+(guides-execution-units)=
 ## Execution Units
 
 A tuple of a task and an executor forms an execution unit. A key goal of NeMo Run is to let you mix and match tasks and executors to define execution units.
@@ -26,17 +30,20 @@ After you create an execution unit, run it. The `run.run` function executes a si
 
 `run.Experiment` stores run metadata, launches on the specified cluster, and syncs logs. It also provides tools to inspect and reproduce past experiments. `run.Experiment` is inspired by `xmanager` and uses [TorchX](https://pytorch.org/torchx/latest/) under the hood to handle execution.
 
+(guides-requirements)=
 ## Requirements
 
 - NeMo Run uses a Docker image as the environment for remote execution. Provide an image that includes all necessary dependencies and configurations when using a remote executor.
 - Experiment metadata is stored under the `NEMORUN_HOME` environment variable on the machine where you launch experiments. By default, `NEMORUN_HOME` is `~/.run`. Change this as needed.
 
+(guides-executors)=
 ## Executors
 
 Executors are data classes that configure your remote executor and set up the packaging of your code. All supported executors inherit from the base class `run.Executor`, but they have configuration parameters specific to their execution environment. There is an initial cost to understanding the specifics of your executor and setting it up, but this effort is amortized over time.
 
 Each `run.Executor` has two attributes: `packager` and `launcher`. The `packager` specifies how to package the code for execution, while the `launcher` determines which tool to use for launching the task.
 
+(guides-launchers)=
 ## Launchers
 
 Supported launchers:
@@ -45,8 +52,11 @@ Supported launchers:
 - `torchrun` or `run.Torchrun`: Launch the task using `torchrun`. See the `Torchrun` class for configuration options. Use `executor.launcher = "torchrun"` or `executor.launcher = Torchrun(...)`.
 - `ft` or `run.core.execution.FaultTolerance`: Launch the task using NVIDIA fault-tolerant launcher. See the `FaultTolerance` class for configuration options. Use `executor.launcher = "ft"` or `executor.launcher = FaultTolerance(...)`.
 
-> **_Note:_** The launcher may not work well with `run.Script`. Report issues at [https://github.com/NVIDIA-NeMo/Run/issues](https://github.com/NVIDIA-NeMo/Run/issues).
+:::{note}
+The launcher may not work well with `run.Script`. Report issues at [https://github.com/NVIDIA-NeMo/Run/issues](https://github.com/NVIDIA-NeMo/Run/issues).
+:::
 
+(guides-packagers)=
 ## Packagers
 
 The packager support matrix is as follows:
@@ -86,7 +96,9 @@ Your working directory at the time of execution will look like:
 
 If you execute a Python function, this working directory is automatically included in your Python path.
 
-> **_Note:_** `git archive` doesn't package uncommitted changes. A future update may add support for including uncommitted changes while honoring `.gitignore`.
+:::{note}
+`git archive` doesn't package uncommitted changes. A future update may add support for including uncommitted changes while honoring `.gitignore`.
+:::
 
 `run.PatternPackager` uses a pattern to package your code. It is useful for packaging code that is not under version control. For example, if you have a directory structure like this:
 
@@ -126,6 +138,7 @@ hybrid_packager = run.HybridPackager(
 
 This would create an archive where the contents of `src` are under a `code/` directory and matched `configs/*.yaml` files are under a `configs/` directory.
 
+(guides-define-executors)=
 ## Define Executors
 
 This section describes how to set up each executor.
@@ -256,7 +269,9 @@ As the examples show, defining executors in Python offers flexibility. You can m
 
 The `DGXCloudExecutor` integrates with a DGX Cloud cluster's Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
 
-> **_WARNING:_** The `DGXCloudExecutor` is supported only when launching experiments from a pod running on the DGX Cloud cluster itself. This launching pod must have access to a Persistent Volume Claim (PVC) where the experiment and job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
+:::{warning}
+The `DGXCloudExecutor` is supported only when launching experiments from a pod running on the DGX Cloud cluster itself. This launching pod must have access to a Persistent Volume Claim (PVC) where the experiment and job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
+:::
 
 Here's an example configuration:
 

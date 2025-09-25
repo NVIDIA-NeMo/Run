@@ -10,9 +10,11 @@ modality: "text-only"
 
 (ci-cd-pipelines)=
 
-# CI/CD Pipelines Integration
+# CI/CD Pipeline Integration
 
 This guide covers integrating NeMo Run with Continuous Integration/Continuous Deployment (CI/CD) pipelines to automate ML experiment execution, testing, and deployment.
+
+(ci-cd-supported-platforms)=
 
 ## Supported CI/CD Platforms
 
@@ -25,11 +27,17 @@ NeMo Run integrates with popular CI/CD platforms:
 - **CircleCI** - Cloud-based CI/CD platform
 - **Travis CI** - Continuous integration service
 
+(ci-cd-github-actions)=
+
 ## GitHub Actions Integration
+
+Set up basic and GPU-enabled workflows to run NeMo Run tests and experiments, trigger on pushes and pull requests, and collect artifacts.
+
+(ci-cd-gha-basic)=
 
 ### Basic GitHub Actions Workflow
 
-```
+```yaml
 # .github/workflows/nemo-run-tests.yml
 name: NeMo Run Tests
 
@@ -66,7 +74,7 @@ jobs:
             return x * 2
 
         config = run.Config(test_function, x=42)
-        result = config.build()
+        result = config.build()()
         print(f'✅ Configuration test passed: {result}')
         "
 
@@ -75,9 +83,11 @@ jobs:
         python tests/test_experiments.py
 ```
 
+(ci-cd-gha-gpu)=
+
 ### Advanced GitHub Actions with GPU Support
 
-```
+```yaml
 # .github/workflows/nemo-run-gpu-tests.yml
 name: NeMo Run GPU Tests
 
@@ -141,7 +151,7 @@ jobs:
 
 ### Automated Model Training Pipeline
 
-```
+```yaml
 # .github/workflows/automated-training.yml
 name: Automated Model Training
 
@@ -201,11 +211,15 @@ jobs:
           ~/.nemo_run/experiments/automated_training/
 ```
 
+(ci-cd-gitlab)=
+
 ## GitLab CI Integration
+
+Define stages to test and train with NeMo Run on GitLab runners, including GPU nodes when available.
 
 ### Basic GitLab CI Pipeline
 
-```
+```yaml
 # .gitlab-ci.yml
 stages:
   - test
@@ -258,7 +272,11 @@ train:
     - main
 ```
 
+(ci-cd-jenkins)=
+
 ## Jenkins Integration
+
+Use a declarative pipeline to install dependencies, run tests, and launch NeMo Run experiments on build agents.
 
 ### Jenkins Pipeline Script
 
@@ -333,11 +351,15 @@ pipeline {
 }
 ```
 
+(ci-cd-azure-devops)=
+
 ## Azure DevOps Integration
+
+Create multi-stage pipelines that test and train models with NeMo Run, and publish experiment artifacts.
 
 ### Azure DevOps Pipeline
 
-```
+```yaml
 # azure-pipelines.yml
 trigger:
   - main
@@ -412,11 +434,15 @@ stages:
         artifactName: 'training-results'
 ```
 
+(ci-cd-circleci)=
+
 ## CircleCI Integration
+
+Configure CircleCI jobs to install NeMo Run, execute tests, and run training with artifact uploads.
 
 ### CircleCI Configuration
 
-```
+```yaml
 # .circleci/config.yml
 version: 2.1
 
@@ -490,7 +516,11 @@ workflows:
               only: main
 ```
 
+(ci-cd-best-practices)=
+
 ## Best Practices
+
+Use these patterns to keep pipelines reproducible, environment-aware, and resilient to transient failures.
 
 ### Environment Management
 
@@ -584,26 +614,32 @@ def safe_ci_execution():
         sys.exit(1)
 ```
 
+(ci-cd-checklist)=
+
 ## Integration Checklist
 
 When integrating NeMo Run with CI/CD pipelines:
 
-- [ ] **Environment Setup**: Ensure Python and dependencies are properly installed
+- [ ] **Environment Setup**: Ensure Python and dependencies are installed
 - [ ] **GPU Support**: Configure GPU access if needed for training
 - [ ] **Artifact Management**: Set up proper artifact storage and retrieval
-- [ ] **Error Handling**: Implement robust error handling and reporting
+- [ ] **Error Handling**: Add robust error handling and reporting
 - [ ] **Security**: Secure sensitive data and credentials
-- [ ] **Monitoring**: Set up proper logging and monitoring
+- [ ] **Monitoring**: Set up logging and monitoring
 - [ ] **Testing**: Include comprehensive testing in the pipeline
+
+(ci-cd-troubleshooting)=
 
 ## Troubleshooting
 
+Use these tips and commands to diagnose common CI issues and keep pipelines healthy.
+
 ### Common Issues
 
-1. **Import Errors**: Ensure NeMo Run is properly installed
+1. **Import Errors**: Ensure NeMo Run is installed
 2. **GPU Access**: Verify GPU drivers and CUDA installation
 3. **Permission Issues**: Check file permissions and access rights
-4. **Memory Issues**: Monitor resource usage and adjust accordingly
+4. **Memory Issues**: Check resource usage and adjust accordingly
 
 ### Debug Commands
 
@@ -628,7 +664,11 @@ experiment.status()
 "
 ```
 
+(ci-cd-next-steps)=
+
 ## Next Steps
+
+Choose one of the following resources to deepen your CI/CD integration with NeMo Run.
 
 - Review [Guides](../guides/index.md) for production CI/CD workflows
 - Explore [Cloud Platform Integration](cloud-platforms.md) for cloud-based execution

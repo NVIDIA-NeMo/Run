@@ -1,24 +1,20 @@
 ---
 description: "Complete CLI reference for NeMo Run including all commands, options, and usage examples."
-tags: ["cli", "command-line", "reference", "commands", "options"]
+tags: ["command-line", "reference", "commands", "options"]
 categories: ["references"]
-personas: ["mle-focused", "data-scientist-focused", "admin-focused"]
+personas: ["machine-learning-engineer-focused", "data-scientist-focused", "admin-focused"]
 difficulty: "intermediate"
 content_type: "reference"
 modality: "text-only"
 ---
 
-(cli-reference)=
-
 # CLI Reference
 
-Complete reference documentation for NeMo Run's command-line interface, including all commands, options, and usage examples.
-
-## Overview
-
-NeMo Run provides a powerful command-line interface that transforms Python functions into sophisticated CLI tools with rich argument parsing, type safety, and seamless integration with execution backends.
+NeMo Run provides a powerful CLI that transforms Python functions into sophisticated CLI tools with rich argument parsing, type safety, and seamless integration with execution backends.
 
 ## Core Concepts
+
+Understand the primary building blocks of the CLI and how they map to code. These concepts help you reason about what the CLI generates and how it executes your Python functions.
 
 ### Entry Points
 
@@ -32,7 +28,7 @@ Factory functions (decorated with `@run.cli.factory`) create reusable configurat
 
 The `RunContext` manages execution settings and provides executor configuration, plugin management, and execution control.
 
-## CLI Argument Syntax
+## Command-Line Argument Syntax
 
 NeMo Run supports rich Python-like argument syntax:
 
@@ -61,21 +57,25 @@ python script.py model=create_model(hidden_size=256)
 
 ## Global Options
 
+Use these global options:
+
 | Option | Description | Example |
 |--------|-------------|---------|
 | `--name, -n` | Name of the run | `--name my_experiment` |
-| `--direct` | Execute directly (no executor) | `--direct` |
+| `--direct/--no-direct` | Execute directly (skip executor) | `--direct` |
 | `--dryrun` | Preview without execution | `--dryrun` |
-| `--factory, -f` | Use predefined factory | `--factory my_factory` |
+| `--factory, -f` | Use predefined factory (or `@file` to load) | `--factory my_factory` |
 | `--load, -l` | Load factory from directory | `--load ./configs/` |
 | `--yaml, -y` | Load from YAML file | `--yaml config.yaml` |
 | `--repl, -r` | Enter interactive mode | `--repl` |
 | `--detach` | Run in background | `--detach` |
-| `--yes, -y` | Skip confirmation | `--yes` |
+| `--yes, --no-confirm, -y` | Skip confirmation | `--yes` |
 | `--tail-logs` | Follow logs | `--tail-logs` |
 | `--verbose, -v` | Enable verbose logging | `--verbose` |
 
 ## Output Options
+
+Use these output options:
 
 | Option | Description | Example |
 |--------|-------------|---------|
@@ -85,20 +85,22 @@ python script.py model=create_model(hidden_size=256)
 
 ## Rich Output Options
 
+Use these rich output options:
+
 | Option | Description | Example |
 |--------|-------------|---------|
 | `--rich-exceptions` | Enable rich exception formatting | `--rich-exceptions` |
-| `--rich-traceback-short` | Short traceback format | `--rich-traceback-short` |
-| `--rich-traceback-full` | Full traceback format | `--rich-traceback-full` |
-| `--rich-show-locals` | Show local variables in exceptions | `--rich-show-locals` |
-| `--rich-hide-locals` | Hide local variables in exceptions | `--rich-hide-locals` |
-| `--rich-theme` | Color theme (dark/light/monochrome) | `--rich-theme dark` |
+| `--rich-traceback-short/--rich-traceback-full` | Control stack trace verbosity | `--rich-traceback-full` |
+| `--rich-show-locals/--rich-hide-locals` | Toggle local variables in exceptions | `--rich-show-locals` |
+| `--rich-theme` | Color theme (dark, light, or monochrome) | `--rich-theme dark` |
 
 ## Advanced Features
 
-### Interactive Mode (REPL)
+Explore power‑user capabilities that enhance interactivity, portability, and operational workflows when using the CLI.
 
-Start an interactive session to explore configurations:
+### Interactive Mode (Read–Eval–Print Loop)
+
+Start an interactive session to explore configurations (not supported with `--lazy`):
 
 ```bash
 python script.py train_model --repl
@@ -118,13 +120,29 @@ python script.py train_model model=resnet50 --to-toml config.toml
 # Export to JSON
 python script.py train_model model=resnet50 --to-json config.json
 
-# Export specific sections
-python script.py train_model model=resnet50 --to-yaml config.yaml --section model
+# Export specific sections (append :section to the output path)
+python script.py train_model model=resnet50 --to-yaml config.yaml:model
+# In both regular and lazy modes, ':section' extracts a top-level attribute
+# from the configuration object before serialization.
 ```
+
+### Lazy Mode
+
+Run a one-off command using lazy resolution without loading nested entry points:
+
+```bash
+python script.py train_model --lazy --to-yaml config.yaml
+```
+
+Notes:
+
+- `--lazy` doesn't support `devspace` and `experiment` commands.
+- `--dryrun` and `--repl` aren't supported in lazy mode.
+- Export flags `--to-yaml/--to-toml/--to-json` work in lazy mode and skip execution after export.
 
 ### Dry Run Mode
 
-Preview what would be executed without actually running:
+Preview the commands without running them:
 
 ```bash
 python script.py train_model model=resnet50 --dryrun
@@ -148,6 +166,8 @@ python script.py train_model model=resnet50 --tail-logs
 
 ## Executor Integration
 
+Bind CLI entry points to execution environments and learn how to override executors at runtime without changing code.
+
 ### Default Executors
 
 Set default executors for your entry points:
@@ -166,23 +186,26 @@ def train_model(model: str, epochs: int = 10):
     print(f"Training {model} for {epochs} epochs")
 ```
 
-### CLI Executor Override
+### Executor Override from the Command Line
 
 ```bash
 # Use default executor
 python script.py train_model model=resnet50
 
 # Override with different executor
-python script.py train_model model=resnet50 executor=run.LocalExecutor()
+python script.py train_model model=resnet50 executor=local
 
-# Configure executor parameters
-python script.py train_model model=resnet50 executor=run.SlurmExecutor(partition=gpu,time=02:00:00)
+# Configure Slurm executor parameters
+python script.py train_model executor=slurm executor.account=acct executor.partition=gpu executor.time=02:00:00
 
 # Override executor settings
-python script.py train_model model=resnet50 executor.num_gpus=4 executor.memory=32g
+# Docker example
+python script.py train_model executor=docker executor.num_gpus=4 executor.shm_size=30g
+# Slurm example
+python script.py train_model executor=slurm executor.gpus_per_node=4 executor.mem=32g
 ```
 
-## Factory Functions
+## Factory Functions in Depth
 
 Factory functions allow you to create reusable configuration components:
 
@@ -271,7 +294,7 @@ def create_default_optimizer() -> OptimizerConfig:
     return create_optimizer(optimizer_type="adam", lr=0.001)
 ```
 
-### Use Factories in CLI
+### Use Factories from the Command Line
 
 ```bash
 # Use default factory
@@ -287,7 +310,15 @@ python script.py train_with_optimizer model=resnet50 optimizer.lr=0.005
 python script.py train_model model=create_transformer_model optimizer=create_optimizer
 ```
 
+```bash
+# Plugins via single value or list factory
+python script.py train_with_optimizer plugins=my_plugin
+python script.py train_with_optimizer plugins=plugin_list plugins[0].some_arg=50
+```
+
 ## Troubleshooting
+
+Use these tips to diagnose common CLI issues quickly and apply targeted fixes.
 
 ### Common Issues
 
@@ -357,15 +388,17 @@ python script.py train_model model=create_transformer_model optimizer=create_opt
    python script.py train_model --to-yaml debug_config.yaml
    ```
 
-5. **Check available factories**
+5. **Inspect pre-loaded factories via help**
 
-   ```python
-   import nemo_run as run
-   factories = run.cli.list_factories()
-   print(factories)
+   ```bash
+   python script.py train_model --help
    ```
 
+   The help output includes a "Pre-loaded entry point factories, run with --factory" table.
+
 ## Examples
+
+Copy‑pasteable snippets that demonstrate typical CLI usage patterns—from basic commands to advanced pipelines.
 
 ### Basic Entry Point
 
@@ -478,7 +511,7 @@ def advanced_training_pipeline(
     }
 ```
 
-### CLI Usage Examples
+### Command-Line Usage Examples
 
 ```bash
 # Use defaults

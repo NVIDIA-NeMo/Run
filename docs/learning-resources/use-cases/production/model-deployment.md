@@ -48,6 +48,8 @@ Model deployment is a critical phase in the ML lifecycle that requires careful p
 
 ## Use Case Scenarios
 
+Examples that illustrate common deployment patterns.
+
 ### Scenario 1: Production Model Deployment
 
 ```python
@@ -390,6 +392,8 @@ def deploy_model_pipeline():
 
 ## Advanced Deployment Strategies
 
+Progressively safer rollout approaches for real systems.
+
 ### 1. Blue-Green Deployment
 
 ```python
@@ -537,6 +541,8 @@ def edge_deployment():
 ```
 
 ## Monitoring and Observability
+
+Keep deployments healthy with proactive monitoring.
 
 ### 1. Real-Time Performance Monitoring
 
@@ -705,6 +711,8 @@ def setup_auto_scaling():
 
 ## Security and Compliance
 
+Harden deployments and meet regulatory needs.
+
 ### 1. Model Security
 
 ```python
@@ -798,6 +806,8 @@ def setup_compliance_monitoring():
 ```
 
 ## Best Practices
+
+Checklists and tips to improve deployment quality.
 
 ### 1. Deployment Checklist
 

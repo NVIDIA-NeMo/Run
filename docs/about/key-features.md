@@ -12,6 +12,8 @@ NeMo Run provides advanced technical capabilities for AI researchers and ML prac
 
 ## Advanced Configuration System
 
+Build, validate, and evolve experiment configurations with type safety and Python-first ergonomics.
+
 ### Type-Safe Configuration Management
 
 NeMo Run's configuration system provides compile-time type safety and runtime validation:
@@ -53,7 +55,7 @@ def train_model(
     # Training implementation
     pass
 
-# Partial configuration with CLI exposure
+# Partial configuration with Command-Line Interface exposure
 train_fn = run.Partial(
     train_model,
     learning_rate=1e-4,
@@ -80,6 +82,8 @@ script_config = run.Script(
 - **Validation Rules**: Custom validation logic for complex constraints
 
 ## Multi-Environment Execution
+
+Run the same configured workload locally, in containers, or on clusters—without rewriting your code.
 
 ### Executor Architecture
 
@@ -117,6 +121,8 @@ with run.Experiment() as exp:
 
 ## Advanced Experiment Management
 
+Track metadata, capture artifacts, and reproduce results with confidence across environments.
+
 ### Metadata Tracking
 
 NeMo Run automatically captures comprehensive experiment metadata:
@@ -149,6 +155,8 @@ with run.Experiment(
 ```
 
 ## Distributed Computing Integration
+
+Leverage Ray and related tooling for scalable training and batch processing across Kubernetes and Slurm.
 
 ### Ray Integration
 
@@ -229,6 +237,8 @@ config = run.Config(
 
 ## Intelligent Packaging System
 
+Package code and resources reproducibly using strategies suited to your repository layout and tooling.
+
 ### Packaging Strategies
 
 NeMo Run supports multiple packaging strategies for reproducible execution:
@@ -254,12 +264,14 @@ pattern_package = run.PatternPackager(
 
 ## CLI Framework
 
+Use a type‑safe CLI to expose functions as commands with minimal boilerplate and strong validation.
+
 ### Type-Safe Command Line Interface
 
 NeMo Run provides a sophisticated CLI with automatic type inference:
 
 ```python
-# CLI integration with type safety
+# Command-Line Interface integration with type safety
 @run.cli.entrypoint
 def train(
     model_size: str = "7b",
@@ -283,6 +295,8 @@ def train(
 
 ## Integration Capabilities
 
+Connect to ML frameworks, cloud platforms, and monitoring stacks using consistent patterns.
+
 ### ML Framework Integration
 
 - **PyTorch**: Native support for distributed training and model parallelism
@@ -305,6 +319,8 @@ def train(
 - **Custom Metrics**: Extensible metrics collection and visualization
 
 ## Performance Optimizations
+
+Optimize resource usage and scale efficiently, from single-node runs to multi-node clusters.
 
 ### Resource Management
 

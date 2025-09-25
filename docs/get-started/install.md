@@ -8,11 +8,15 @@ categories: ["get-started"]
 
 ## Prerequisites
 
+Confirm your environment meets these baseline requirements before installing.
+
 - **Python**: 3.10 or higher
 - **pip**: Latest version recommended
 - **Git**: For cloning repositories
 
 ## Core Installation
+
+Install the core package with pip, then verify the import.
 
 ```bash
 # Install NeMo Run
@@ -24,14 +28,16 @@ python -c "import nemo_run as run; print('✅ NeMo Run installed successfully')"
 
 ## Optional Dependencies
 
+Add optional extras for specific backends and cloud features.
+
 ### SkyPilot (Multi-Cloud Execution)
 
 ```bash
 # Install with SkyPilot support (Kubernetes)
-pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot]
+pip install "nemo_run[skypilot] @ git+https://github.com/NVIDIA-NeMo/Run.git"
 
 # Install with SkyPilot support (All clouds)
-pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot-all]
+pip install "nemo_run[skypilot-all] @ git+https://github.com/NVIDIA-NeMo/Run.git"
 
 # Or install manually
 pip install skypilot[kubernetes]  # For Kubernetes support
@@ -46,6 +52,8 @@ pip install ray[default]
 ```
 
 ## System Dependencies
+
+Install system tools required by certain executors.
 
 ### Docker Support (for DockerExecutor)
 
@@ -75,6 +83,8 @@ sudo yum install slurm-slurm-client
 
 ## Development Installation
 
+Set up a local clone for development and contribution.
+
 ```bash
 # Clone and install in development mode
 git clone https://github.com/NVIDIA-NeMo/Run.git
@@ -83,6 +93,8 @@ pip install -e .
 ```
 
 ## Verification
+
+Validate the installation and print the current version.
 
 ```python
 import nemo_run as run
@@ -93,6 +105,8 @@ print("✅ NeMo Run installed successfully")
 ```
 
 ## CLI Access
+
+Use these commands to explore the available command-line entry points.
 
 After installation, you can access NeMo Run via:
 
@@ -108,6 +122,8 @@ python -m nemo_run --help
 ```
 
 ## Environment Configuration
+
+Optionally set a custom home directory for metadata and logs.
 
 ```bash
 # Set custom home directory (optional)

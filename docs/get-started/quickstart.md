@@ -8,14 +8,18 @@ categories: ["get-started"]
 
 # Quick Start
 
-Get up and running with NeMo Run in minutes.
+Get up and running with NeMo Run in minutes. This guide walks you through installing NeMo Run, setting up your first experiment, and exploring advanced usage patterns.
 
 ## Prerequisites
+
+Ensure your environment meets these minimum requirements.
 
 - **Python 3.10+** with pip
 - **Basic ML knowledge** (PyTorch, training loops)
 
-## Installation
+## Install NeMo Run
+
+Install the package and verify the import completes.
 
 ```bash
 # Install NeMo Run
@@ -63,6 +67,8 @@ python -c "import nemo_run as run; print('✅ NeMo Run ready')"
    ```
 
 ## Your First Experiment
+
+Define, configure, and execute a basic training workflow.
 
 ### Step 1: Create Your Training Function
 
@@ -162,6 +168,8 @@ except Exception as e:
 ```
 
 ## Advanced Patterns
+
+Explore reusable configurations, CLI integration, dependencies, and script execution.
 
 ### Configuration Factories
 
@@ -265,6 +273,8 @@ with run.Experiment("script_execution") as exp:
 
 ## Next Steps
 
+Continue with deeper guides and production-oriented workflows.
+
 - Explore [Configuration Guide](../guides/configuration) for advanced patterns
-- Learn [Execution Guide](../guides/execution) for multi-environment setups
+- Learn [Launch Workloads](../guides/execution) for multi-environment setups
 - Check [Guides](../guides/index) for production workflows

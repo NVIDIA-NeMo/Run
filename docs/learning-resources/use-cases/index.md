@@ -27,6 +27,8 @@ Through these use cases, you'll learn how to:
 
 ## Use Case Overview
 
+Explore representative scenarios organized by domain.
+
 ::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
 
@@ -99,6 +101,8 @@ We recommend exploring these use cases in order for the best learning experience
 
 ## Research Use Cases
 
+Research‑focused scenarios and workflows.
+
 ### [Reproducible Research](research/reproducible-research.md)
 Ensure complete reproducibility of ML experiments across different environments.
 
@@ -130,6 +134,8 @@ Automate hyperparameter search with advanced optimization strategies.
 - Research methodology validation
 
 ## Production Use Cases
+
+Production‑oriented pipelines and deployment patterns.
 
 ### [ML Pipelines](production/ml-pipelines.md)
 Build robust, scalable ML pipelines for production environments.
@@ -163,6 +169,8 @@ Deploy ML models with confidence and monitoring.
 
 ## Collaboration Use Cases
 
+Team workflows for tracking, sharing, and coordination.
+
 ### [Experiment Tracking](collaboration/experiment-tracking.md)
 Track and share experiments across team members.
 
@@ -179,6 +187,8 @@ Track and share experiments across team members.
 - Training and onboarding
 
 ## Use Case Implementation Patterns
+
+Reusable patterns that connect research to production.
 
 ### Pattern 1: Research to Production Pipeline
 
@@ -283,6 +293,8 @@ class ProductionMonitor:
 
 ## Success Metrics
 
+Measure outcomes and process quality with these metrics.
+
 ### Research Metrics
 - **Reproducibility Rate**: Percentage of experiments that can be reproduced
 - **Time to Results**: Time from experiment design to results
@@ -302,6 +314,8 @@ class ProductionMonitor:
 - **Onboarding Time**: Time for new team members to contribute
 
 ## Get Started with Use Cases
+
+Follow this checklist to plan and execute your use case.
 
 ### Choose Your Use Case
 1. **Identify your domain** (research, production, collaboration)
@@ -331,6 +345,8 @@ collaboration/experiment-tracking
 ```
 
 ## Next Steps
+
+Continue with related guides and references.
 
 - Explore **[Tutorials](../tutorials/index.md)** for step-by-step learning
 - Check **[Examples](../examples/index.md)** for complete code samples

@@ -20,6 +20,8 @@ Reproducible research is fundamental to scientific progress and industry adoptio
 
 ## Key Challenges in Reproducible Research
 
+A quick look at the main pitfalls you’ll mitigate.
+
 ### 1. Environment Variability
 - Different Python versions and package versions
 - Hardware differences (CPU, GPU, memory)
@@ -39,6 +41,8 @@ Reproducible research is fundamental to scientific progress and industry adoptio
 - Incomplete artifact capture
 
 ## NeMo Run Solutions
+
+See how NeMo Run captures state and enforces repeatability.
 
 ### Complete State Capture
 
@@ -158,24 +162,17 @@ with run.Experiment("reproducible_research") as exp:
 NeMo Run configurations are fully serializable and version-controllable:
 
 ```python
-# Save configuration to file
-config_path = "experiments/baseline_config.yaml"
-run.save_config(reproducible_config, config_path)
+# Persist configuration (example using JSON)
+import json
+from dataclasses import asdict
 
-# Load configuration from file
-loaded_config = run.load_config(config_path)
+config_path = "experiments/baseline_config.json"
+with open(config_path, "w") as f:
+    json.dump(asdict(reproducible_config), f, indent=2, default=str)
 
-# Version control integration
-import git
-repo = git.Repo(".")
-commit_hash = repo.head.object.hexsha
-
-# Add commit information to configuration
-reproducible_config.reproduction_metadata = {
-    "git_commit": commit_hash,
-    "git_branch": repo.active_branch.name,
-    "git_dirty": repo.is_dirty()
-}
+# Load configuration back (example)
+with open(config_path, "r") as f:
+    loaded_config_dict = json.load(f)
 ```
 
 ### Environment Reproducibility
@@ -219,6 +216,8 @@ result = run.run(
 ```
 
 ## Reproducibility Workflows
+
+Practical workflows for publications, benchmarks, and collaborations.
 
 ### 1. Research Publication Workflow
 
@@ -396,6 +395,8 @@ def standardize_configs(site_configs: Dict[str, ReproducibleConfig]):
 ```
 
 ## Reproducibility Best Practices
+
+Guidelines to ensure consistent, repeatable experiments.
 
 ### 1. Configuration Management
 
@@ -596,6 +597,8 @@ To validate reproducibility:
 
 ## Success Metrics
 
+Track reproducibility quality with measurable indicators.
+
 ### Reproducibility Metrics
 - **Reproduction Success Rate**: Percentage of experiments that can be reproduced
 - **Environment Consistency**: Number of successful reproductions across different environments
@@ -608,6 +611,8 @@ To validate reproducibility:
 - **Documentation Quality**: Quality of reproduction instructions and documentation
 
 ## Next Steps
+
+Continue with related guides and tools.
 
 - Explore **[Hyperparameter Optimization](hyperparameter-optimization.md)** for automated tuning
 - Check **[Configuration Guide](../../../guides/configuration.md)** for systematic evaluation

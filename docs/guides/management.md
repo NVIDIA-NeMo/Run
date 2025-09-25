@@ -1,7 +1,9 @@
+(guides-manage-experiments)=
 # Manage Experiments
 
 The central component for managing tasks in NeMo Run is the `Experiment` class. Use it to define, launch, and manage workflows with several tasks. This guide provides an overview of the `Experiment` class, its methods, and how to use it effectively.
 
+(guides-create-experiment)=
 ## Create an Experiment
 
 Create an experiment by instantiating the `Experiment` class with a descriptive title:
@@ -12,8 +14,11 @@ exp = Experiment("My Experiment")
 
 When you run the experiment, NeMo Run generates a unique experiment ID that represents a single run.
 
-> **_Note:_** `Experiment` is a context manager. Use `Experiment.add` and `Experiment.run` after entering the context.
+:::{note}
+`Experiment` is a context manager. Use `Experiment.add` and `Experiment.run` after entering the context.
+:::
 
+(guides-add-tasks)=
 ## Add Tasks
 
 Add tasks to an experiment using the `add` method. This method supports the following:
@@ -50,6 +55,7 @@ with run.Experiment("dag-experiment", log_level="INFO") as exp:
    )
 ```
 
+(guides-launch-experiment)=
 ## Launch an Experiment
 
 After you add all tasks to an experiment, launch it using the `run` method. This method takes several optional arguments, including `detach`, `sequential`, `tail_logs`, and `direct`:
@@ -65,6 +71,7 @@ with exp:
     exp.run(detach=True, sequential=False, tail_logs=True, direct=False)
 ```
 
+(guides-check-status)=
 ## Check Experiment Status
 
 Check the status of an experiment using the `status` method:
@@ -97,6 +104,7 @@ Task 2: simple.add.add_object
 - Local Directory: /home/your_user/.nemo_run/experiments/experiment_with_scripts/experiment_with_scripts_1730761155/simple.add.add_object
 ```
 
+(guides-cancel-task)=
 ## Cancel a Task
 
 Cancel a task using the `cancel` method:
@@ -105,6 +113,7 @@ Cancel a task using the `cancel` method:
 exp.cancel("task_id")
 ```
 
+(guides-view-logs)=
 ## View Logs
 
 View the logs of a task using the `logs` method:
@@ -113,6 +122,7 @@ View the logs of a task using the `logs` method:
 exp.logs("task_id")
 ```
 
+(guides-review-output)=
 ## Review Experiment Output
 
 After you run an experiment, NeMo Run displays information on how to inspect and reproduce past experiments. This allows you to check logs, sync artifacts (in the future), cancel running tasks, and rerun an old experiment.
@@ -127,7 +137,7 @@ experiment.cancel("echo.sh") # Cancels the provided task if still running
 ```
 
 ```bash
-# You can inspect this experiment at a later point in time using the CLI as well:
+# You can inspect this experiment at a later point in time using the command-line interface as well:
 nemorun experiment status experiment_with_scripts_1720556256
 nemorun experiment logs experiment_with_scripts_1720556256 0
 nemorun experiment cancel experiment_with_scripts_1720556256 0

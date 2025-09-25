@@ -2,13 +2,11 @@
 description: "Comprehensive reference for NeMo Run's configuration system, types, validation, and advanced patterns."
 tags: ["configuration", "reference", "types", "validation", "fiddle"]
 categories: ["references"]
-personas: ["mle-focused", "data-scientist-focused", "admin-focused"]
+personas: ["machine-learning-engineer-focused", "data-scientist-focused", "admin-focused"]
 difficulty: "intermediate"
 content_type: "reference"
 modality: "text-only"
 ---
-
-(configuration-reference)=
 
 # Configuration Reference
 
@@ -16,9 +14,11 @@ Comprehensive reference documentation for NeMo Run's type-safe configuration sys
 
 ## Overview
 
-NeMo Run's configuration system provides type-safe, serializable configurations with Fiddle integration, enabling reproducible and validated experiment setups across diverse computing environments.
+NeMo Run's configuration system provides type-safe configurations with Fiddle integration and built-in serialization, enabling reproducible and validated experiment setups across varied computing environments.
 
 ## Core Configuration Types
+
+Use these building blocks to describe what to run and how to run it. `run.Config` declares fully bound, type‑checked objects; `run.Partial` defers some arguments until execution time; and `run.Script` wraps shell or Python entrypoints for non‑Python or hybrid workflows. Pick the simplest type that preserves type safety and reproducibility for your use case.
 
 ### `run.Config`
 
@@ -58,24 +58,30 @@ partial_config = run.Partial(
 )
 
 # Execute later
-result = run.run(partial_config)
+run.run(partial_config)
 ```
 
 ### `run.Script`
 
-Wraps executable scripts with configuration:
+Configure raw scripts or inline commands:
 
 ```python
-# Script configuration
-script_config = run.Script(
-    "train.py",
-    model_name="resnet50",
-    epochs=100,
-    batch_size=64
+# File-based script
+script = run.Script(path="train.py", args=["--epochs", "100"], env={"PYTHONUNBUFFERED":"1"})
+
+# Inline script
+script = run.Script(
+    inline="""echo Hello && python -c "print('ok')""" ,
+    entrypoint="bash"
 )
+
+# Use -m with python entrypoint
+script = run.Script(path="my.module", entrypoint="python", m=True)
 ```
 
 ## Configuration Validation
+
+Validation ensures your configurations are safe, consistent, and executable before jobs are launched. NeMo Run validates types from function signatures and lets you add domain‑specific checks, so bad inputs fail early with actionable errors.
 
 ### Type Validation
 
@@ -134,7 +140,7 @@ def create_training_config(
     )
 ```
 
-### Custom Validators
+### Custom Validation Helpers
 
 Create custom validation functions:
 
@@ -172,14 +178,15 @@ class ValidatedConfig:
 
 ## Serialization
 
+NeMo Run includes a serializer that round‑trips configurations across YAML, JSON, and TOML without losing structure or type information. Prefer the built‑in serializer for portability and reproducibility, and layer custom handling only when a value cannot be represented as plain data.
+
 ### Built-in Serialization
 
-NeMo Run configurations are automatically serializable:
+`ConfigSerializer` supports YAML, JSON, and TOML via a YAML-first pipeline (JSON/TOML <-> YAML <-> `Buildable`):
 
 ```python
 import nemo_run as run
-import json
-import yaml
+from nemo_run.cli.config import ConfigSerializer
 
 # Create configuration
 config = run.Config(
@@ -189,32 +196,36 @@ config = run.Config(
     batch_size=32
 )
 
-# Serialize to dictionary
-config_dict = config.to_dict()
+serializer = ConfigSerializer()
 
-# Serialize to JSON
-config_json = json.dumps(config_dict, indent=2)
+# Serialize to strings
+yaml_str = serializer.serialize_yaml(config)
+json_str = serializer.serialize_json(config)
+toml_str = serializer.serialize_toml(config)
 
-# Serialize to YAML
-config_yaml = yaml.dump(config_dict, default_flow_style=False)
+# Write to files
+serializer.dump_yaml(config, "config.yaml")
+serializer.dump_json(config, "config.json")
+serializer.dump_toml(config, "config.toml")
 
-# Save to file
-with open("config.json", "w") as f:
-    json.dump(config_dict, f, indent=2)
+# Format-agnostic dump/load based on extension
+serializer.dump(config, "config.yaml")
+cfg = serializer.load("config.toml")
 
-with open("config.yaml", "w") as f:
-    yaml.dump(config_dict, f)
+# Raw dict IO (no `Buildable`). Supports section extraction via path:section
+data = serializer.load_dict("config.yaml")
+serializer.dump_dict(data, "subset.yaml:training")
 ```
 
-### Custom Serialization
+### Custom Validation and Serialization
 
-Handle non-serializable objects:
+Handle values that aren't directly representable in the chosen format:
 
 ```python
 from pathlib import Path
 import nemo_run as run
 
-# Wrap non-serializable objects
+# Wrap values not representable in the chosen format
 config = run.Config(
     process_data,
     input_path=run.Config(Path, "/path/to/data"),
@@ -222,20 +233,13 @@ config = run.Config(
     batch_size=32
 )
 
-# Serialize with custom handling
-def serialize_config(config: run.Config) -> dict:
-    """Serialize configuration with custom object handling."""
-    config_dict = config.to_dict()
-
-    # Handle Path objects
-    for key, value in config_dict.items():
-        if isinstance(value, dict) and "type" in value and value["type"] == "pathlib.Path":
-            config_dict[key] = str(value["args"][0])
-
-    return config_dict
+# Tip: Prefer wrapping values not representable in the chosen format (e.g., pathlib.Path) with run.Config(...)
+# so the serializer can handle them without manual dict manipulation.
 ```
 
 ## Advanced Configuration Patterns
+
+As projects grow, organize configurations with nesting, composition, and templates. These patterns help you share common defaults, override selectively, and keep experiment definitions readable as they evolve.
 
 ### Nested Configurations
 
@@ -304,7 +308,7 @@ config = create_comprehensive_config(
 
 ### Configuration Composition
 
-Compose configurations from multiple sources:
+Compose configurations from several sources:
 
 ```python
 import nemo_run as run
@@ -423,6 +427,8 @@ cnn_config = CNNTemplate.create(channels=[32, 64, 128], learning_rate=0.01)
 
 ## Fiddle Integration
 
+Fiddle interops seamlessly with NeMo Run: you can author configs with Fiddle, then cast them to NeMo Run `Config` for execution. This lets teams who prefer Fiddle’s ergonomics collaborate without sacrificing NeMo Run’s execution and metadata features.
+
 ### Basic Fiddle Usage
 
 NeMo Run integrates with Fiddle for advanced configuration management:
@@ -439,8 +445,9 @@ fdl.set_field(config, "model_name", "gpt2")
 fdl.set_field(config, "learning_rate", 0.001)
 fdl.set_field(config, "batch_size", 32)
 
-# Convert to NeMo Run configuration
-nemo_config = run.Config.from_fiddle(config)
+# Convert Fiddle config to NeMo Run configuration
+from nemo_run.config import Config
+nemo_config = fdl.cast(Config, config)
 ```
 
 ### Advanced Fiddle Patterns
@@ -486,12 +493,14 @@ def create_fiddle_config() -> fdl.Config:
 
     return config
 
-# Convert to NeMo Run configuration
 fiddle_config = create_fiddle_config()
-nemo_config = run.Config.from_fiddle(fiddle_config)
+from nemo_run.config import Config
+nemo_config = fdl.cast(Config, fiddle_config)
 ```
 
 ## Configuration Validation Rules
+
+Use this reference to understand how NeMo Run interprets common Python types during validation, and how to extend validation with custom rules when defaults are not sufficient.
 
 ### Type Validation Rules
 
@@ -500,9 +509,9 @@ nemo_config = run.Config.from_fiddle(fiddle_config)
 | `int` | Must be integer | `batch_size=32` |
 | `float` | Must be float | `learning_rate=0.001` |
 | `str` | Must be string | `model_name="gpt2"` |
-| `bool` | Must be boolean | `debug=true` |
+| `bool` | Must be Boolean | `debug=true` |
 | `List[T]` | Must be list of type T | `layers=[128,256,512]` |
-| `Dict[str, T]` | Must be dict with string keys | `config={'dropout': 0.1}` |
+| `Dict[str, T]` | Must be a dictionary with string keys | `config={'dropout': 0.1}` |
 | `Optional[T]` | Can be None or type T | `scheduler=None` |
 | `Union[T1, T2]` | Must be one of the types | `activation="relu"` |
 
@@ -578,7 +587,9 @@ def create_validated_config(
 
 ## Configuration Serialization Formats
 
-### YAML Format
+The following examples show the same configuration expressed in different formats:
+
+**YAML (YAML Ain't Markup Language):**
 
 ```yaml
 # config.yaml
@@ -607,7 +618,7 @@ experiment:
   debug: false
 ```
 
-### JSON Format
+**JSON (JavaScript Object Notation):**
 
 ```json
 {
@@ -639,7 +650,7 @@ experiment:
 }
 ```
 
-### TOML Format
+**TOML (Tom's Obvious, Minimal Language):**
 
 ```toml
 [model]
@@ -670,62 +681,36 @@ debug = false
 
 ## Configuration Loading and Saving
 
-### Load from File
+Load and save configurations using file extensions to pick the format automatically. The serializer preserves structure across formats, so you can edit a YAML file and load it back as a buildable `Config`/`Partial` with no manual conversions.
+
+### Load from a File
 
 ```python
-import nemo_run as run
-import yaml
-import json
+from nemo_run.cli.config import ConfigSerializer
 
-def load_config_from_yaml(file_path: str) -> run.Config:
-    """Load configuration from YAML file."""
-    with open(file_path, 'r') as f:
-        config_dict = yaml.safe_load(f)
+serializer = ConfigSerializer()
 
-    return run.Config(train_model, **config_dict)
-
-def load_config_from_json(file_path: str) -> run.Config:
-    """Load configuration from JSON file."""
-    with open(file_path, 'r') as f:
-        config_dict = json.load(f)
-
-    return run.Config(train_model, **config_dict)
-
-# Usage
-config = load_config_from_yaml("config.yaml")
-config = load_config_from_json("config.json")
+# Load to a Buildable (Config/Partial) from YAML/JSON/TOML
+cfg = serializer.load("config.yaml")
 ```
 
-### Save to File
+### Save to a File
 
 ```python
-import nemo_run as run
-import yaml
-import json
+from nemo_run.cli.config import ConfigSerializer
 
-def save_config_to_yaml(config: run.Config, file_path: str) -> None:
-    """Save configuration to YAML file."""
-    config_dict = config.to_dict()
-
-    with open(file_path, 'w') as f:
-        yaml.dump(config_dict, f, default_flow_style=False)
-
-def save_config_to_json(config: run.Config, file_path: str) -> None:
-    """Save configuration to JSON file."""
-    config_dict = config.to_dict()
-
-    with open(file_path, 'w') as f:
-        json.dump(config_dict, f, indent=2)
-
-# Usage
+serializer = ConfigSerializer()
 config = run.Config(train_model, model_name="gpt2", learning_rate=0.001)
-save_config_to_yaml(config, "config.yaml")
-save_config_to_json(config, "config.json")
+
+serializer.dump_yaml(config, "config.yaml")
+serializer.dump_json(config, "config.json")
 ```
 
 ## Configuration Best Practices
 
-### 1. Use Type Hints Consistently
+These guidelines help keep configurations clear, maintainable, and reproducible across teams. Favor explicit types, sensible defaults, and small, composable templates over ad‑hoc dictionaries.
+
+### Use Type Hints Consistently
 
 ```python
 from typing import Optional, List, Dict, Any, Union
@@ -744,7 +729,7 @@ def create_config(
     pass
 ```
 
-### 2. Provide Sensible Defaults
+### Provide Sensible Defaults
 
 ```python
 def create_config(
@@ -757,7 +742,7 @@ def create_config(
     pass
 ```
 
-### 3. Validate Configuration
+### Configuration Validation Guidelines
 
 ```python
 def create_validated_config(
@@ -780,7 +765,7 @@ def create_validated_config(
     return run.Config(train_model, **locals())
 ```
 
-### 4. Use Configuration Templates
+### Use Configuration Templates
 
 ```python
 class ConfigTemplate:
@@ -804,7 +789,7 @@ class ConfigTemplate:
         return run.Config(train_model, **config)
 ```
 
-### 5. Handle Complex Objects
+### Handle Complex Objects
 
 ```python
 from pathlib import Path

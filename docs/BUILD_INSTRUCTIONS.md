@@ -2,7 +2,7 @@
 
 Complete guide for building the nemo-run documentation.
 
-## **Prerequisites & Requirements**
+## **Prerequisites and Requirements**
 
 ### **1. System Requirements**
 
@@ -93,7 +93,7 @@ make docs-clean
 make docs-clean && make docs-html
 ```
 
-## **Complete Setup & Build Process**
+## **Complete Setup and Build Process**
 
 ### **One-time Setup:**
 

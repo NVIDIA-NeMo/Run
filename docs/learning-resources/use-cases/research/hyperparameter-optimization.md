@@ -35,6 +35,7 @@ Hyperparameter optimization is a critical component of ML research and developme
 - Time-budget management
 
 ## Use Case Scenarios
+Concrete examples showing how to apply these strategies.
 
 ### Scenario 1: Neural Network Architecture Search
 
@@ -196,6 +197,7 @@ def bayesian_optimization_with_custom_acquisition():
 ```
 
 ## Advanced Optimization Strategies
+Scale beyond basics with evolutionary, bandit, and fidelity methods.
 
 ### 1. Population-Based Training
 
@@ -313,6 +315,7 @@ def multi_fidelity_optimization():
 ```
 
 ## Integration with NeMo Run Features
+Leverage resource awareness and distributed execution.
 
 ### 1. Resource-Aware Optimization
 
@@ -391,6 +394,7 @@ def distributed_hyperparameter_optimization():
 ```
 
 ## Best Practices
+Design effective search spaces and stopping rules.
 
 ### 1. Search Space Design
 
@@ -485,6 +489,7 @@ def analyze_optimization_results(study: optuna.Study):
 ```
 
 ## Performance Optimization
+Run trials efficiently with parallelism, caching, and pruning.
 
 ### 1. Parallel Trial Execution
 
@@ -539,6 +544,7 @@ def cached_optimization():
 ```
 
 ## Monitoring and Debugging
+Track progress and diagnose failed trials.
 
 ### 1. Optimization Progress Monitoring
 
@@ -582,6 +588,7 @@ def debug_failed_trials(study: optuna.Study):
 ```
 
 ## Integration Examples
+Tie optimizers to popular tracking tools.
 
 ### 1. Integration with MLflow
 
@@ -654,6 +661,7 @@ def wandb_integration():
 ```
 
 ## Summary
+Key benefits and why these approaches matter.
 
 NeMo Run provides powerful tools for hyperparameter optimization that can significantly accelerate ML research and development. Key benefits include:
 

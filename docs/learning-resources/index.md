@@ -24,6 +24,8 @@ This section contains everything you need to learn NeMo Run effectively:
 
 ## Content Categories
 
+Quickly scan the resource types and jump to what you need.
+
 ::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
 

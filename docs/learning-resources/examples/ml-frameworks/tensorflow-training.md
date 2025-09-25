@@ -26,6 +26,8 @@ This example demonstrates how to integrate TensorFlow with NeMo Run for scalable
 
 ## Prerequisites
 
+Install the necessary TensorFlow packages and optional tools.
+
 ```bash
 # Install required dependencies
 pip install tensorflow tensorflow-datasets
@@ -34,6 +36,8 @@ pip install wandb  # for experiment tracking (optional)
 ```
 
 ## Complete Example
+
+End-to-end example covering model, data, training, and NeMo Run execution.
 
 ### Step 1: Define Your Model
 
@@ -196,6 +200,8 @@ with run.Experiment("tensorflow_training") as experiment:
 
 ## Advanced Features
 
+Scale beyond the basics with distributed strategies and custom training loops. These patterns help you adapt NeMo Run to advanced TensorFlow workflows while keeping execution portable.
+
 ### Distributed Training
 
 ```python
@@ -329,6 +335,8 @@ with run.Experiment("custom_tensorflow_training") as experiment:
 
 ## Production Deployment
 
+Persist trained models and execute in repeatable environments. These examples demonstrate saving/loading with Keras and running on NeMo Run executors for consistency.
+
 ### Model Saving and Loading
 
 ```python
@@ -364,6 +372,8 @@ with run.Experiment("tensorflow_model_persistence") as experiment:
 ```
 
 ## Next Steps
+
+Continue to related examples and guides.
 
 - Explore {doc}`PyTorch Training <pytorch-training>` for PyTorch examples
 - Try [LLM Fine-tuning](../real-world/llm-fine-tuning) for advanced real-world examples

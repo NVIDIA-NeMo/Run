@@ -91,14 +91,41 @@ modality: "text-only"
 .diagram-modal .ai-btn {
     display: none !important;
 }
+
+/* Ensure Mermaid diagrams render with transparent backgrounds */
+#architecture-mermaid .mermaid {
+    background-color: transparent !important;
+}
+#architecture-mermaid svg {
+    background-color: transparent !important;
+}
+
+/* Use a plain style for mermaid wrapper to avoid double backgrounds */
+.clickable-diagram.plain {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+}
+.clickable-diagram.plain:hover,
+.clickable-diagram.plain:active {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove edge label backgrounds (e.g., "Logs & Metrics", "Outputs") */
+#architecture-mermaid .mermaid .edgeLabel { background: transparent !important; }
+#architecture-mermaid .mermaid .edgeLabel rect { fill: transparent !important; }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const diagram = document.getElementById('architecture-diagram');
+    const clickableIds = ['architecture-diagram', 'architecture-mermaid'];
 
-    if (diagram) {
-        diagram.addEventListener('click', function() {
+    clickableIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        el.addEventListener('click', function() {
             // Create modal
             const modal = document.createElement('div');
             modal.className = 'diagram-modal';
@@ -106,14 +133,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="diagram-modal-content">
                     <span class="diagram-modal-close" aria-label="Close dialog">&times;</span>
                     <h3>NeMo Run Core Architecture</h3>
-                    <div style="max-height: 80vh; overflow-y: auto;">${this.innerHTML}</div>
-                    <div class="diagram-modal-description">
-                        This diagram illustrates NeMo Run’s three-layer architecture:
-                        the <strong>Configuration</strong> layer (type-safe configs and Fiddle integration),
-                        the <strong>Execution</strong> layer (environment-agnostic executors like Local, Slurm, Ray, Docker),
-                        and the <strong>Management</strong> layer (tracking, metadata, artifacts, reproducibility).
-                        Configuration flows into executors, and execution outputs are captured for management and analysis.
-                    </div>
+                    <div style=\"max-height: 80vh; overflow-y: auto;\">${this.innerHTML}</div>
+
                 </div>
             `;
 
@@ -135,12 +156,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             })(modal);
 
-            // Also hide/remove toolbars in the inline diagram area
-            (function removeFromInlineDiagram() {
-                const container = document.getElementById('architecture-diagram');
-                if (!container) return;
-                container.querySelectorAll('.ai-toolbar, .copybtn').forEach(el => el.remove());
-                container.querySelectorAll('.ai-btn').forEach(el => el.style.display = 'none');
+            // Also hide/remove toolbars in the inline diagram areas
+            (function removeFromInlineDiagrams() {
+                clickableIds.forEach((cid) => {
+                    const container = document.getElementById(cid);
+                    if (!container) return;
+                    container.querySelectorAll('.ai-toolbar, .copybtn').forEach(el => el.remove());
+                    container.querySelectorAll('.ai-btn').forEach(el => el.style.display = 'none');
+                });
             })();
 
             // Close modal functionality
@@ -163,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
-    }
+    });
 });
 </script>
 
@@ -173,25 +196,83 @@ document.addEventListener('DOMContentLoaded', function() {
 
 NeMo Run's architecture is designed around three core principles: **separation of concerns**, **extensibility**, and **type safety**. The framework provides a unified interface for ML experiment lifecycle management while maintaining flexibility across diverse computing environments.
 
+(arch-system-overview)=
 ## System Overview
 
-NeMo Run follows a modular architecture that separates configuration, execution, and management concerns:
+NeMo Run follows a three‑layer architecture with explicit responsibilities and data flow:
 
-<div class="clickable-diagram" id="architecture-diagram" style="background-color: white;">
+- **Configuration layer**: Define type‑safe experiment inputs using `run.Config` and `run.Partial`, with validation and composition (powered by Fiddle). The output of this layer is a fully specified, serializable configuration.
+- **Execution layer**: Consume the configuration and run the workload on an environment‑agnostic executor (Local, Docker, Slurm, Ray, Kubernetes). Code is packaged, resources are provisioned, and tasks are launched without changing user code.
+- **Management layer**: Capture everything produced at runtime—configuration snapshots, logs, metrics, and artifacts—and index them for status, comparison, and reproducibility.
 
-![NeMo Run Core Architecture](../assets/nemo-run-architecture.png)
+In short, validated configurations flow into executors; executor runs emit logs and artifacts; and the management layer persists those outputs for analysis and exact reruns.
+
+<div class="clickable-diagram plain" id="architecture-mermaid">
+
+```{mermaid}
+%%{init: {"theme": "base", "themeVariables": {"background":"transparent", "primaryColor":"#ffffff", "primaryTextColor":"#1f2937", "primaryBorderColor":"#d1d5db", "lineColor":"#4A90E2", "tertiaryColor":"#ffffff", "clusterBkg":"#ffffff", "clusterBorder":"#d1d5db", "edgeLabelBackground":"#ffffff", "fontSize":"14px", "fontFamily":"Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'"}}}%%
+flowchart LR
+  %% Layers
+  subgraph Configuration
+    C1[Type-Safe Configs\nrun.Config, run.Partial]
+    C2[Fiddle Integration]
+  end
+
+  subgraph Execution
+    E1[Local Executor]
+    E2[Docker Executor]
+    E3[Slurm Executor]
+    E4[Ray Executor]
+    E5[Kubernetes]
+  end
+
+  subgraph Management
+    M1[Experiment Tracking]
+    M2[Metadata & Lineage]
+    M3[Artifacts]
+    M4[Reproducibility]
+  end
+
+  %% Flows
+  C2 --> C1
+  C1 --> E1
+  C1 --> E2
+  C1 --> E3
+  C1 --> E4
+  C1 --> E5
+
+  E1 -->|Logs & Metrics| M1
+  E2 -->|Logs & Metrics| M1
+  E3 -->|Logs & Metrics| M1
+  E4 -->|Logs & Metrics| M1
+  E5 -->|Logs & Metrics| M1
+
+  E1 -->|Outputs| M3
+  E2 -->|Outputs| M3
+  E3 -->|Outputs| M3
+  E4 -->|Outputs| M3
+  E5 -->|Outputs| M3
+
+  M1 --> M2
+  M3 --> M2
+  M2 --> M4
+```
 
 *Click the diagram to view it in full size*
 
 </div>
 
+(arch-core-components)=
 ## Core Components
 
+Dive into each layer to understand the purpose, responsibilities, and interfaces that make NeMo Run modular and extensible.
+
+(arch-config-layer)=
 ### Configuration Layer
 
 The configuration layer provides type-safe, serializable configuration management:
 
-#### **run.Config**
+#### run.Config
 
 - **Purpose**: Main configuration container with type validation
 - **Features**:
@@ -200,7 +281,7 @@ The configuration layer provides type-safe, serializable configuration managemen
   - Nested configuration support
   - Runtime validation and error reporting
 
-#### **run.Partial**
+#### run.Partial
 
 - **Purpose**: Partial configuration for incremental updates
 - **Features**:
@@ -209,7 +290,7 @@ The configuration layer provides type-safe, serializable configuration managemen
   - Dynamic parameter injection
   - Template-based configurations
 
-#### **Fiddle Integration**
+#### Fiddle Integration
 
 - **Purpose**: Robust configuration framework foundation
 - **Features**:
@@ -218,11 +299,12 @@ The configuration layer provides type-safe, serializable configuration managemen
   - Configuration visualization and debugging
   - IDE support with autocomplete
 
+(arch-execution-layer)=
 ### Execution Layer
 
 The execution layer abstracts environment-specific details behind a unified interface:
 
-#### **Executor Abstraction**
+#### Executor Abstraction
 
 - **Purpose**: Environment-agnostic task execution
 - **Features**:
@@ -231,7 +313,7 @@ The execution layer abstracts environment-specific details behind a unified inte
   - Automatic resource management
   - Fault tolerance and retry logic
 
-#### **Supported Environments**
+#### Supported Environments
 
 - **Local**: Direct execution on the current machine
 - **Docker**: Containerized execution with isolation
@@ -240,7 +322,7 @@ The execution layer abstracts environment-specific details behind a unified inte
 - **Kubernetes**: Container orchestration
 - **Cloud Platforms**: AWS, GCP, Azure integration
 
-#### **Code Packaging**
+#### Code Packaging
 
 - **Purpose**: Reproducible code deployment
 - **Strategies**:
@@ -248,11 +330,12 @@ The execution layer abstracts environment-specific details behind a unified inte
   - **Pattern-based**: Selective file inclusion
   - **Hybrid**: Combined approach for complex projects
 
+(arch-management-layer)=
 ### Management Layer
 
 The management layer handles experiment lifecycle and tracking:
 
-#### **Experiment Tracking**
+#### Experiment Tracking
 
 - **Purpose**: Comprehensive experiment metadata capture
 - **Features**:
@@ -261,7 +344,7 @@ The management layer handles experiment lifecycle and tracking:
   - Resource utilization metrics
   - Performance monitoring
 
-#### **Metadata Management**
+#### Metadata Management
 
 - **Purpose**: Reproducible experiment reconstruction
 - **Features**:
@@ -270,7 +353,7 @@ The management layer handles experiment lifecycle and tracking:
   - Artifact linking
   - Cross-reference support
 
-#### **Artifact Management**
+#### Artifact Management
 
 - **Purpose**: Comprehensive output collection
 - **Features**:
@@ -279,7 +362,10 @@ The management layer handles experiment lifecycle and tracking:
   - Retrieval and analysis tools
   - Version control integration
 
+(arch-data-flow)=
 ## Data Flow
+
+Follow the end‑to‑end path—from validated configs, through execution, to captured metadata and artifacts for analysis and reproducibility.
 
 ### Configuration → Execution → Management
 
@@ -300,8 +386,12 @@ The management layer handles experiment lifecycle and tracking:
    - Experiment results are indexed
    - Reproducibility information is preserved
 
+(arch-extension-points)=
 ## Extension Points
 
+Extend NeMo Run with custom executors, configuration helpers, and artifact collectors tailored to your environment.
+
+(arch-custom-executors)=
 ### Custom Executors
 
 ```python
@@ -317,6 +407,7 @@ class CustomExecutor(BaseExecutor):
         pass
 ```
 
+(arch-custom-configurations)=
 ### Custom Configurations
 
 ```python
@@ -332,6 +423,7 @@ class MyExperimentConfig(Config):
         pass
 ```
 
+(arch-custom-artifacts)=
 ### Custom Artifact Collectors
 
 ```python
@@ -343,90 +435,105 @@ class CustomCollector(ArtifactCollector):
         pass
 ```
 
+(arch-performance)=
 ## Performance Considerations
 
-### **Configuration Validation**
+Understand the checks and optimizations built into each layer to keep runs efficient and reliable.
+
+### Configuration Validation
 
 - Type checking happens at configuration time
 - Validation errors are caught early
 - IDE support provides real-time feedback
 
-### **Execution Optimization**
+### Execution Optimization
 
 - Intelligent code packaging reduces transfer overhead
 - Parallel execution support for multiple tasks
 - Resource pooling and reuse
 
-### **Management Efficiency**
+### Management Efficiency
 
 - Incremental metadata updates
 - Lazy artifact loading
 - Caching for frequently accessed data
 
+(arch-security)=
 ## Security and Isolation
 
-### **Environment Isolation**
+See how environment isolation and configuration validation help protect systems and data.
+
+### Environment Isolation
 
 - Container-based execution provides process isolation
 - Resource limits prevent resource exhaustion
 - Network isolation for sensitive experiments
 
-### **Configuration Security**
+### Configuration Security
 
 - Type validation prevents injection attacks
 - Serialization validation ensures data integrity
 - Access control for sensitive configurations
 
+(arch-integration-points)=
 ## Integration Points
 
-### **CI/CD Integration**
+Learn how NeMo Run connects to CI/CD, ML frameworks, and monitoring systems to fit into your existing stack.
+
+### CI/CD Integration
 
 - Configuration-driven deployment pipelines
 - Automated testing with NeMo Run
 - Continuous experiment monitoring
 
-### **ML Framework Integration**
+### ML Framework Integration
 
 - PyTorch, TensorFlow, and other framework support
 - Custom launcher integration
 - Framework-specific optimizations
 
-### **Monitoring and Observability**
+### Monitoring and Observability
 
 - Integration with existing monitoring systems
 - Custom metrics collection
 - Alert and notification systems
 
+(arch-best-practices)=
 ## Best Practices
 
-### **Configuration Design**
+Practical guidance for designing configurations, choosing execution strategies, and organizing management workflows.
+
+### Configuration Design
 
 - Use type annotations for all parameters
 - Implement custom validation where needed
 - Keep configurations modular and reusable
 
-### **Execution Strategy**
+### Execution Strategy
 
 - Choose appropriate packaging strategy for your use case
 - Consider environment-specific optimizations
 - Plan for scalability from the start
 
-### **Management Workflow**
+### Management Workflow
 
 - Establish consistent naming conventions
 - Implement proper artifact organization
 - Regular cleanup of old experiments
 
+(arch-future)=
 ## Future Architecture Directions
 
-### **Planned Enhancements**
+Planned enhancements and areas where community contributions can shape NeMo Run’s evolution.
+
+### Planned Enhancements
 
 - Enhanced distributed execution capabilities
 - Advanced workflow orchestration
 - Improved visualization and debugging tools
 - Extended cloud platform support
 
-### **Community Contributions**
+### Community Contributions
 
 - Plugin ecosystem for custom extensions
 - Community-driven executor implementations

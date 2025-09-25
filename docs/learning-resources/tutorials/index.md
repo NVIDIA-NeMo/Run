@@ -25,6 +25,8 @@ Through these tutorials, you'll learn how to:
 
 ## Tutorial Overview
 
+Explore the tutorial catalog and pick a starting point.
+
 ::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
 
@@ -96,6 +98,8 @@ We recommend following these tutorials in order for the best learning experience
 5. **{doc}`Perform Hyperparameter Tuning <hyperparameter-tuning-basics>`** - Master optimization techniques with grid search, random search, and Bayesian optimization
 
 ## Prerequisites
+
+Confirm the basics before you begin.
 
 - Basic Python knowledge
 - Familiarity with machine learning concepts

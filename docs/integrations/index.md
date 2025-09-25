@@ -14,6 +14,7 @@ modality: "text-only"
 
 This section provides guides for integrating NeMo Run with popular ML frameworks, cloud platforms, monitoring tools, and CI/CD pipelines.
 
+(integrations-what-youll-find)=
 ## What You'll Find Here
 
 This section contains everything you need to integrate NeMo Run with your existing tools and infrastructure:
@@ -24,7 +25,10 @@ This section contains everything you need to integrate NeMo Run with your existi
 - **CI/CD pipeline automation** for GitHub Actions, GitLab CI, Jenkins, and DevOps workflows
 - **Best practices and patterns** for building robust, scalable integrations
 
+(integrations-overview)=
 ## Integrations Overview
+
+Use the cards below to jump into focused guides with runnable examples and recommended patterns.
 
 ::::{grid} 1 2 2 2
 :gutter: 2 2 2 2
@@ -75,8 +79,12 @@ Automate experiment execution with GitHub Actions, GitLab CI, Jenkins, and other
 
 :::::
 
+(integrations-get-started)=
 ## Get Started with Integrations
 
+Review prerequisites and common patterns first to choose the right approach for your environment and tools.
+
+(integrations-prereqs)=
 ### Prerequisites
 
 Before setting up integrations, ensure you have:
@@ -86,6 +94,7 @@ Before setting up integrations, ensure you have:
 - Appropriate credentials and permissions
 - Network access to external services
 
+(integrations-patterns)=
 ### Integration Patterns
 
 Most integrations follow these common patterns:
@@ -95,8 +104,12 @@ Most integrations follow these common patterns:
 3. **Monitoring Integration** - Send experiment data to external monitoring tools
 4. **Artifact Integration** - Store and retrieve artifacts from external systems
 
+(integrations-scenarios)=
 ## Common Integration Scenarios
 
+Use these quick scenarios as starting points for connecting NeMo Run to frameworks, cloud executors, and monitoring tools.
+
+(integrations-ml-framework)=
 ### ML Framework Integration
 
 ```python
@@ -113,6 +126,7 @@ model_config = run.Config(
 
 # Execute training with NeMo Run
 def train_model(model_config):
+    # Build the model inside the task
     model = model_config.build()
     # Training logic here
     return model
@@ -126,6 +140,7 @@ with run.Experiment("training") as experiment:
     experiment.run()
 ```
 
+(integrations-cloud-platform)=
 ### Cloud Platform Integration
 
 ```python
@@ -133,17 +148,18 @@ import nemo_run as run
 
 # Configure cloud executor
 executor = run.DockerExecutor(
-    image="nvidia/pytorch:24.05-py3",
-    resources={"nvidia.com/gpu": "1"}
+    container_image="nvidia/pytorch:24.05-py3",
+    num_gpus=1
 )
 
-# Run experiment on cloud
-result = run.run(
+# Run experiment on cloud (no return value)
+run.run(
     run.Partial(train_model, model_config),
     executor=executor
 )
 ```
 
+(integrations-monitoring)=
 ### Monitoring Integration
 
 ```python
@@ -155,7 +171,8 @@ wandb.init(project="nemo-run-experiments")
 
 # Log experiment metadata
 def train_with_logging(model_config):
-    wandb.config.update(model_config.to_dict())
+    # Optionally update wandb.config with simple metadata
+    wandb.config.update({"framework": "NeMo Run"})
     # Training logic here
     wandb.log({"loss": loss_value})
     return model
@@ -169,7 +186,10 @@ with run.Experiment("training") as experiment:
     experiment.run()
 ```
 
+(integrations-best-practices)=
 ## Best Practices for Integrations
+
+Apply these recommendations to keep integrations reliable, reproducible, and easy to operate at scale.
 
 1. **Start Simple** - Begin with basic integration before adding complexity
 2. **Test Locally** - Verify integration works locally before scaling
@@ -177,7 +197,10 @@ with run.Experiment("training") as experiment:
 4. **Secure Credentials** - Use environment variables for sensitive information
 5. **Monitor Performance** - Track integration performance and optimize as needed
 
+(integrations-need-help)=
 ## Need Help?
+
+Use these resources if you get stuck or need more context.
 
 - Check the [FAQs](../references/faqs.md) for common integration questions
 - Explore the [About section](../about/index.md) for conceptual information

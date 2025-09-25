@@ -4,29 +4,33 @@ tags: ["ray", "distributed", "Kubernetes", "Slurm", "clusters", "jobs"]
 categories: ["guides"]
 ---
 
+(guides-ray)=
+
 # Deploy Ray Clusters and Jobs
 
-> **Audience**: You already know how to configure executors with NeMo Run and want distributed Ray on either Kubernetes or Slurm.
->
-> **TL;DR**: `RayCluster` manages the cluster; `RayJob` submits a job with an ephemeral cluster. Everything else is convenience wrappers.
+This guide explains how to deploy Ray clusters and jobs on Kubernetes or Slurm using NeMo Run. This guide focuses on two main helpers: `RayCluster` for interactive, long-running environments and `RayJob` for ephemeral, single-run batch tasks. Both helpers use a uniform API, letting you switch between backends without rewriting your code. The executor you choose (`KubeRay` or `Slurm`) determines the underlying cluster manager.
 
 ## Choose RayCluster or RayJob
 
-| Aspect | RayCluster (interactive) | RayJob (batch) |
+Use this section to choose between an interactive `RayCluster` and a batch `RayJob`.
+
+| Criteria | RayCluster (interactive) | RayJob (batch) |
 |--------|--------------------------|----------------|
 | Cluster lifetime | Remains until you call `.stop()` | Ephemeral—cluster automatically deletes after the job finishes |
-| Spin-up cost per run | Paid once (reuse for multiple jobs) | Paid per submission |
-| Multiple jobs on same cluster | Yes | No (one job per submission) |
+| Spin-up cost per run | Paid once (reuse for repeated runs) | Paid per submission |
+| Concurrent jobs on same cluster | Yes | No (one job per submission) |
 | Dashboard access | `.port_forward()` to open | Not exposed by default |
 | Best for | Debugging, notebooks, iterative development, sweeps that reuse workers | CI/CD, scheduled training/evaluation, single runs |
-| Resource efficiency | Effective when you launch multiple jobs interactively | Effective when you need automatic cleanup |
+| Resource efficiency | Effective when you launch repeated jobs interactively | Effective when you need automatic cleanup |
 
-### Mental Model
+### Object Model and Backends
 
-| Object | What it abstracts | Backends supported |
-|--------|-------------------|--------------------|
-| `nemo_run.run.ray.cluster.RayCluster` | Lifecycle of a Ray cluster (create ⇒ wait ⇢ status ⇢ port-forward ⇢ delete) | `KubeRayExecutor`, `SlurmExecutor` |
-| `nemo_run.run.ray.job.RayJob` | Lifecycle of a Ray job (submit ⇒ monitor ⇢ logs ⇢ cancel) | same |
+This section maps NeMo Run's Ray helpers to their roles, lifecycle, and supported executors.
+
+| Helper (module) | Purpose | Lifecycle | Executors |
+|------------------|---------|-----------|-----------|
+| `RayCluster` (`nemo_run.run.ray.cluster.RayCluster`) | Manage a Ray cluster's lifecycle | create -> wait -> status -> port-forward -> stop/delete | `KubeRayExecutor`, `SlurmExecutor` |
+| `RayJob` (`nemo_run.run.ray.job.RayJob`) | Submit and manage a job on a Ray cluster | submit -> monitor -> logs -> cancel/stop | `KubeRayExecutor`, `SlurmExecutor` |
 
 The two helpers share a uniform API; the selected executor determines whether NeMo Run uses the Ray operator for Kubernetes or a Slurm job under the hood.
 
@@ -38,7 +42,11 @@ classDiagram
     RayJob     <|-- SlurmRayJob
 ```
 
+(guides-ray-k8s-quickstart)=
+
 ## Kubernetes Quick Start
+
+This quick start shows how to configure KubeRay, launch a cluster, submit a job, and clean up.
 
 ```python
 from nemo_run.core.execution.kuberay import KubeRayExecutor, KubeRayWorkerGroup
@@ -115,7 +123,11 @@ Notes:
 - **Working directory synchronization**: When you set `workdir`, NeMo Run synchronizes your local files to the first `volume_mounts` entry and sets the container working directory accordingly.
 - **Pre-start commands**: `pre_ray_start_commands=[...]` run in head and worker containers before Ray starts (injected via lifecycle hooks).
 
+(guides-ray-slurm-quickstart)=
+
 ## Slurm Quick Start
+
+This quick start demonstrates launching a Ray cluster on Slurm via SSH, submitting a job, and cleaning up.
 
 ```python
 import nemo_run as run
@@ -180,12 +192,20 @@ job.logs(follow=True)
 cluster.stop()
 ```
 
+(guides-ray-slurm-tips)=
+
 ## Tips for Slurm Users
+
+Practical tips to improve reliability and ergonomics when running Ray on Slurm.
 
 - Set `executor.packager = run.GitArchivePackager()` to package a Git tree instead of file synchronization.
 - Use `cluster.port_forward()` to open an SSH tunnel from your laptop to the Ray dashboard running on the head node.
 
+(guides-ray-reference)=
+
 ## Reference: Ray Cluster and Job Interfaces
+
+A concise overview of the key methods on `RayCluster` and `RayJob`.
 
 ```python
 from nemo_run.run.ray.cluster import RayCluster
@@ -206,7 +226,11 @@ job.logs(follow=True, lines=200)
 job.stop()
 ```
 
+(guides-ray-cli-tool)=
+
 ## Build a Command-Line Tool
+
+A minimal example that wraps the Ray helpers in a reusable CLI.
 
 ```python
 import argparse

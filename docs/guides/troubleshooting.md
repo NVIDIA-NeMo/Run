@@ -10,7 +10,7 @@ modality: "text-only"
 
 (troubleshooting)=
 
-# Troubleshoot NeMo Run
+# Troubleshoot
 
 This comprehensive guide helps you diagnose and resolve common issues when using NeMo Run. It covers error messages, debugging techniques, and solutions for various scenarios encountered by AI developers and scientists.
 

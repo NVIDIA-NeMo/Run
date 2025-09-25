@@ -14,6 +14,7 @@ modality: "text-only"
 
 This guide covers integrating NeMo Run with popular Machine Learning frameworks to streamline your ML workflows.
 
+(integrations-ml-supported)=
 ## Supported Frameworks
 
 NeMo Run works seamlessly with most Python-based ML frameworks:
@@ -26,8 +27,12 @@ NeMo Run works seamlessly with most Python-based ML frameworks:
 - **LightGBM** - Gradient boosting
 - **Hugging Face Transformers** - Pre-trained models
 
+(integrations-ml-pytorch)=
 ## PyTorch Integration
 
+Configure models, data loaders, and optimizers, then orchestrate runs with experiments and executors.
+
+(integrations-ml-pytorch-basic)=
 ### Basic PyTorch Model Configuration
 
 ```python
@@ -78,6 +83,7 @@ with run.Experiment("pytorch_training") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-pytorch-advanced)=
 ### Advanced PyTorch Integration
 
 ```python
@@ -118,8 +124,12 @@ with run.Experiment("pytorch_multi_run") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-tensorflow)=
 ## TensorFlow Integration
 
+Wrap Keras models and training loops with configurations and run them consistently across executors.
+
+(integrations-ml-tensorflow-basic)=
 ### Basic TensorFlow Model Configuration
 
 ```python
@@ -164,8 +174,12 @@ with run.Experiment("tensorflow_training") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-sklearn)=
 ## Scikit-learn Integration
 
+Compose pipelines and tune hyperparameters while standardizing execution with NeMo Run experiments.
+
+(integrations-ml-sklearn-pipeline)=
 ### Traditional ML Pipeline
 
 ```python
@@ -208,8 +222,12 @@ with run.Experiment("sklearn_training") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-xgboost)=
 ## XGBoost Integration
 
+Configure and train gradient boosting models using NeMo Run for reproducible execution.
+
+(integrations-ml-xgboost-config)=
 ### Gradient Boosting Configuration
 
 ```python
@@ -240,8 +258,12 @@ with run.Experiment("xgboost_training") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-transformers)=
 ## Hugging Face Transformers Integration
 
+Parameterize pre-trained models and tokenizers, and train with the Hugging Face Trainer under NeMo Run.
+
+(integrations-ml-transformers-pretrained)=
 ### Pre-trained Model Configuration
 
 ```python
@@ -297,8 +319,12 @@ with run.Experiment("transformers_training") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-jax)=
 ## JAX Integration
 
+Build and train JAX/Flax models, with examples for single-device, multi-device, and TPU setups.
+
+(integrations-ml-jax-basic)=
 ### Basic JAX Model Configuration
 
 ```python
@@ -384,6 +410,7 @@ with run.Experiment("jax_training") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-jax-tpu)=
 ### Advanced JAX Integration with TPU Support
 
 ```python
@@ -464,6 +491,7 @@ with run.Experiment("jax_tpu_training") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-jax-multidevice)=
 ### Multi-Device JAX Training
 
 ```python
@@ -535,8 +563,12 @@ with run.Experiment("jax_multi_device_training") as experiment:
     experiment.run()
 ```
 
+(integrations-ml-best-practices)=
 ## Best Practices for ML Framework Integration
 
+Follow these guidelines to organize configurations, compare frameworks, and scale hyperparameter searches.
+
+(integrations-ml-best-config)=
 ### 1. Configuration Management
 
 ```python
@@ -569,6 +601,7 @@ config = ModelConfig(
 run_config = config.to_run_config()
 ```
 
+(integrations-ml-best-multiframework)=
 ### 2. Multi-Framework Experiments
 
 ```python
@@ -620,6 +653,7 @@ def compare_frameworks():
 compare_frameworks()
 ```
 
+(integrations-ml-best-hparam)=
 ### 3. Hyperparameter Optimization
 
 ```python
@@ -654,7 +688,10 @@ def hyperparameter_grid_search():
 hyperparameter_grid_search()
 ```
 
+(integrations-ml-next-steps)=
 ## Next Steps
+
+Use these related guides to deepen framework-specific workflows and productionize your runs.
 
 - Explore [Cloud Platform Integration](cloud-platforms.md) for distributed training
 - Learn about [Monitoring Tools Integration](monitoring-tools.md) for experiment tracking

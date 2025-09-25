@@ -26,6 +26,8 @@ This example demonstrates how to integrate PyTorch with NeMo Run for scalable, r
 
 ## Prerequisites
 
+Install required packages before running the example.
+
 ```bash
 # Install required dependencies
 pip install torch torchvision torchaudio
@@ -34,6 +36,8 @@ pip install wandb  # for experiment tracking (optional)
 ```
 
 ## Complete Example
+
+A full pipeline showing model definition, training, configuration, and execution.
 
 ### Step 1: Define Your Model
 
@@ -45,6 +49,8 @@ from torch.utils.data import DataLoader, Dataset
 import nemo_run as run
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
+import json
+import fiddle as fdl
 import numpy as np
 
 # Custom dataset for demonstration
@@ -242,7 +248,8 @@ def train_pytorch_model(
     model_path = f"{experiment_name}_model.pt"
     torch.save(model.state_dict(), model_path)
 
-    return {
+    # Persist summary to JSON (works across executors)
+    summary = {
         "final_loss": training_losses[-1],
         "best_loss": min(training_losses),
         "training_losses": training_losses,
@@ -255,6 +262,11 @@ def train_pytorch_model(
         "experiment_name": experiment_name,
         "seed": seed
     }
+
+    with open(f"{experiment_name}_summary.json", "w") as f:
+        json.dump(summary, f, indent=2, default=str)
+
+    return summary
 ```
 
 ### Step 3: Create NeMo Run Configuration
@@ -299,25 +311,32 @@ config = run.Config(
 ### Step 4: Execute Training
 
 ```python
-# Local execution
-result = run.run(config)
+# Local execution (capture return by building locally)
+local_result = fdl.build(config)()
 print(f"Training completed!")
-print(f"Final loss: {result['final_loss']:.4f}")
-print(f"Best loss: {result['best_loss']:.4f}")
-print(f"Model saved to: {result['model_path']}")
+print(f"Final loss: {local_result['final_loss']:.4f}")
+print(f"Best loss: {local_result['best_loss']:.4f}")
+print(f"Model saved to: {local_result['model_path']}")
 
 # Distributed execution (if you have multiple GPUs)
 executor = run.SlurmExecutor(
     partition="gpu",
     nodes=1,
     gpus_per_node=4,
-    time_limit="2:00:00"
+    time="2:00:00"
 )
 
-distributed_result = run.run(config, executor=executor)
+# Run on Slurm and read summary
+import json
+run.run(config, executor=executor)
+with open("pytorch_example_summary.json", "r") as f:
+    dist_summary = json.load(f)
+print(f"[Slurm] Final loss: {dist_summary['final_loss']:.4f}")
 ```
 
 ## Advanced Features
+
+Explore enhancements for larger training runs and complex workflows, including multi‑GPU setups, distributed strategies, experiment tracking, and more robust execution patterns.
 
 ### Multi-GPU Training
 
@@ -326,11 +345,13 @@ def train_pytorch_distributed(
     model_config: ModelConfig,
     training_config: TrainingConfig,
     data_config: DataConfig,
-    world_size: int = 4
+    world_size: int = 4,
+    experiment_name: str = "pytorch_distributed"
 ):
     """Distributed training with PyTorch DistributedDataParallel."""
 
     import torch.distributed as dist
+    import os
     from torch.nn.parallel import DistributedDataParallel as DDP
     from torch.utils.data.distributed import DistributedSampler
 
@@ -381,7 +402,11 @@ def train_pytorch_distributed(
             loss.backward()
             optimizer.step()
 
-    return {"final_loss": loss.item()}
+    # Persist distributed summary
+    summary = {"final_loss": float(loss.item())}
+    with open(f"{experiment_name}_summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
+    return summary
 
 # Configuration for distributed training
 distributed_config = run.Config(
@@ -389,7 +414,8 @@ distributed_config = run.Config(
     model_config=model_config,
     training_config=training_config,
     data_config=data_config,
-    world_size=4
+    world_size=4,
+    experiment_name="pytorch_distributed"
 )
 
 # Execute with torchrun
@@ -400,7 +426,11 @@ executor = run.SlurmExecutor(
     launcher="torchrun"
 )
 
-distributed_result = run.run(distributed_config, executor=executor)
+import json
+run.run(distributed_config, executor=executor)
+with open("pytorch_distributed_summary.json", "r") as f:
+    ddp_summary = json.load(f)
+print(f"[DDP] Final loss: {ddp_summary['final_loss']:.4f}")
 ```
 
 ### Experiment Tracking
@@ -452,6 +482,8 @@ tracking_config = run.Config(
 
 ## Production Deployment
 
+Run the same configuration reliably across containerized and cluster environments. These examples show how to execute locally for iteration and on Slurm for scale, while persisting summaries for post‑run inspection.
+
 ### Docker Execution
 
 ```python
@@ -470,24 +502,32 @@ docker_executor = run.DockerExecutor(
     }
 )
 
-# Execute in container
-result = run.run(config, executor=docker_executor)
+# Execute in container and read summary (ensure host path is mounted)
+import json
+run.run(config, executor=docker_executor)
+with open("pytorch_example_summary.json", "r") as f:
+    docker_summary = json.load(f)
+print(f"[Docker] Final loss: {docker_summary['final_loss']:.4f}")
 ```
 
-### Kubernetes Deployment
+### Slurm Deployment
 
 ```python
-# Kubernetes executor for production
-k8s_executor = run.SlurmExecutor(
+# Slurm executor for production
+slurm_executor = run.SlurmExecutor(
     partition="gpu",
     nodes=2,
     gpus_per_node=8,
     container_image="pytorch/pytorch:2.0.0-cuda11.7-cudnn8-runtime",
-    time_limit="24:00:00"
+    time="24:00:00"
 )
 
-# Execute on Kubernetes
-result = run.run(config, executor=k8s_executor)
+# Execute on Slurm and read summary
+import json
+run.run(config, executor=slurm_executor)
+with open("pytorch_example_summary.json", "r") as f:
+    slurm_summary = json.load(f)
+print(f"[Slurm] Final loss: {slurm_summary['final_loss']:.4f}")
 ```
 
 ## Best Practices

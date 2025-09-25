@@ -14,6 +14,7 @@ modality: "text-only"
 
 This guide covers integrating NeMo Run with popular monitoring and experiment tracking tools to enhance your ML workflow observability.
 
+(monitoring-supported-tools)=
 ## Supported Monitoring Tools
 
 NeMo Run integrates with leading monitoring and experiment tracking platforms:
@@ -25,8 +26,12 @@ NeMo Run integrates with leading monitoring and experiment tracking platforms:
 - **Comet** - ML experiment tracking and model management
 - **Custom Solutions** - Integration with your own monitoring systems
 
+(monitoring-wandb)=
 ## Weights & Biases (WandB) Integration
 
+Track metrics, parameters, and artifacts for NeMo Run experiments using Weights & Biases.
+
+(monitoring-wandb-basic)=
 ### Basic WandB Integration
 
 ```python
@@ -47,8 +52,8 @@ def train_with_wandb(model_config, dataset, project_name: str, run_name: str):
     # Initialize WandB
     wandb.init(project=project_name, name=run_name)
 
-    # Log configuration
-    wandb.config.update(model_config.to_dict())
+    # Log simple configuration data if desired
+    wandb.config.update({"framework": "NeMo Run"})
 
     model = model_config.build()
     optimizer = torch.optim.Adam(model.parameters())
@@ -79,6 +84,7 @@ with run.Experiment("wandb_training") as experiment:
     experiment.run()
 ```
 
+(monitoring-wandb-advanced)=
 ### Advanced WandB Integration
 
 ```python
@@ -110,7 +116,6 @@ def comprehensive_wandb_training(
 ):
     # Initialize WandB
     wandb_config.init_run({
-        "model_config": model_config.to_dict(),
         "dataset_size": len(dataset),
         "framework": "NeMo Run"
     })
@@ -174,8 +179,12 @@ with run.Experiment("comprehensive_training") as experiment:
     experiment.run()
 ```
 
+(monitoring-mlflow)=
 ## MLflow Integration
 
+Log parameters, metrics, and models to MLflow for experiment management and reproducibility.
+
+(monitoring-mlflow-basic)=
 ### Basic MLflow Integration
 
 ```python
@@ -197,8 +206,8 @@ def train_with_mlflow(model_config, dataset, experiment_name: str):
     mlflow.set_experiment(experiment_name)
 
     with mlflow.start_run():
-        # Log parameters
-        mlflow.log_params(model_config.to_dict())
+        # Optionally log simple params
+        mlflow.log_param("framework", "NeMo Run")
 
         model = model_config.build()
         optimizer = torch.optim.Adam(model.parameters())
@@ -226,6 +235,7 @@ with run.Experiment("mlflow_training") as experiment:
     experiment.run()
 ```
 
+(monitoring-mlflow-advanced)=
 ### Advanced MLflow Integration
 
 ```python
@@ -246,8 +256,8 @@ def comprehensive_mlflow_training(
     mlflow.set_experiment(experiment_name)
 
     with mlflow.start_run(run_name=run_name):
-        # Log model configuration
-        mlflow.log_params(model_config.to_dict())
+        # Optionally log simple params
+        mlflow.log_param("framework", "NeMo Run")
 
         # Log dataset information
         mlflow.log_param("dataset_size", len(dataset))
@@ -291,8 +301,12 @@ with run.Experiment("comprehensive_mlflow") as experiment:
     experiment.run()
 ```
 
+(monitoring-tensorboard)=
 ## TensorBoard Integration
 
+Visualize scalars, histograms, graphs, and images from NeMo Run experiments with TensorBoard.
+
+(monitoring-tensorboard-basic)=
 ### Basic TensorBoard Integration
 
 ```python
@@ -347,6 +361,7 @@ with run.Experiment("tensorboard_training") as experiment:
     experiment.run()
 ```
 
+(monitoring-tensorboard-advanced)=
 ### Advanced TensorBoard Integration
 
 ```python
@@ -421,8 +436,12 @@ with run.Experiment("advanced_tensorboard") as experiment:
     experiment.run()
 ```
 
+(monitoring-neptune)=
 ## Neptune Integration
 
+Record metrics and artifacts with Neptune for both quick runs and comprehensive experiments.
+
+(monitoring-neptune-basic)=
 ### Basic Neptune Integration
 
 ```python
@@ -444,8 +463,8 @@ def train_with_neptune(model_config, dataset, project_name: str, api_token: str)
     neptune.init(project=project_name, api_token=api_token)
 
     with neptune.create_experiment():
-        # Log parameters
-        neptune.log_parameters(model_config.to_dict())
+        # Optionally log simple parameters
+        neptune.log_parameters({"framework": "NeMo Run"})
 
         model = model_config.build()
         optimizer = torch.optim.Adam(model.parameters())
@@ -474,6 +493,7 @@ with run.Experiment("neptune_training") as experiment:
     experiment.run()
 ```
 
+(monitoring-neptune-advanced)=
 ### Advanced Neptune Integration
 
 ```python
@@ -492,8 +512,8 @@ def advanced_neptune_training(
     neptune.init(project=project_name, api_token=api_token)
 
     with neptune.create_experiment(tags=tags or []):
-        # Log model configuration
-        neptune.log_parameters(stringify_unsupported(model_config.to_dict()))
+        # Optionally log simple parameters
+        neptune.log_parameters({"framework": "NeMo Run"})
 
         # Log dataset information
         neptune.log_text("dataset_info", f"Dataset size: {len(dataset)}")
@@ -532,8 +552,12 @@ with run.Experiment("advanced_neptune") as experiment:
     experiment.run()
 ```
 
+(monitoring-comet)=
 ## Comet Integration
 
+Log parameters, metrics, and assets to Comet for experiment tracking and model management.
+
+(monitoring-comet-basic)=
 ### Basic Comet Integration
 
 ```python
@@ -585,6 +609,7 @@ with run.Experiment("comet_training") as experiment:
     experiment.run()
 ```
 
+(monitoring-comet-advanced)=
 ### Advanced Comet Integration
 
 ```python
@@ -657,8 +682,12 @@ with run.Experiment("advanced_comet") as experiment:
     experiment.run()
 ```
 
+(monitoring-unified)=
 ## Unified Monitoring Integration
 
+Combine multiple monitoring tools behind a single logging interface to standardize metrics and parameters.
+
+(monitoring-unified-multitool)=
 ### Multi-Tool Integration
 
 ```python
@@ -742,7 +771,7 @@ def unified_training(
     monitoring = UnifiedMonitoring(monitoring_config)
 
     # Log model configuration
-    monitoring.log_parameters(model_config.to_dict())
+    monitoring.log_parameters({"framework": "NeMo Run"})
 
     model = model_config.build()
     optimizer = torch.optim.Adam(model.parameters())
@@ -793,8 +822,12 @@ with run.Experiment("unified_training") as experiment:
     experiment.run()
 ```
 
+(monitoring-custom)=
 ## Custom Monitoring Integration
 
+Build lightweight logging for bespoke environments using simple files or APIs.
+
+(monitoring-custom-building)=
 ### Building Your Own Monitoring
 
 ```python
@@ -839,7 +872,7 @@ def train_with_custom_monitoring(model_config, dataset, log_file: str):
     monitoring = CustomMonitoring(log_file)
 
     # Log parameters
-    monitoring.log_parameters(model_config.to_dict())
+    monitoring.log_parameters({"framework": "NeMo Run"})
 
     model = model_config.build()
     optimizer = torch.optim.Adam(model.parameters())
@@ -871,8 +904,12 @@ with run.Experiment("custom_monitoring") as experiment:
     experiment.run()
 ```
 
+(monitoring-best-practices)=
 ## Best Practices for Monitoring Integration
 
+Adopt consistent logging patterns and safe error handling across tools to keep production runs robust.
+
+(monitoring-best-consistent)=
 ### 1. Consistent Logging
 
 ```python
@@ -910,6 +947,7 @@ def train_with_consistent_logging(model_config, dataset, monitoring):
     return model
 ```
 
+(monitoring-best-error)=
 ### 2. Error Handling
 
 ```python
@@ -946,7 +984,10 @@ def robust_training_with_monitoring(model_config, dataset, monitoring_tool):
     return model
 ```
 
+(monitoring-next-steps)=
 ## Next Steps
+
+Explore these resources to expand your monitoring setup with NeMo Run.
 
 - Explore [ML Frameworks Integration](ml-frameworks.md) for framework-specific monitoring
 - Learn about [Cloud Platform Integration](cloud-platforms.md) for cloud-based monitoring

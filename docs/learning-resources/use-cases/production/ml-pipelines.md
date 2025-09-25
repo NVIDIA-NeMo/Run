@@ -44,6 +44,8 @@ ML pipelines in NeMo Run provide comprehensive tools for building, deploying, an
 
 ## Implementation
 
+The following reference implementation illustrates a practical pipeline skeleton, including dependency ordering, retries, monitoring hooks, and result aggregation. Use it as a starting point and adapt steps to your domain.
+
 ### Pipeline Architecture
 
 ```python
@@ -222,19 +224,19 @@ class ProductionPipeline:
         # Check resource usage
         resource_usage = self._check_resource_usage()
         if resource_usage > 0.9:  # 90% threshold
-            run.log_warning(f"High resource usage detected: {resource_usage}")
+            print(f"[WARN] High resource usage detected: {resource_usage}")
 
         # Check step failures
         failed_steps = [name for name, step in self.steps.items()
                        if step.status == PipelineStatus.FAILED]
         if failed_steps:
-            run.log_error(f"Failed steps: {failed_steps}")
+            print(f"[ERROR] Failed steps: {failed_steps}")
 
     def _handle_failure(self, error: Exception):
         """Handle pipeline failure."""
 
         # Log failure
-        run.log_error(f"Pipeline {self.name} failed: {error}")
+        print(f"[ERROR] Pipeline {self.name} failed: {error}")
 
         # Send alert
         self._send_alert(f"Pipeline {self.name} failed", str(error))
@@ -248,12 +250,12 @@ class ProductionPipeline:
         # Check if any steps can be retried
         for step_name, step in self.steps.items():
             if step.status == PipelineStatus.FAILED and step.retries > 0:
-                run.log_info(f"Retrying step {step_name}")
+        print(f"[INFO] Retrying step {step_name}")
                 try:
                     step.execute(self.context)
                     step.status = PipelineStatus.COMPLETED
                 except Exception as e:
-                    run.log_error(f"Recovery failed for step {step_name}: {e}")
+                    print(f"[ERROR] Recovery failed for step {step_name}: {e}")
 
     def _check_resource_usage(self):
         """Check current resource usage."""
@@ -272,7 +274,7 @@ class ProductionPipeline:
             "severity": "high"
         }
 
-        run.send_alert(alert)
+        print(f"[ALERT] {title}: {message}")
 
     def get_status(self):
         """Get current pipeline status."""
@@ -299,24 +301,24 @@ def data_processing_pipeline():
     # Define pipeline steps
     def load_data(context):
         """Load and validate input data."""
-        run.log_info("Loading data...")
+        print("[INFO] Loading data...")
         # Simulate data loading
         data = {"users": 1000, "items": 5000, "interactions": 50000}
-        run.log_info(f"Loaded {data['interactions']} interactions")
+        print(f"[INFO] Loaded {data['interactions']} interactions")
         return data
 
     def clean_data(context):
         """Clean and preprocess data."""
-        run.log_info("Cleaning data...")
+        print("[INFO] Cleaning data...")
         data = context["load_data"]
         # Simulate data cleaning
         cleaned_data = {**data, "cleaned_interactions": 48000}
-        run.log_info(f"Cleaned data: {cleaned_data['cleaned_interactions']} interactions")
+        print(f"[INFO] Cleaned data: {cleaned_data['cleaned_interactions']} interactions")
         return cleaned_data
 
     def feature_engineering(context):
         """Extract and engineer features."""
-        run.log_info("Engineering features...")
+        print("[INFO] Engineering features...")
         cleaned_data = context["clean_data"]
         # Simulate feature engineering
         features = {
@@ -324,12 +326,12 @@ def data_processing_pipeline():
             "item_features": 5000,
             "interaction_features": 48000
         }
-        run.log_info(f"Engineered {sum(features.values())} features")
+        print(f"[INFO] Engineered {sum(features.values())} features")
         return features
 
     def train_model(context):
         """Train the recommendation model."""
-        run.log_info("Training model...")
+        print("[INFO] Training model...")
         features = context["feature_engineering"]
         # Simulate model training
         model = {
@@ -338,12 +340,12 @@ def data_processing_pipeline():
             "precision": 0.82,
             "recall": 0.78
         }
-        run.log_info(f"Model trained with accuracy: {model['accuracy']}")
+        print(f"[INFO] Model trained with accuracy: {model['accuracy']}")
         return model
 
     def evaluate_model(context):
         """Evaluate model performance."""
-        run.log_info("Evaluating model...")
+        print("[INFO] Evaluating model...")
         model = context["train_model"]
         # Simulate evaluation
         evaluation = {
@@ -352,12 +354,12 @@ def data_processing_pipeline():
             "test_recall": 0.76,
             "overfitting": False
         }
-        run.log_info(f"Model evaluation complete: {evaluation['test_accuracy']} accuracy")
+        print(f"[INFO] Model evaluation complete: {evaluation['test_accuracy']} accuracy")
         return evaluation
 
     def deploy_model(context):
         """Deploy model to production."""
-        run.log_info("Deploying model...")
+        print("[INFO] Deploying model...")
         model = context["train_model"]
         evaluation = context["evaluate_model"]
 
@@ -369,13 +371,13 @@ def data_processing_pipeline():
                 "endpoint": "https://api.example.com/recommendations",
                 "timestamp": time.time()
             }
-            run.log_info("Model deployed successfully")
+            print("[INFO] Model deployed successfully")
         else:
             deployment = {
                 "status": "rejected",
                 "reason": "Model performance below threshold"
             }
-            run.log_warning("Model deployment rejected")
+            print("[WARN] Model deployment rejected")
 
         return deployment
 
@@ -464,7 +466,7 @@ class PipelineMonitor:
     def start_monitoring(self):
         """Start monitoring the pipeline."""
 
-        run.log_info(f"Starting monitoring for pipeline {self.pipeline.name}")
+        print(f"[INFO] Starting monitoring for pipeline {self.pipeline.name}")
 
         # Monitor pipeline execution
         while self.pipeline.status == PipelineStatus.RUNNING:
@@ -522,14 +524,16 @@ class PipelineMonitor:
             "severity": "warning"
         }
 
-        run.send_alert(alert)
-        run.log_warning(f"Alert sent: {title} - {message}")
+        print(f"[ALERT] {title}: {message}")
+        print(f"[WARN] Alert sent: {title} - {message}")
 
 # Initialize pipeline monitor
 pipeline_monitor = PipelineMonitor(recommendation_pipeline)
 ```
 
 ## Use Cases
+
+Real-world pipeline patterns you can adapt.
 
 ### Recommendation System Pipeline
 

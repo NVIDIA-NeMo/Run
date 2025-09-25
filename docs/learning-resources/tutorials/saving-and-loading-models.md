@@ -104,26 +104,26 @@ model_config = run.Config(
 
 # Train and save the model
 with run.Experiment("model_saving_experiment") as experiment:
+    # Train the model and persist inside the task
+    def train_and_persist():
+        model = model_config.build()  # calls create_and_train_model(...)
+        model.save("my_model.pkl")
+        return None
+
     experiment.add(
-        run.Partial(model_config.build),
+        run.Partial(train_and_persist),
         name="train_model"
     )
 
-    # Get the trained model
-    trained_model = experiment.run()["train_model"]
+    experiment.run()
 
-    # Save the model
-    trained_model.save("my_model.pkl")
+# Test the saved model
+loaded_model = SimpleModel.load("my_model.pkl")
 
-    # Test the saved model
-    loaded_model = SimpleModel.load("my_model.pkl")
-
-    # Verify the models are the same
-    test_input = np.random.randn(5, 100)
-    original_pred = trained_model.predict(test_input)
-    loaded_pred = loaded_model.predict(test_input)
-
-    print(f"Predictions match: {np.allclose(original_pred, loaded_pred)}")
+# Verify the loaded model runs inference
+test_input = np.random.randn(5, 100)
+pred = loaded_model.predict(test_input)
+print(f"Loaded model inference OK. Output shape: {pred.shape}")
 ```
 
 ## Step 2: Saving with NeMo Run Configurations
