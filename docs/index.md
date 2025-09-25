@@ -185,6 +185,7 @@ get-started/quickstart
 guides/index
 guides/configuration
 guides/execution
+guides/cli
 guides/management
 guides/packaging
 guides/ray

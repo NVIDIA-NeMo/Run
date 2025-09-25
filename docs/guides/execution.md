@@ -1,859 +1,339 @@
 # Execute NeMo Run
 
-This guide covers how to execute NeMo Run experiments across different computing environments. NeMo Run separates configuration from execution, allowing you to define your task once and run it on various platforms without code changes.
+Execute NeMo Run workloads consistently on local machines and remote clusters. This guide covers requirements, executors, launchers, packagers, and workflows from single tasks to full experiments.
 
-## Execution Overview
+## Execution Model
 
-NeMo Run provides a unified execution framework that abstracts away the complexity of different computing environments. The execution process involves:
+After configuring NeMo Run, the next step is execution. NeMo Run decouples configuration from execution, allowing you to configure a function or task once and then execute it across multiple environments. You can execute a single task or multiple tasks simultaneously on different remote clusters, managing them under an experiment.
 
-1. **Configuration**: Define your task using `run.Config` or `run.Partial`
-2. **Packaging**: Bundle your code and dependencies for remote execution
-3. **Launching**: Execute the task using appropriate launchers (torchrun, fault tolerance, etc.)
-4. **Management**: Monitor and retrieve results through the experiment interface
+## Core Building Blocks
 
-### Key Components
+This brings us to the core building blocks for execution: `run.Executor` and `run.Experiment`.
 
-- **`run.Executor`**: Configures the execution environment and packaging strategy
-- **`run.Experiment`**: Manages multiple tasks and provides experiment lifecycle management
-- **`run.run()`**: Simple function for single task execution
+Each execution of a single configured task requires an executor. NeMo Run provides `run.Executor`, application programming interfaces (APIs) to configure your remote executor and set up the packaging of your code. Supported executors:
 
-> **Important**: NeMo Run requires Docker for remote execution. All remote executors use containerized environments to ensure reproducibility and dependency isolation.
+- `run.LocalExecutor`
+- `run.DockerExecutor`
+- `run.SlurmExecutor` with an optional `SSHTunnel` for executing on `Slurm` clusters from your local machine
+- `run.SkypilotExecutor` (available under the optional feature `skypilot` in the Python package).
+- `run.LeptonExecutor`
 
-> **Note**: Experiment metadata is stored in `NEMORUN_HOME` (default: `~/.nemo_run`). Configure this environment variable to control where experiment data is stored.
+## Execution Units
 
-## Core Concepts
+A tuple of a task and an executor forms an execution unit. A key goal of NeMo Run is to let you mix and match tasks and executors to define execution units.
 
-For detailed definitions of terms used in this guide, see the [FAQs](../references/faqs.md).
+After you create an execution unit, run it. The `run.run` function executes a single task, whereas `run.Experiment` offers more control to define complex experiments. `run.run` wraps `run.Experiment` with a single task. `run.Experiment` is an API to launch and manage multiple tasks using pure Python.
 
-### Execution Units
+`run.Experiment` stores run metadata, launches on the specified cluster, and syncs logs. It also provides tools to inspect and reproduce past experiments. `run.Experiment` is inspired by `xmanager` and uses [TorchX](https://pytorch.org/torchx/latest/) under the hood to handle execution.
 
-An execution unit consists of a task configuration paired with an executor. This separation allows you to:
+## Requirements
 
-- Run the same task on different platforms
-- Mix and match tasks and executors
-- Scale experiments across multiple environments
+- NeMo Run uses a Docker image as the environment for remote execution. Provide an image that includes all necessary dependencies and configurations when using a remote executor.
+- Experiment metadata is stored under the `NEMORUN_HOME` environment variable on the machine where you launch experiments. By default, `NEMORUN_HOME` is `~/.run`. Change this as needed.
+
+## Executors
+
+Executors are data classes that configure your remote executor and set up the packaging of your code. All supported executors inherit from the base class `run.Executor`, but they have configuration parameters specific to their execution environment. There is an initial cost to understanding the specifics of your executor and setting it up, but this effort is amortized over time.
+
+Each `run.Executor` has two attributes: `packager` and `launcher`. The `packager` specifies how to package the code for execution, while the `launcher` determines which tool to use for launching the task.
+
+## Launchers
+
+Supported launchers:
+
+- `default` or `None`: Launch the task directly without a special launcher. Set `executor.launcher = None` (the default) if you don't want to use a specific launcher.
+- `torchrun` or `run.Torchrun`: Launch the task using `torchrun`. See the `Torchrun` class for configuration options. Use `executor.launcher = "torchrun"` or `executor.launcher = Torchrun(...)`.
+- `ft` or `run.core.execution.FaultTolerance`: Launch the task using NVIDIA fault-tolerant launcher. See the `FaultTolerance` class for configuration options. Use `executor.launcher = "ft"` or `executor.launcher = FaultTolerance(...)`.
+
+> **_Note:_** The launcher may not work well with `run.Script`. Report issues at [https://github.com/NVIDIA-NeMo/Run/issues](https://github.com/NVIDIA-NeMo/Run/issues).
+
+## Packagers
+
+The packager support matrix is as follows:
+
+| Executor | Packagers |
+|----------|----------|
+| `LocalExecutor` | `run.Packager` |
+| `DockerExecutor` | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
+| `SlurmExecutor` | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
+| `SkypilotExecutor` | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
+| `DGXCloudExecutor` | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
+| `LeptonExecutor`   | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
+
+`run.Packager` is a pass-through base packager.
+
+`run.GitArchivePackager` uses `git archive` to package your code. Refer to the API reference for `run.GitArchivePackager` to see the exact mechanics of packaging using `git archive`.
+At a high level, it works in the following way:
+
+1. `base_path` = `git rev-parse --show-toplevel`.
+2. Optionally define a `subpath` as `base_path/GitArchivePackager.subpath` by setting the `subpath` attribute on `GitArchivePackager`.
+3. `cd base_path && git archive --format=tar.gz --output={output_file} {GitArchivePackager.subpath}:{subpath}`
+
+This extracted tar file becomes the working directory for your job. As an example, given the following directory structure with `subpath="src"`:
+
+```text
+- docs
+- src
+  - your_library
+- tests
+```
+
+Your working directory at the time of execution will look like:
+
+```text
+- your_library
+```
+
+If you execute a Python function, this working directory is automatically included in your Python path.
+
+> **_Note:_** `git archive` doesn't package uncommitted changes. A future update may add support for including uncommitted changes while honoring `.gitignore`.
+
+`run.PatternPackager` uses a pattern to package your code. It is useful for packaging code that is not under version control. For example, if you have a directory structure like this:
+
+```text
+- docs
+- src
+  - your_library
+```
+
+You can use `run.PatternPackager` to package your code by specifying `include_pattern` as `src/**` and `relative_path` as `os.getcwd()`. This packages the entire `src` directory. The command used to list the files to package is:
+
+```bash
+# relative_include_pattern = os.path.relpath(self.include_pattern, self.relative_path)
+cd {relative_path} && find {relative_include_pattern} -type f
+```
+
+`run.HybridPackager` allows combining multiple packagers into a single archive. This is useful when you need to package different parts of your project using different strategies (e.g., a git archive for committed code and a pattern packager for generated artifacts).
+
+Each sub-packager in the `sub_packagers` dictionary is assigned a key, which becomes the directory name under which its contents are placed in the final archive. If `extract_at_root` is set to `True`, all contents are placed directly in the root of the archive, potentially overwriting files if names conflict.
+
+Example:
 
 ```python
 import nemo_run as run
-
-# Define your task
-task_config = run.Config(MyTrainingFunction, learning_rate=0.001, batch_size=32)
-
-# Choose your executor
-executor = run.SlurmExecutor(partition="gpu", nodes=2, gpus_per_node=4)
-
-# Create execution unit
-with run.Experiment("my-experiment") as experiment:
-    experiment.add(task_config, executor=executor)
-    experiment.run()
-```
-
-### Experiment Management
-
-NeMo Run provides comprehensive experiment management through the `run.Experiment` class:
-
-```python
-# Create experiment with multiple tasks
-with run.Experiment("multi-task-experiment") as experiment:
-    # Add tasks with different configurations
-    experiment.add(
-        run.Config(MyModel, model_size="small"),
-        executor=run.LocalExecutor(),
-        name="small-model"
-    )
-
-    experiment.add(
-        run.Config(MyModel, model_size="large"),
-        executor=run.SlurmExecutor(partition="gpu", nodes=4),
-        name="large-model"
-    )
-
-    # Launch all tasks
-    experiment.run()
-
-    # Monitor progress
-    for job in experiment.jobs:
-        print(f"Job {job.id}: {job.state}")
-        if job.state == run.AppState.SUCCEEDED:
-            print(f"Job {job.id} completed successfully")
-        elif job.state == run.AppState.FAILED:
-            print(f"Job {job.id} failed")
-```
-
-## Code Packaging
-
-NeMo Run uses packagers to bundle your code and dependencies for remote execution. Each executor supports different packaging strategies.
-
-### Packager Support Matrix
-
-| Executor | Supported Packagers |
-|----------|-------------------|
-| LocalExecutor | `run.Packager` |
-| DockerExecutor | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-| SlurmExecutor | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-| SkypilotExecutor | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-| DGXCloudExecutor | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-| LeptonExecutor | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-
-### Packager Types
-
-#### `run.Packager` (Base Packager)
-
-A pass-through packager that doesn't modify your code:
-
-```python
-executor = run.LocalExecutor(packager=run.Packager())
-```
-
-#### `run.GitArchivePackager`
-
-Packages your Git repository using `git archive`:
-
-```python
-packager = run.GitArchivePackager(
-    subpath="src"  # Optional: package only a subdirectory
-)
-
-executor = run.SlurmExecutor(
-    packager=packager,
-    # ... other parameters
-)
-```
-
-**How it works:**
-
-1. Determines the Git repository root using `git rev-parse --show-toplevel`
-2. Creates a tar.gz archive using `git archive --format=tar.gz`
-3. Extracts the archive as the working directory for your job
-
-**Directory structure example:**
-
-```
-Repository structure:
-├── docs/
-├── src/
-│   └── my_library/
-└── tests/
-
-With subpath="src", working directory becomes:
-└── my_library/
-```
-
-> **Important**: `git archive` only includes committed changes. Uncommitted modifications are not packaged.
-
-#### `run.PatternPackager`
-
-Packages files based on pattern matching, useful for non-Git repositories:
-
-```python
-import os
-
-packager = run.PatternPackager(
-    include_pattern="src/**",  # Include all files under src/
-    relative_path=os.getcwd()  # Base directory for pattern matching
-)
-
-executor = run.DockerExecutor(packager=packager)
-```
-
-Pattern matching command:
-```bash
-cd {relative_path} && find {include_pattern} -type f
-```
-
-#### `run.HybridPackager`
-
-Combines multiple packagers into a single archive:
-
-```python
 import os
 
 hybrid_packager = run.HybridPackager(
     sub_packagers={
         "code": run.GitArchivePackager(subpath="src"),
-        "configs": run.PatternPackager(
-            include_pattern="configs/*.yaml",
-            relative_path=os.getcwd()
-        ),
-        "data": run.PatternPackager(
-            include_pattern="data/processed/**",
-            relative_path=os.getcwd()
-        )
+        "configs": run.PatternPackager(include_pattern="configs/*.yaml", relative_path=os.getcwd())
     }
 )
 
-executor = run.SlurmExecutor(packager=hybrid_packager)
+# Usage with an executor:
+# executor.packager = hybrid_packager
 ```
 
-**Resulting archive structure:**
+This would create an archive where the contents of `src` are under a `code/` directory and matched `configs/*.yaml` files are under a `configs/` directory.
 
-```
-archive/
-├── code/
-│   └── my_library/
-├── configs/
-│   ├── model_config.yaml
-│   └── data_config.yaml
-└── data/
-    └── processed/
-        └── dataset.parquet
-```
+## Define Executors
 
-## Task Launchers
+This section describes how to set up each executor.
 
-Launchers determine how your task is executed within the container. They handle distributed training, fault tolerance, and other execution requirements.
+### LocalExecutor
 
-### Available Launchers
+The `LocalExecutor` is the simplest executor. It executes your task locally in a separate process or group from your current working directory.
 
-#### Default Launcher (None)
+Define one by calling `run.LocalExecutor()`.
 
-Direct execution without special launchers:
+### DockerExecutor
+
+The `DockerExecutor` launches a task using `docker` on your local machine. It requires `docker` to be installed and running.
+
+The `DockerExecutor` uses the [Docker Python client](https://docker-py.readthedocs.io/en/stable/) and most options are passed directly to the client.
+
+Example Docker executor
 
 ```python
-executor = run.SlurmExecutor(launcher=None)  # Default behavior
-```
-
-#### torchrun Launcher
-
-Launches distributed PyTorch training using `torchrun`:
-
-```python
-from nemo_run import Torchrun
-
-executor = run.SlurmExecutor(
-    launcher=Torchrun(
-        nnodes=2,
-        nproc_per_node=4,
-        rdzv_backend="c10d",
-        rdzv_endpoint="localhost:29400"
-    )
-)
-```
-
-**Configuration options:**
-
-- `nnodes`: Number of nodes
-- `nproc_per_node`: Processes per node
-- `rdzv_backend`: Rendezvous backend (c10d, static, etc.)
-- `rdzv_endpoint`: Rendezvous endpoint
-- `rdzv_id`: Unique rendezvous ID
-
-#### Fault Tolerance Launcher
-
-Uses NVIDIA's fault-tolerant launcher for resilient training:
-
-```python
-from nemo_run.core.execution import FaultTolerance
-
-executor = run.SlurmExecutor(
-    launcher=FaultTolerance(
-        max_restarts=3,
-        restart_delay=60,
-        checkpoint_interval=1000
-    )
-)
-```
-
-**Configuration options:**
-
-- `max_restarts`: Maximum number of restart attempts
-- `restart_delay`: Delay between restarts (seconds)
-- `checkpoint_interval`: Checkpoint frequency (steps)
-
-> **Note**: Launchers may not work optimally with `run.Script`. Report issues at the NeMo Run GitHub repository.
-
-## Executor Types
-
-### Local Execution
-
-#### `run.LocalExecutor`
-
-Executes tasks locally in a separate process:
-
-```python
-executor = run.LocalExecutor(
-    packager=run.Packager(),
-    env_vars={"CUDA_VISIBLE_DEVICES": "0"}
-)
-```
-
-**Use cases:**
-
-- Development and debugging
-- Quick testing of configurations
-- Local experimentation
-
-### Containerized Execution
-
-#### `run.DockerExecutor`
-
-Executes tasks in Docker containers on your local machine:
-
-```python
-executor = run.DockerExecutor(
-    container_image="nvidia/cuda:11.8-devel-ubuntu20.04",
-    num_gpus=4,
+run.DockerExecutor(
+    container_image="python:3.12",
+    num_gpus=-1,
     runtime="nvidia",
     ipc_mode="host",
-    shm_size="32g",
-    volumes=[
-        "/local/data:/container/data",
-        "/local/models:/container/models"
-    ],
-    env_vars={
-        "PYTHONUNBUFFERED": "1",
-        "CUDA_VISIBLE_DEVICES": "0,1,2,3"
-    },
-    packager=run.GitArchivePackager()
+    shm_size="30g",
+    volumes=["/local/path:/path/in/container"],
+    env_vars={"PYTHONUNBUFFERED": "1"},
+    packager=run.Packager(),
 )
 ```
 
-**Key parameters:**
+### SlurmExecutor
 
-- `container_image`: Docker image with required dependencies
-- `num_gpus`: Number of GPUs to allocate (-1 for all available)
-- `runtime`: Docker runtime (nvidia for GPU support)
-- `volumes`: Host-to-container volume mappings
-- `env_vars`: Environment variables for the container
+The `SlurmExecutor` launches the configured task on a Slurm cluster with Pyxis. Additionally, you can configure a `run.SSHTunnel`, which enables you to execute tasks on the Slurm cluster from your local machine while NeMo Run manages the SSH connection for you. This setup supports use cases such as launching the same task on multiple Slurm clusters.
 
-### High-Performance Computing
-
-#### `run.SlurmExecutor`
-
-Executes tasks on Slurm clusters with container support via Pyxis:
+Example Slurm executor
 
 ```python
-def create_slurm_executor(
-    nodes: int = 1,
-    gpus_per_node: int = 8,
-    container_image: str = "nvidia/cuda:11.8-devel-ubuntu20.04"
-):
-    # SSH tunnel for remote execution
+def your_slurm_executor(nodes: int = 1, container_image: str = DEFAULT_IMAGE):
+    # SSH Tunnel
     ssh_tunnel = run.SSHTunnel(
-        host="cluster.login.node",
-        user="username",
-        job_dir="/home/username/nemo-run-experiments",
-        identity="~/.ssh/id_rsa"
+        host="your-slurm-host",
+        user="your-user",
+        job_dir="directory-to-store-runs-on-the-slurm-cluster",
+        identity="optional-path-to-your-key-for-auth",
     )
-
-    # Local tunnel for execution from login node
+    # Local Tunnel to use if you're already on the cluster
     local_tunnel = run.LocalTunnel()
 
-    packager = run.GitArchivePackager(
-        subpath="src"  # Package only the src directory
+    packager = GitArchivePackager(
+        # This will also be the working directory in your task.
+        # If empty, the working directory will be toplevel of your git repo
+        subpath="optional-subpath-from-toplevel-of-your-git-repo"
     )
 
-    return run.SlurmExecutor(
-        # Slurm-specific parameters
-        account="ml_research",
-        partition="gpu",
-        nodes=nodes,
+    executor = run.SlurmExecutor(
+        # Most of these parameters are specific to slurm
+        account="your-account",
+        partition="your-partition",
         ntasks_per_node=8,
-        gpus_per_node=gpus_per_node,
-        cpus_per_node=32,
-        memory_per_node="128G",
-        time="24:00:00",
-
-        # Container configuration
+        gpus_per_node=8,
+        nodes=nodes,
+        tunnel=ssh_tunnel,
         container_image=container_image,
-        container_mounts=[
-            "/shared/data:/data",
-            "/shared/models:/models"
-        ],
-
-        # Execution configuration
-        tunnel=ssh_tunnel,  # Use local_tunnel if on login node
+        time="00:30:00",
+        env_vars=common_envs(),
+        container_mounts=mounts_for_your_hubs(),
         packager=packager,
-        launcher=Torchrun(nnodes=nodes, nproc_per_node=gpus_per_node),
-
-        # Environment variables
-        env_vars={
-            "NCCL_DEBUG": "INFO",
-            "NCCL_IB_DISABLE": "0",
-            "PYTHONUNBUFFERED": "1"
-        }
     )
 
-# Usage
-executor = create_slurm_executor(nodes=4, gpus_per_node=8)
+# You can then call the executor in your script like this:
+executor = your_slurm_cluster(nodes=8, container_image="your-nemo-image")
 ```
+
+Use the SSH tunnel when launching from your local machine, or the local tunnel if you're already on the Slurm cluster.
 
 #### Job Dependencies
 
-Create workflow dependencies between Slurm jobs:
+`SlurmExecutor` supports defining dependencies between [jobs](management.md#add-tasks), allowing you to create workflows where jobs run in a specific order. Additionally, you can specify the `dependency_type` parameter:
 
 ```python
-# Data preparation job
-data_job = run.submit(
-    run.Config(PrepareData, dataset="wikitext-103"),
-    run.SlurmExecutor(partition="cpu", time="02:00:00")
-)
-
-# Training job that depends on data preparation
-training_job = run.submit(
-    run.Config(TrainModel, dataset="wikitext-103"),
-    run.SlurmExecutor(
-        partition="gpu",
-        nodes=4,
-        gpus_per_node=8,
-        dependency_type="afterok",  # Start after data job succeeds
-        dependencies=[data_job.id]
-    )
+executor = run.SlurmExecutor(
+    # ... other parameters ...
+    dependency_type="afterok",
 )
 ```
 
-**Dependency types:**
+The `dependency_type` parameter specifies the type of dependency relationship:
 
-- `afterok` (default): Start after dependency jobs complete successfully
-- `afterany`: Start after dependency jobs terminate (any exit code)
-- `afternotok`: Start after dependency jobs fail
-- `aftercorr`: Start after dependency jobs are cancelled
+- `afterok` (default): Job will start only after the specified jobs have completed successfully
+- `afterany`: Job will start after the specified jobs have terminated (regardless of exit code)
+- `afternotok`: Job will start after the specified jobs have failed
+- Other options are available as defined in the [Slurm documentation](https://slurm.schedmd.com/sbatch.html#OPT_dependency)
 
-### Cloud Execution
+This functionality enables complex workflows with proper orchestration between tasks, such as starting a training job after data preparation is complete, or running an evaluation after training finishes successfully.
 
-#### `run.SkypilotExecutor`
+### SkypilotExecutor
 
-Executes tasks on cloud platforms using SkyPilot:
+This executor configures [SkyPilot](https://skypilot.readthedocs.io/en/latest/docs/index.html). Make sure SkyPilot is installed using `pip install "nemo_run[skypilot]"` and at least one cloud is configured using `sky check`.
+
+Here's an example of the `SkypilotExecutor` for Kubernetes:
 
 ```python
-def create_skypilot_executor(
-    nodes: int = 1,
-    gpus_per_node: int = 8,
-    container_image: str = "nvidia/cuda:11.8-devel-ubuntu20.04"
-):
-    return run.SkypilotExecutor(
-        # Resource specification
-        gpus="A100-80GB",  # GPU type
-        gpus_per_node=gpus_per_node,
-        nodes=nodes,
-
-        # Container configuration
+def your_skypilot_executor(nodes: int, devices: int, container_image: str):
+    return SkypilotExecutor(
+        gpus="RTX5880-ADA-GENERATION",
+        gpus_per_node=devices,
+        num_nodes=nodes,
+        env_vars=common_envs(),
         container_image=container_image,
-
-        # Cloud configuration
-        cloud="aws",  # or "gcp", "azure", "kubernetes"
-        region="us-west-2",
-
-        # Optional cluster reuse
-        cluster_name="nemo-training-cluster",
-
-        # Setup commands
+        cloud="kubernetes",
+        # Optional to reuse Skypilot cluster
+        cluster_name="tester",
         setup="""
-        # Install additional dependencies
-        pip install transformers datasets
-
-        # Verify GPU availability
-        nvidia-smi
-
-        # Check working directory
-        ls -la ./
-        """,
-
-        # Environment variables
-        env_vars={
-            "PYTHONUNBUFFERED": "1",
-            "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7"
-        },
-
-        # Packaging
-        packager=run.GitArchivePackager()
+    conda deactivate
+    nvidia-smi
+    ls -al ./
+    """,
     )
 
-# Usage
-executor = create_skypilot_executor(nodes=2, gpus_per_node=8)
+# You can then call the executor in your script like this:
+executor = your_skypilot_cluster(nodes=8, devices=8, container_image="your-nemo-image")
 ```
 
-**Prerequisites:**
+As the examples show, defining executors in Python offers flexibility. You can mix and match common environment variables, and the separation of tasks from executors enables you to run the same configured task on any supported executor.
 
-```bash
-# Install SkyPilot support
-pip install "nemo_run[skypilot]"
+### DGXCloudExecutor
 
-# Configure cloud credentials
-sky check
-```
+The `DGXCloudExecutor` integrates with a DGX Cloud cluster's Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
 
-#### `run.DGXCloudExecutor`
+> **_WARNING:_** The `DGXCloudExecutor` is supported only when launching experiments from a pod running on the DGX Cloud cluster itself. This launching pod must have access to a Persistent Volume Claim (PVC) where the experiment and job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
 
-Executes tasks on NVIDIA DGX Cloud using Run:ai API:
+Here's an example configuration:
 
 ```python
-def create_dgx_executor(
-    nodes: int = 1,
-    gpus_per_node: int = 8,
-    container_image: str = "nvidia/cuda:11.8-devel-ubuntu20.04"
-):
-    return run.DGXCloudExecutor(
-        # API configuration
-        base_url="https://your-cluster.domain.com/api/v1",
-        app_id="your-runai-app-id",
-        app_secret="your-runai-app-secret",
-        project_name="your-project",
+def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
+    # Ensure these are set correctly for your DGX Cloud environment
+    # You might fetch these from environment variables or a config file
+    base_url = "YOUR_DGX_CLOUD_API_ENDPOINT" # e.g., https://<cluster-name>.<domain>/api/v1
+    app_id = "YOUR_RUNAI_APP_ID"
+    app_secret = "YOUR_RUNAI_APP_SECRET"
+    project_name = "YOUR_RUNAI_PROJECT_NAME"
+    # Define the PVC that will be mounted in the job pods
+    # Ensure the path specified here contains your NEMORUN_HOME
+    pvc_name = "your-pvc-k8s-name" # The Kubernetes name of the PVC
+    pvc_mount_path = "/your_custom_path" # The path where the PVC will be mounted inside the container
 
-        # Resource configuration
+    executor = run.DGXCloudExecutor(
+        base_url=base_url,
+        app_id=app_id,
+        app_secret=app_secret,
+        project_name=project_name,
+        container_image=container_image,
         nodes=nodes,
         gpus_per_node=gpus_per_node,
-
-        # Container configuration
-        container_image=container_image,
-
-        # Storage configuration
-        pvcs=[
-            {
-                "name": "nemo-data-pvc",
-                "path": "/workspace/data"
-            }
-        ],
-
-        # Environment variables
-        env_vars={
-            "PYTHONUNBUFFERED": "1",
-            "NEMORUN_HOME": "/workspace/nemo-run"
-        },
-
-        # Packaging
-        packager=run.GitArchivePackager()
+        pvcs=[{"name": pvc_name, "path": pvc_mount_path}],
+        # Optional: Add custom environment variables or Slurm specs if needed
+        env_vars=common_envs(),
+        # packager=run.GitArchivePackager() # Choose appropriate packager
     )
+    return executor
+
+# Example usage:
+# executor = your_dgx_executor(nodes=4, gpus_per_node=8, container_image="your-nemo-image")
+
 ```
 
-> **Warning**: DGXCloudExecutor currently only supports launching from pods running on the DGX Cloud cluster itself. The launching pod must have access to a Persistent Volume Claim (PVC) for experiment storage.
+For an end-to-end example using DGX Cloud with NeMo, refer to the [NVIDIA DGX Cloud NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
 
-#### `run.LeptonExecutor`
+### LeptonExecutor
 
-Executes tasks on NVIDIA DGX Cloud Lepton clusters:
+The `LeptonExecutor` integrates with an NVIDIA DGX Cloud Lepton cluster's Python SDK to launch distributed jobs. It uses API calls behind the Lepton SDK to authenticate, identify the target node group and resource shapes, and submit the job specification which will be launched as a batch job on the cluster.
+
+Here's an example configuration:
 
 ```python
-def create_lepton_executor(
-    nodes: int = 1,
-    gpus_per_node: int = 8,
-    container_image: str = "nvidia/cuda:11.8-devel-ubuntu20.04"
-):
-    return run.LeptonExecutor(
-        # Resource configuration
-        resource_shape="gpu.8xh100-80gb",  # Resource shape per node
-        node_group="training-nodes",
+def your_lepton_executor(nodes: int, gpus_per_node: int, container_image: str):
+    # Ensure these are set correctly for your DGX Cloud environment
+    # You might fetch these from environment variables or a config file
+    resource_shape = "gpu.8xh100-80gb" # Replace with your desired resource shape representing the number of GPUs in a pod
+    node_group = "my-node-group"  # The node group to run the job in
+    nemo_run_dir = "/nemo-workspace/nemo-run"  # The NeMo Run directory where experiments are saved
+    # Define the remote storage directory that will be mounted in the job pods
+    # Ensure the path specified here contains your NEMORUN_HOME
+    storage_path = "/nemo-workspace" # The remote storage directory to mount in jobs
+    mount_path = "/nemo-workspace" # The path where the remote storage directory will be mounted inside the container
+
+    executor = run.LeptonExecutor(
+        resource_shape=resource_shape,
+        node_group=node_group,
+        container_image=container_image,
         nodes=nodes,
+        nemo_run_dir=nemo_run_dir,
         gpus_per_node=gpus_per_node,
-
-        # Container configuration
-        container_image=container_image,
-
-        # Storage configuration
-        nemo_run_dir="/workspace/nemo-run",
-        mounts=[
-            {
-                "path": "/workspace/data",
-                "mount_path": "/workspace/data"
-            }
-        ],
-
-        # Environment variables
-        env_vars={
-            "PYTHONUNBUFFERED": "1",
-            "NEMORUN_HOME": "/workspace/nemo-run"
-        },
-
-        # Packaging
-        packager=run.GitArchivePackager()
+        mounts=[{"path": storage_path, "mount_path": mount_path}],
+        # Optional: Add custom environment variables or PyTorch specs if needed
+        env_vars=common_envs(),
+        # Optional: Specify a node reservation to schedule jobs with
+        # node_reservation="my-node-reservation",
+        # Optional: Specify commands to run at container launch prior to the job starting
+        # pre_launch_commands=["nvidia-smi"],
+        # Optional: Specify image pull secrets for authenticating with container registries
+        # image_pull_secrets=["my-image-pull-secret"],
+        # packager=run.GitArchivePackager() # Choose appropriate packager
     )
+    return executor
+
+# Example usage:
+executor = your_lepton_executor(nodes=4, gpus_per_node=8, container_image="your-nemo-image")
+
 ```
-
-## Advanced Execution Features
-
-### Multi-Environment Execution
-
-Run the same task across different environments:
-
-```python
-# Define task once
-task_config = run.Config(
-    TrainModel,
-    model_size="1.3B",
-    dataset="wikitext-103",
-    learning_rate=0.0001
-)
-
-# Create executors for different environments
-executors = {
-    "local": run.LocalExecutor(),
-    "docker": run.DockerExecutor(
-        container_image="nvidia/cuda:11.8-devel-ubuntu20.04",
-        num_gpus=2
-    ),
-    "slurm": run.SlurmExecutor(
-        partition="gpu",
-        nodes=2,
-        gpus_per_node=4
-    ),
-    "cloud": run.SkypilotExecutor(
-        gpus="A100-80GB",
-        nodes=2,
-        gpus_per_node=4
-    )
-}
-
-# Launch experiments
-experiments = {}
-for name, executor in executors.items():
-    experiments[name] = run.submit(
-        task_config,
-        executor,
-        metadata={"environment": name}
-    )
-```
-
-### Resource Optimization
-
-Dynamically configure resources based on task requirements:
-
-```python
-def create_adaptive_executor(task_config):
-    """Create executor with resources optimized for the task."""
-
-    # Analyze task requirements
-    model_size = task_config.model_size
-    batch_size = task_config.batch_size
-
-    # Calculate optimal resources
-    if model_size == "small" and batch_size <= 32:
-        return run.SlurmExecutor(
-            partition="gpu",
-            nodes=1,
-            gpus_per_node=2,
-            memory_per_node="64G"
-        )
-    elif model_size == "medium" and batch_size <= 128:
-        return run.SlurmExecutor(
-            partition="gpu",
-            nodes=2,
-            gpus_per_node=4,
-            memory_per_node="128G"
-        )
-    else:
-        return run.SlurmExecutor(
-            partition="gpu",
-            nodes=4,
-            gpus_per_node=8,
-            memory_per_node="256G"
-        )
-
-# Usage
-executor = create_adaptive_executor(task_config)
-experiment = run.submit(task_config, executor)
-```
-
-### Fault Tolerance and Recovery
-
-Implement robust execution with automatic recovery:
-
-```python
-# Configure fault-tolerant launcher
-fault_tolerant_launcher = FaultTolerance(
-    max_restarts=5,
-    restart_delay=120,
-    checkpoint_interval=500,
-    checkpoint_dir="/workspace/checkpoints"
-)
-
-# Use with any executor
-executor = run.SlurmExecutor(
-    partition="gpu",
-    nodes=4,
-    gpus_per_node=8,
-    launcher=fault_tolerant_launcher,
-    time="48:00:00"  # Long time for fault tolerance
-)
-
-# Submit with automatic recovery
-experiment = run.submit(task_config, executor)
-```
-
-## Best Practices
-
-### Configuration Management
-
-Use environment-specific configurations:
-
-```python
-def get_executor_for_environment(env: str):
-    if env == "development":
-        return run.LocalExecutor()
-    elif env == "staging":
-        return run.DockerExecutor(container_image="staging-image")
-    elif env == "production":
-        return run.SlurmExecutor(partition="production-gpu")
-    else:
-        raise ValueError(f"Unknown environment: {env}")
-```
-
-Parameterize executor creation:
-
-```python
-def create_executor_factory(
-    base_image: str = "nvidia/cuda:11.8-devel-ubuntu20.04",
-    default_gpus: int = 4
-):
-    def create_executor(nodes: int, gpus_per_node: int = None):
-        if gpus_per_node is None:
-            gpus_per_node = default_gpus
-
-        return run.SlurmExecutor(
-            container_image=base_image,
-            nodes=nodes,
-            gpus_per_node=gpus_per_node,
-            partition="gpu"
-        )
-
-    return create_executor
-
-# Usage
-factory = create_executor_factory()
-executor = factory(nodes=2)
-```
-
-### Resource Management
-
-Monitor resource usage:
-
-```python
-# Check cluster status before submission
-executor = run.SlurmExecutor(partition="gpu")
-status = executor.get_cluster_status()
-print(f"Available nodes: {status.available_nodes}")
-print(f"Queue length: {status.queue_length}")
-
-# Only submit if resources are available
-if status.available_nodes >= 2:
-    experiment = run.submit(task_config, executor)
-else:
-    print("Insufficient resources, waiting...")
-```
-
-Use resource quotas:
-
-```python
-executor = run.SlurmExecutor(
-    partition="gpu",
-    qos="high_priority",  # Quality of service
-    account="ml_research",  # Account/charge code
-    exclusive=True  # Exclusive node access
-)
-```
-
-### Error Handling
-
-Implement comprehensive error handling:
-
-```python
-try:
-    experiment = run.submit(task_config, executor)
-
-    # Wait for completion with timeout
-    experiment.wait(timeout=3600)  # 1 hour timeout
-
-    if experiment.failed:
-        logs = run.get_logs(experiment)
-        print(f"Experiment failed: {logs.stderr}")
-
-        # Implement retry logic
-        if experiment.retry_count < 3:
-            experiment.retry()
-
-except Exception as e:
-    print(f"Execution failed: {e}")
-    # Implement fallback strategy
-```
-
-Validate configurations before execution:
-
-```python
-def validate_executor_config(executor):
-    """Validate executor configuration before submission."""
-
-    if isinstance(executor, run.SlurmExecutor):
-        # Check if partition exists
-        partitions = executor.list_partitions()
-        if executor.partition not in partitions:
-            raise ValueError(f"Partition {executor.partition} not found")
-
-        # Check resource availability
-        if executor.nodes > executor.get_max_nodes():
-            raise ValueError(f"Requested {executor.nodes} nodes, max available: {executor.get_max_nodes()}")
-
-    return True
-
-# Usage
-validate_executor_config(executor)
-experiment = run.submit(task_config, executor)
-```
-
-### Performance Optimization
-
-Optimize container images:
-
-```dockerfile
-# Use multi-stage builds for smaller images
-FROM nvidia/cuda:11.8-devel-ubuntu20.04 as base
-
-# Install only necessary dependencies
-RUN apt-get update && apt-get install -y \
-    python3.9 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-# Final stage
-FROM base as runtime
-WORKDIR /workspace
-CMD ["python3"]
-```
-
-Use efficient packaging strategies:
-
-```python
-# For development with frequent changes
-dev_packager = run.PatternPackager(
-    include_pattern="src/**",
-    relative_path=os.getcwd()
-)
-
-# For production with version control
-prod_packager = run.GitArchivePackager(
-    subpath="src"
-)
-
-# Choose based on environment
-packager = dev_packager if is_development else prod_packager
-executor = run.SlurmExecutor(packager=packager)
-```
-
-### Multi-Environment Execution Examples
-
-```python
-# Local execution
-local_result = run.run(config, executor=run.LocalExecutor())
-
-# Docker execution
-docker_result = run.run(
-    config,
-    executor=run.DockerExecutor(
-        image="pytorch/pytorch:2.0.0-cuda11.7-cudnn8-runtime",
-        gpus=1
-    )
-)
-
-# Slurm execution (HPC cluster)
-slurm_result = run.run(
-    config,
-    executor=run.SlurmExecutor(
-        nodes=1,
-        gpus_per_node=1,
-        time_limit="1:00:00"
-    )
-)
-```
-
-This comprehensive guide covers all aspects of NeMo Run execution, from basic usage to advanced features and best practices. Use these patterns to build robust, scalable machine learning workflows across different computing environments.

@@ -3,6 +3,7 @@
 After configuring NeMo-Run, the next step is to execute it. Nemo-Run decouples configuration from execution, allowing you to configure a function or task once and then execute it across multiple environments. With Nemo-Run, you can choose to execute a single task or multiple tasks simultaneously on different remote clusters, managing them under an experiment. This brings us to the core building blocks for execution: `run.Executor` and `run.Experiment`.
 
 Each execution of a single configured task requires an executor. Nemo-Run provides `run.Executor`, which are APIs to configure your remote executor and set up the packaging of your code. Currently we support:
+
 - `run.LocalExecutor`
 - `run.DockerExecutor`
 - `run.SlurmExecutor` with an optional `SSHTunnel` for executing on Slurm clusters from your local machine
@@ -19,17 +20,20 @@ The `run.Experiment` takes care of storing the run metadata, launching it on the
 > **_NOTE:_** All the experiment metadata is stored under `NEMORUN_HOME` env var on the machine where you launch the experiments. By default, the value for `NEMORUN_HOME` value is `~/.run`. Be sure to change this according to your needs.
 
 ## Executors
+
 Executors are dataclasses that configure your remote executor and set up the packaging of your code. All supported executors inherit from the base class `run.Executor`, but have configuration parameters specific to their execution environment. There is an initial cost to understanding the specifics of your executor and setting it up, but this effort is easily amortized over time.
 
 Each `run.Executor` has the two attributes: `packager` and `launcher`. The `packager` specifies how to package the code for execution, while the `launcher` determines which tool to use for launching the task.
 
 ### Launchers
+
 We support the following `launchers`:
+
 - `default` or `None`: This will directly launch your task without using any special launchers. Set `executor.launcher = None` (which is the default value) if you don't want to use a specific launcher.
 - `torchrun` or `run.Torchrun`: This will launch the task using `torchrun`. See the `Torchrun` class for configuration options. You can use it using `executor.launcher = "torchrun"` or `executor.launcher = Torchrun(...)`.
 - `ft` or `run.core.execution.FaultTolerance`: This will launch the task using NVIDIA's fault tolerant launcher. See the `FaultTolerance` class for configuration options. You can use it using `executor.launcher = "ft"` or `executor.launcher = FaultTolerance(...)`.
 
-> **_NOTE:_** Launcher may not work very well with `run.Script`. Please report any issues at https://github.com/NVIDIA-NeMo/Run/issues.
+> **_NOTE:_** Launcher may not work very well with `run.Script`. Please report any issues at <https://github.com/NVIDIA-NeMo/Run/issues>.
 
 ### Packagers
 
@@ -48,26 +52,32 @@ The packager support matrix is described below:
 
 `run.GitArchivePackager` uses `git archive` to package your code. Refer to the API reference for `run.GitArchivePackager` to see the exact mechanics of packaging using `git archive`.
 At a high level, it works in the following way:
+
 1. base_path = `git rev-parse --show-toplevel`.
 2. Optionally define a subpath as `base_path/GitArchivePackager.subpath` by setting `subpath` attribute on `GitArchivePackager`.
 3. `cd base_path && git archive --format=tar.gz --output={output_file} {GitArchivePackager.subpath}:{subpath}`
 
 This extracted tar file becomes the working directory for your job. As an example, given the following directory structure with `subpath="src"`:
+
 ```
 - docs
 - src
   - your_library
 - tests
 ```
+
 Your working directory at the time of execution will look like:
+
 ```
 - your_library
 ```
+
 If you're executing a Python function, this working directory will automatically be included in your Python path.
 
 > **_NOTE:_** git archive doesn't package uncommitted changes. In the future, we may add support for including uncommitted changes while honoring `.gitignore`.
 
 `run.PatternPackager` is a packager that uses a pattern to package your code. It is useful for packaging code that is not under version control. For example, if you have a directory structure like this:
+
 ```
 - docs
 - src
@@ -86,6 +96,7 @@ cd {relative_path} && find {relative_include_pattern} -type f
 Each sub-packager in the `sub_packagers` dictionary is assigned a key, which becomes the directory name under which its contents are placed in the final archive. If `extract_at_root` is set to `True`, all contents are placed directly in the root of the archive, potentially overwriting files if names conflict.
 
 Example:
+
 ```python
 import nemo_run as run
 import os
@@ -100,9 +111,11 @@ hybrid_packager = run.HybridPackager(
 # Usage with an executor:
 # executor.packager = hybrid_packager
 ```
+
 This would create an archive where the contents of `src` are under a `code/` directory and matched `configs/*.yaml` files are under a `configs/` directory.
 
 ### Defining Executors
+
 Next, We'll describe details on setting up each of the executors below.
 
 #### LocalExecutor
@@ -137,6 +150,7 @@ run.DockerExecutor(
 The SlurmExecutor enables launching the configured task on a Slurm Cluster with Pyxis.  Additionally, you can configure a `run.SSHTunnel`, which enables you to execute tasks on the Slurm cluster from your local machine while NeMo-Run manages the SSH connection for you. This setup supports use cases such as launching the same task on multiple Slurm clusters.
 
 Below is an example of configuring a Slurm Executor
+
 ```python
 def your_slurm_executor(nodes: int = 1, container_image: str = DEFAULT_IMAGE):
     # SSH Tunnel
@@ -178,7 +192,7 @@ Use the SSH Tunnel when launching from your local machine, or the Local Tunnel i
 
 ##### Job Dependencies
 
-`SlurmExecutor` supports defining dependencies between [jobs](management.md#adding-tasks), allowing you to create workflows where jobs run in a specific order. Additionally, you can specify the `dependency_type` parameter:
+`SlurmExecutor` supports defining dependencies between [jobs](management.md#add-tasks), allowing you to create workflows where jobs run in a specific order. Additionally, you can specify the `dependency_type` parameter:
 
 ```python
 executor = run.SlurmExecutor(
@@ -197,16 +211,18 @@ The `dependency_type` parameter specifies the type of dependency relationship:
 This functionality enables you to create complex workflows with proper orchestration between different tasks, such as starting a training job only after data preparation is complete, or running an evaluation only after training finishes successfully.
 
 #### SkypilotExecutor
+
 This executor is used to configure [Skypilot](https://skypilot.readthedocs.io/en/latest/docs/index.html). Make sure Skypilot is installed using `pip install "nemo_run[skypilot]"` and atleast one cloud is configured using `sky check`.
 
 Here's an example of the `SkypilotExecutor` for Kubernetes:
+
 ```python
 def your_skypilot_executor(nodes: int, devices: int, container_image: str):
     return SkypilotExecutor(
         gpus="RTX5880-ADA-GENERATION",
         gpus_per_node=devices,
-        nodes = nodes
-        env_vars=common_envs()
+        num_nodes=nodes,
+        env_vars=common_envs(),
         container_image=container_image,
         cloud="kubernetes",
         # Optional to reuse Skypilot cluster
@@ -228,7 +244,7 @@ As demonstrated in the examples, defining executors in Python offers great flexi
 
 The `DGXCloudExecutor` integrates with a DGX Cloud cluster's Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
 
-> **_WARNING:_** Currently, the `DGXCloudExecutor` is only supported when launching experiments *from* a pod running on the DGX Cloud cluster itself. Furthermore, this launching pod must have access to a Persistent Volume Claim (PVC) where the experiment/job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
+> **_WARNING:_** Currently, the `DGXCloudExecutor` is only supported when launching experiments _from_ a pod running on the DGX Cloud cluster itself. Furthermore, this launching pod must have access to a Persistent Volume Claim (PVC) where the experiment/job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
 
 Here's an example configuration:
 
@@ -295,6 +311,12 @@ def your_lepton_executor(nodes: int, gpus_per_node: int, container_image: str):
         mounts=[{"path": storage_path, "mount_path": mount_path}],
         # Optional: Add custom environment variables or PyTorch specs if needed
         env_vars=common_envs(),
+        # Optional: Specify a node reservation to schedule jobs with
+        # node_reservation="my-node-reservation",
+        # Optional: Specify commands to run at container launch prior to the job starting
+        # pre_launch_commands=["nvidia-smi"],
+        # Optional: Specify image pull secrets for authenticating with container registries
+        # image_pull_secrets=["my-image-pull-secret"],
         # packager=run.GitArchivePackager() # Choose appropriate packager
     )
     return executor
