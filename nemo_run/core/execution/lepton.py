@@ -20,7 +20,12 @@ from leptonai.api.v1.types.deployment import (
     LeptonContainer,
     Mount,
 )
-from leptonai.api.v1.types.job import LeptonJob, LeptonJobState, LeptonJobUserSpec
+from leptonai.api.v1.types.job import (
+    LeptonJob,
+    LeptonJobState,
+    LeptonJobUserSpec,
+    ReservationConfig,
+)
 from leptonai.api.v1.types.replica import Replica
 
 from nemo_run.config import get_nemorun_home
@@ -51,9 +56,14 @@ class LeptonExecutor(Executor):
     shared_memory_size: int = 65536
     resource_shape: str = ""
     node_group: str = ""
+    node_reservation: str = ""
     mounts: list[dict[str, Any]] = field(default_factory=list)
     lepton_job_dir: str = field(init=False, default="")
+    image_pull_secrets: list[str] = field(
+        default_factory=list
+    )  # Image pull secrets for container registry authentication
     custom_spec: dict[str, Any] = field(default_factory=dict)
+    pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
 
     def stop_job(self, job_id: str):
         """
@@ -82,7 +92,13 @@ class LeptonExecutor(Executor):
             full_command = ["sh", "-c", cmd]
             return full_command
 
-    def move_data(self, sleep: float = 10, timeout: int = 600, poll_interval: int = 5) -> None:
+    def move_data(
+        self,
+        sleep: float = 10,
+        timeout: int = 600,
+        poll_interval: int = 5,
+        unknowns_grace_period: int = 60,
+    ) -> None:
         """
         Moves job directory into remote storage and deletes the workload after completion.
         """
@@ -121,20 +137,39 @@ class LeptonExecutor(Executor):
         job_id = response.metadata.id_
 
         start_time = time.time()
-        count = 0
 
         while True:
             if time.time() - start_time > timeout:
                 raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds.")
+
             current_job = client.job.get(job_id)
             current_job_status = current_job.status.state
-            if count > 0 and current_job_status in [
-                LeptonJobState.Completed,
-                LeptonJobState.Failed,
-                LeptonJobState.Unknown,
-            ]:
+            if (
+                current_job_status == LeptonJobState.Completed
+                or current_job_status == LeptonJobState.Failed
+            ):
                 break
-            count += 1
+            elif current_job_status == LeptonJobState.Unknown:
+                logging.warning(
+                    f"Job {job_id} entered Unknown state, checking for up to {unknowns_grace_period} seconds every 2 seconds..."
+                )
+                unknown_start_time = time.time()
+                recovered = False
+                while time.time() - unknown_start_time < unknowns_grace_period:
+                    time.sleep(2)
+                    current_job = client.job.get(job_id)
+                    current_job_status = current_job.status.state
+                    if current_job_status != LeptonJobState.Unknown:
+                        logging.info(
+                            f"Job {job_id} recovered from Unknown state to {current_job_status}"
+                        )
+                        recovered = True
+                        break
+                if not recovered:
+                    logging.error(
+                        f"Job {job_id} has been in Unknown state for more than {unknowns_grace_period} seconds"
+                    )
+                    break
             time.sleep(poll_interval)
 
         if current_job_status != LeptonJobState.Completed:
@@ -223,7 +258,7 @@ class LeptonExecutor(Executor):
             max_job_failure_retry=None,
             envs=envs,
             mounts=[Mount(**mount) for mount in self.mounts],
-            image_pull_secrets=[],
+            image_pull_secrets=self.image_pull_secrets,
             ttl_seconds_after_finished=None,
             intra_job_communication=True,
             privileged=False,
@@ -231,8 +266,12 @@ class LeptonExecutor(Executor):
             log=None,
             queue_config=None,
             stopped=None,
-            reservation_config=None,
         )
+
+        if self.node_reservation:
+            job_spec.reservation_config = ReservationConfig(reservation_id=self.node_reservation)
+            job_spec.reservation_config.reservation_id = self.node_reservation
+
         job = LeptonJob(spec=job_spec, metadata=Metadata(id=name))
 
         created_job = client.job.create(job)
@@ -244,8 +283,14 @@ class LeptonExecutor(Executor):
         if len(name) > 35:
             logger.warning("length of name exceeds 35 characters. Shortening...")
             name = name[:34]
+
+        # Build pre-launch commands section
+        pre_launch_section = ""
+        if self.pre_launch_commands:
+            pre_launch_section = "\n".join(self.pre_launch_commands) + "\n"
+
         launch_script = f"""
-wget -O init.sh https://raw.githubusercontent.com/leptonai/scripts/main/lepton_env_to_pytorch.sh
+{pre_launch_section}wget -O init.sh https://raw.githubusercontent.com/leptonai/scripts/main/lepton_env_to_pytorch.sh
 chmod +x init.sh
 source init.sh
 ln -s {self.lepton_job_dir}/ /nemo_run

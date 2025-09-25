@@ -152,6 +152,8 @@ class SlurmRayRequest:
         if not job_details.folder:
             job_details.folder = os.path.join(slurm_job_dir, "logs")
 
+        logs_dir: str = job_details.folder  # Single source of truth for log-dir inside this SBATCH
+
         parameters["job_name"] = job_details.job_name
 
         stdout = str(job_details.stdout)
@@ -212,6 +214,7 @@ class SlurmRayRequest:
                 new_mounts = mounts
 
             new_mounts.append(f"{self.cluster_dir}:{self.cluster_dir}")
+            new_mounts.append(f"{logs_dir}:{logs_dir}")
 
             _srun_flags += ["--container-mounts", ",".join(new_mounts)]
             container_workdir = self.workdir or self.cluster_dir
@@ -219,10 +222,11 @@ class SlurmRayRequest:
 
             return " ".join(_srun_flags)
 
+        ray_log_prefix = job_details.ray_log_prefix
         vars_to_fill = {
             "sbatch_flags": sbatch_flags,
             "cluster_dir": self.cluster_dir,
-            "log_dir": os.path.join(self.cluster_dir, "logs"),
+            "log_dir": logs_dir,
             "uv_cache_dir": os.path.join(self.cluster_dir, "uv_cache"),
             "num_retries": max(1, self.executor.retries),
             "env_vars": env_vars,
@@ -233,6 +237,7 @@ class SlurmRayRequest:
             "command": self.command,
             "command_workdir": self.workdir,
             "gres_specification": get_gres_specification(),
+            "ray_log_prefix": ray_log_prefix,
         }
 
         if self.command_groups:
@@ -260,12 +265,12 @@ class SlurmRayRequest:
                     srun_args.extend(self.executor.srun_args or [])
                     group_env_vars.append([])
 
-                stdout_path = os.path.join(self.cluster_dir, "logs", f"ray-overlap-{idx}.out")
+                stdout_path = os.path.join(logs_dir, f"{ray_log_prefix}overlap-{idx}.out")
                 stderr_flags = []
                 if not self.executor.stderr_to_stdout:
                     stderr_flags = [
                         "--error",
-                        os.path.join(self.cluster_dir, "logs", f"ray-overlap-{idx}.err"),
+                        os.path.join(logs_dir, f"{ray_log_prefix}overlap-{idx}.err"),
                     ]
 
                 srun_cmd = " ".join(

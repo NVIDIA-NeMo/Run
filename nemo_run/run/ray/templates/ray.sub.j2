@@ -31,7 +31,6 @@ METRICS_EXPORT_PORT=${METRICS_EXPORT_PORT:-53009}
 PORT=${PORT:-6379}
 RAY_CLIENT_SERVER_PORT=${RAY_CLIENT_SERVER_PORT:-10001}
 #REDIT_SHARD_PORTS=${REDIT_SHARD_PORTS:-"random"} ??
-DASHBOARD_GRPC_PORT=${DASHBOARD_GRPC_PORT:-52367}
 DASHBOARD_PORT=${DASHBOARD_PORT:-8265}  # Also used by debugger
 DASHBOARD_AGENT_LISTEN_PORT=${DASHBOARD_AGENT_LISTEN_PORT:-52365}
 
@@ -40,6 +39,15 @@ DASHBOARD_AGENT_LISTEN_PORT=${DASHBOARD_AGENT_LISTEN_PORT:-52365}
 # somewhere in the middle
 MIN_WORKER_PORT=${MIN_WORKER_PORT:-54001}
 MAX_WORKER_PORT=${MAX_WORKER_PORT:-54257}
+
+# Ray temp directory (inside container). Used by --temp-dir and log sync sidecar
+RAY_TEMP_DIR=${RAY_TEMP_DIR:-/ray-cluster}
+
+# Number seconds to sync logs from /tmp/ray/session_*/logs to $LOG_DIR/ray/
+RAY_LOG_SYNC_FREQUENCY=${RAY_LOG_SYNC_FREQUENCY:-}
+
+# Timeout in seconds for Ray head node to start (default 10 minutes)
+RAY_HEAD_START_TIMEOUT=${RAY_HEAD_START_TIMEOUT:-600}
 
 # Directory setup
 export CLUSTER_DIR={{ cluster_dir }}
@@ -132,15 +140,48 @@ monitor-sidecar() {
 }
 monitor-sidecar &
 
+# Background process to sync ray logs every $RAY_LOG_SYNC_FREQUENCY seconds
+log-sync-sidecar() {
+  set +x
+  if [[ -z "$RAY_LOG_SYNC_FREQUENCY" ]]; then
+    echo "RAY_LOG_SYNC_FREQUENCY is not set, skipping log sync sidecar"
+    return
+  fi
+  mkdir -p $LOG_DIR/ray
+  while true; do
+    sleep $RAY_LOG_SYNC_FREQUENCY
+    if ls ${RAY_TEMP_DIR}/session_[0-9]* > /dev/null 2>&1; then
+      for session_dir in ${RAY_TEMP_DIR}/session_[0-9]*/; do
+        if [[ -d "\$session_dir/logs" ]]; then
+          session_name=\$(basename "\$session_dir")
+          mkdir -p "$LOG_DIR/ray/\$session_name"
+          if command -v rsync > /dev/null 2>&1; then
+            rsync -ahP "\$session_dir/logs/" "$LOG_DIR/ray/\$session_name/logs/" 2>/dev/null || true
+          else
+            cp -r "\$session_dir/logs" "$LOG_DIR/ray/\$session_name/"
+          fi
+        fi
+      done
+    fi
+    if [[ -f "$LOG_DIR/ENDED" ]]; then
+      echo "Log sync sidecar terminating..."
+      break
+    fi
+  done
+}
+log-sync-sidecar &
+
+# Patch nsight.py before starting Ray head
+sed -i 's/context\.py_executable = " "\.join(self\.nsight_cmd) + " python"/context.py_executable = " ".join(self.nsight_cmd) + f" {context.py_executable}"/g' /opt/nemo_rl_venv/lib64/python*/site-packages/ray/_private/runtime_env/nsight.py
+
 cat <<EOFINNER | tee /launch-head.sh
 ray start --head \
     --disable-usage-stats \
-    --temp-dir=/ray-cluster \
+    --temp-dir=${RAY_TEMP_DIR} \
     --resources="{\"worker_units\": $gpus_per_node, \"slurm_managed_ray_cluster\": 1}" \
     --node-ip-address="$head_node_ip" \
     --port=${PORT} \
     --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
-    --dashboard-grpc-port=${DASHBOARD_GRPC_PORT} \
     --dashboard-port=${DASHBOARD_PORT} \
     \
     --node-manager-port=${NODE_MANAGER_PORT} \
@@ -165,12 +206,19 @@ touch $LOG_DIR/ENDED
 exit 1
 EOF
 )
-srun {{ common_srun_args }} --container-name=ray-head --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-head.log bash -x -c "$head_cmd" &
+srun {{ common_srun_args }} --container-name=ray-head --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/{{ ray_log_prefix }}head.log bash -x -c "$head_cmd" &
 
 # Wait for the head node container to start and for Ray to be ready
+elapsed_time=0
 while ! (srun --overlap --nodes=1 --ntasks=1 -w $head_node test -f $LOG_DIR/STARTED_RAY_HEAD && srun --overlap --container-name=ray-head --nodes=1 --ntasks=1 -w $head_node ray status --address $ip_head 2>/dev/null); do
-  echo "[INFO][$(date)] Waiting for Ray head node container to start and be ready..."
+  if [[ $elapsed_time -ge $RAY_HEAD_START_TIMEOUT ]]; then
+    echo "[ERROR][$(date)] Ray head node failed to start within $RAY_HEAD_START_TIMEOUT seconds. Exiting..."
+    touch $LOG_DIR/ENDED
+    exit 1
+  fi
+  echo "[INFO][$(date)] Waiting for Ray head node container to start and be ready... ($elapsed_time/$RAY_HEAD_START_TIMEOUT seconds)"
   sleep 2
+  elapsed_time=$((elapsed_time + 2))
 done
 
 NUM_ACTORS=$((gpus_per_node * SLURM_JOB_NUM_NODES))
@@ -209,6 +257,9 @@ monitor-sidecar() {
 }
 monitor-sidecar &
 
+# Patch nsight.py before starting Ray worker
+sed -i 's/context\.py_executable = " "\.join(self\.nsight_cmd) + " python"/context.py_executable = " ".join(self.nsight_cmd) + f" {context.py_executable}"/g' /opt/nemo_rl_venv/lib64/python*/site-packages/ray/_private/runtime_env/nsight.py
+
 cat <<EOFINNER | tee /launch-worker.sh
 sleep 5
 ray start --address "$ip_head" \
@@ -241,7 +292,7 @@ EOF
   if [[ $i -eq 0 ]]; then
     OVERLAP_HEAD_AND_WORKER_ARG="--overlap"
   fi
-  srun {{ common_srun_args }} ${OVERLAP_HEAD_AND_WORKER_ARG:-} --container-name=ray-worker-$i --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * gpus_per_node)) -w "$node_i" -o $LOG_DIR/ray-worker-$i.log bash -x -c "$worker_cmd" &
+  srun {{ common_srun_args }} ${OVERLAP_HEAD_AND_WORKER_ARG:-} --container-name=ray-worker-$i --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * gpus_per_node)) -w "$node_i" -o $LOG_DIR/{{ ray_log_prefix }}worker-$i.log bash -x -c "$worker_cmd" &
   sleep 3
 done
 
@@ -318,7 +369,7 @@ COMMAND="${COMMAND:-{{ command | default('', true) }}}"
 COMMAND_WORKDIR={{ command_workdir | default('$CONTAINER_CWD') }}
 
 if [[ -n "$COMMAND" ]]; then
-  srun --no-container-mount-home --gpus=0 --overlap --container-name=ray-head --container-workdir=$COMMAND_WORKDIR --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-job.log bash -c "$COMMAND"
+  srun --no-container-mount-home --gpus=0 --overlap --container-name=ray-head --container-workdir=$COMMAND_WORKDIR --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/{{ ray_log_prefix }}job.log bash -c "$COMMAND"
 else
   echo "[INFO]: Ray Cluster is idled, run this on the slurm head node to get a shell to the head node:"
   cat <<EOF >$CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh

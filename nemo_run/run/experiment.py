@@ -35,9 +35,8 @@ from fiddle._src import daglish, diffing
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.progress import Task as RichTask
-from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState
 
@@ -302,6 +301,10 @@ nemo experiment cancel {exp_id} 0
         jobs: list[Job | JobGroup] | None = None,
         base_dir: str | None = None,
         clean_mode: bool = False,
+        enable_goodbye_message: bool = True,
+        threadpool_workers: int = 16,
+        skip_status_at_exit: bool = False,
+        serialize_metadata_for_scripts: bool = True,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -317,6 +320,7 @@ nemo experiment cancel {exp_id} 0
             _reconstruct: Generally, the user does not need to specify this flag.
                 This is only set to True when using run.Experiment.from_dir.
             clean_mode: If True, disables all console output (logs, progress bars, etc.). Defaults to False.
+            enable_goodbye_message: if True, prints goodbye message after submitting job. Defaults to True.
         """
         configure_logging(level=log_level)
         self._reconstruct = _reconstruct
@@ -325,6 +329,10 @@ nemo experiment cancel {exp_id} 0
 
         self._title = title
         self._id = id or f"{title}_{int(time.time())}"
+        self._enable_goodbye_message = enable_goodbye_message
+        self._threadpool_workers = threadpool_workers
+        self._skip_status_at_exit = skip_status_at_exit
+        self._serialize_metadata_for_scripts = serialize_metadata_for_scripts
 
         base_dir = str(base_dir or get_nemorun_home())
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
@@ -356,6 +364,10 @@ nemo experiment cancel {exp_id} 0
             executor=self.executor.to_config(),
             log_level=self.log_level,
             clean_mode=self.clean_mode,
+            threadpool_workers=self._threadpool_workers,
+            enable_goodbye_message=self._enable_goodbye_message,
+            skip_status_at_exit=self._skip_status_at_exit,
+            serialize_metadata_for_scripts=self._serialize_metadata_for_scripts,
         )
 
     def _save_experiment(self, exist_ok: bool = False):
@@ -419,8 +431,9 @@ nemo experiment cancel {exp_id} 0
 
     def _prepare(self, exist_ok: bool = False):
         self._save_experiment(exist_ok=exist_ok)
+
         for job in self.jobs:
-            job.prepare()
+            job.prepare(serialize_metadata_for_scripts=self._serialize_metadata_for_scripts)
 
         self._save_jobs()
 
@@ -652,7 +665,10 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             return
 
         # Prepare experiment before running
-        self._prepare()
+
+        # in case of multi-node execution with LocalExecutor+torchrun+slurm, run only on first rank
+        if int(os.getenv("SLURM_PROCID", 0)) == 0:
+            self._prepare()
 
         if direct:
             self.console.log(
@@ -766,7 +782,15 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             self.detach = detach
 
         for level in order:
-            for _, node in enumerate(level):
+            # Launch jobs in this level concurrently since they are independent
+
+            def _set_context(ctx: contextvars.Context):
+                for var, value in ctx.items():
+                    var.set(value)
+
+            ctx = contextvars.copy_context()
+
+            def _launch(node: str):
                 job: Job | JobGroup = job_map[node]
                 self.console.log(f"[bold cyan]Launching job {job.id} for experiment {self._title}")
                 if tail_logs:
@@ -784,14 +808,24 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                             deps.append(handle)
 
                         job.executor.dependencies = deps  # type: ignore
+
                     job.launch(wait=False, runner=self._runner)
+                    return job
 
                 except Exception as e:
                     self.console.log(f"Error running job {job.id}: {e}")
                     raise e
 
+            launched_jobs: list[Job | JobGroup] = []
+            with ThreadPoolExecutor(
+                initializer=_set_context, initargs=(ctx,), max_workers=self._threadpool_workers
+            ) as pool:
+                futures = [pool.submit(_launch, node) for node in level]
+                for future in as_completed(futures):
+                    launched_jobs.append(future.result())
+
             if wait:
-                self._wait_for_jobs(jobs=[job_map[node] for node in level])
+                self._wait_for_jobs(jobs=launched_jobs)
 
         self._save_jobs()
         self._launched = any(map(lambda job: job.launched, self.jobs))
@@ -837,7 +871,21 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 finally:
                     job.cleanup()
 
-    def status(self, return_dict: bool = False) -> Optional[dict[str, str]]:
+    def _initialize_tunnels(self, extract_from_executors: bool = False):
+        if extract_from_executors:
+            for job in self.jobs:
+                if (
+                    isinstance(job.executor, SlurmExecutor)
+                    and job.executor.tunnel.key not in self.tunnels
+                ):
+                    self.tunnels[job.executor.tunnel.key] = job.executor.tunnel
+
+        for tunnel in self.tunnels.values():
+            if isinstance(tunnel, SSHTunnel):
+                tunnel.connect()
+                assert tunnel.session, f"SSH tunnel {tunnel.key} failed to connect."
+
+    def status(self, return_dict: bool = False) -> Optional[dict[str, dict[str, str]]]:
         """
         Prints a table specifying the status of all tasks.
 
@@ -877,6 +925,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 "status": job.status(runner=self._runner),
                 "executor": job.executor.info(),
                 "job_id": app_id,
+                "handle": job.handle,
                 "local_dir": job.executor.job_dir,
             }
 
@@ -899,13 +948,34 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             job_info.extend(directory_info)
             return job_info, job_dict
 
+        self._initialize_tunnels(extract_from_executors=True)
         try:
             result_dict = {}
-            job_infos = []
-            for i, job in enumerate(self.jobs):
-                job_info, job_dict = _get_job_info_and_dict(i, job)
-                job_infos.append(Group(*job_info))
-                result_dict[job.id] = job_dict
+            job_infos: list[Group | None] = [None] * len(self.jobs)
+
+            # Parallelize IO-bound status retrieval across jobs
+            def _collect(arg):
+                idx, job = arg
+                job_info, job_dict = _get_job_info_and_dict(idx, job)
+                return idx, job.id, job_info, job_dict
+
+            # Propagate context variables to worker threads so helpers that rely on them keep working
+            def _set_context(ctx: contextvars.Context):
+                for var, value in ctx.items():
+                    var.set(value)
+
+            ctx = contextvars.copy_context()
+            with ThreadPoolExecutor(
+                initializer=_set_context, initargs=(ctx,), max_workers=self._threadpool_workers
+            ) as pool:
+                futures = [pool.submit(_collect, (idx, job)) for idx, job in enumerate(self.jobs)]
+                for future in as_completed(futures):
+                    idx, job_id, job_info, job_dict = future.result()
+                    job_infos[idx] = Group(*job_info)
+                    result_dict[job_id] = job_dict
+
+            # Remove potential None slots (should not occur)
+            job_infos = [ji for ji in job_infos if ji is not None]
 
             if return_dict:
                 return result_dict
@@ -1139,7 +1209,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     "Ephemeral logs and artifacts may be lost.",
                 )
 
-                if self._launched:
+                if self._launched and not self._skip_status_at_exit:
                     self.status()
                 return
 
@@ -1148,20 +1218,23 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     self.console.rule(
                         f"[bold magenta]Direct run Experiment {self._id}",
                     )
-                    self.status()
+                    if not self._skip_status_at_exit:
+                        self.status()
                     return
 
                 if hasattr(self, "_waited") and self._waited:
                     self.console.rule(
                         f"[bold magenta]Done waiting for Experiment {self._id}",
                     )
-                    self.status()
+                    if not self._skip_status_at_exit:
+                        self.status()
                     return
 
                 self.console.rule(
                     f"[bold magenta]Waiting for Experiment {self._id} to finish",
                 )
-                self.status()
+                if not self._skip_status_at_exit:
+                    self.status()
 
                 self._wait_for_jobs(jobs=self.jobs)
         finally:
@@ -1171,26 +1244,27 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             self._cleanup(tunnels=False)
             if self._launched:
                 Path(os.path.join(self._exp_dir, self._DONE_FILE)).touch()
-                self.console.print(
-                    Syntax(
-                        self.GOODBYE_MESSAGE_PYTHON.format(
-                            exp_id=self._id,
-                            tasks=list(map(lambda job: job.id, self.jobs)),
-                        ),
-                        "python",
-                        theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
+                if self._enable_goodbye_message:
+                    self.console.print(
+                        Syntax(
+                            self.GOODBYE_MESSAGE_PYTHON.format(
+                                exp_id=self._id,
+                                tasks=list(map(lambda job: job.id, self.jobs)),
+                            ),
+                            "python",
+                            theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
+                        )
                     )
-                )
-                self.console.print(
-                    Syntax(
-                        self.GOODBYE_MESSAGE_BASH.format(
-                            exp_id=self._id,
-                            tasks=list(map(lambda job: job.id, self.jobs)),
-                        ),
-                        "shell",
-                        theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
+                    self.console.print(
+                        Syntax(
+                            self.GOODBYE_MESSAGE_BASH.format(
+                                exp_id=self._id,
+                                tasks=list(map(lambda job: job.id, self.jobs)),
+                            ),
+                            "shell",
+                            theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
+                        )
                     )
-                )
 
     def _repr_svg_(self):
         return self.to_config()._repr_svg_()

@@ -27,7 +27,6 @@ from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
 )
-from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
@@ -35,8 +34,8 @@ _SKYPILOT_AVAILABLE: bool = False
 try:
     import sky
     import sky.task as skyt
-    from sky.utils import status_lib
     from sky import backends
+    from sky.utils import status_lib
 
     _SKYPILOT_AVAILABLE = True
 except ImportError:
@@ -62,10 +61,26 @@ class SkypilotExecutor(Executor):
             gpus="A10G",
             gpus_per_node=devices,
             container_image="nvcr.io/nvidia/nemo:dev",
-            cloud="kubernetes",
+            infra="k8s/my-context",
+            network_tier="best",
             cluster_name="nemo_tester",
             file_mounts={
-                "nemo_run.whl": "nemo_run.whl"
+                "nemo_run.whl": "nemo_run.whl",
+                "/workspace/code": "/local/path/to/code",
+            },
+            storage_mounts={
+                "/workspace/outputs": {
+                    "name": "my-training-outputs",
+                    "store": "gcs",  # or "s3", "azure", etc.
+                    "mode": "MOUNT",
+                    "persistent": True,
+                },
+                "/workspace/checkpoints": {
+                    "name": "model-checkpoints",
+                    "store": "s3",
+                    "mode": "MOUNT",
+                    "persistent": True,
+                }
             },
             setup=\"\"\"
         conda deactivate
@@ -99,12 +114,16 @@ class SkypilotExecutor(Executor):
     disk_tier: Optional[Union[str, list[str]]] = None
     ports: Optional[tuple[str]] = None
     file_mounts: Optional[dict[str, str]] = None
+    storage_mounts: Optional[dict[str, dict[str, Any]]] = None  # Can be str or dict configs
     cluster_name: Optional[str] = None
     setup: Optional[str] = None
     autodown: bool = False
     idle_minutes_to_autostop: Optional[int] = None
     torchrun_nproc_per_node: Optional[int] = None
     cluster_config_overrides: Optional[dict[str, Any]] = None
+    infra: Optional[str] = None
+    network_tier: Optional[str] = None
+    retry_until_up: bool = False
     packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     def __post_init__(self):
@@ -114,6 +133,13 @@ class SkypilotExecutor(Executor):
         assert isinstance(self.packager, GitArchivePackager), (
             "Only GitArchivePackager is currently supported for SkypilotExecutor."
         )
+        if self.infra is not None:
+            assert self.cloud is None, "Cannot specify both `infra` and `cloud` parameters."
+            assert self.region is None, "Cannot specify both `infra` and `region` parameters."
+            assert self.zone is None, "Cannot specify both `infra` and `zone` parameters."
+            logger.info(
+                "`cloud` is deprecated and will be removed in a future version. Use `infra` instead."
+            )
 
     @classmethod
     def parse_app(cls: Type["SkypilotExecutor"], app_id: str) -> tuple[str, str, int]:
@@ -173,6 +199,8 @@ class SkypilotExecutor(Executor):
             "memory",
             "instance_type",
             "use_spot",
+            "infra",
+            "network_tier",
             "image_id",
             "disk_size",
             "disk_tier",
@@ -330,18 +358,6 @@ class SkypilotExecutor(Executor):
             het_group_host_var=self.HET_GROUP_HOST_VAR,
         )
 
-    def _setup_launcher(self):
-        super()._setup_launcher()
-        launcher = self.launcher
-        # Dynamic rendezvous has an error in Skypilot Kubernetes currently
-        if (
-            launcher
-            and isinstance(launcher, (Torchrun, FaultTolerance))
-            and self.cloud == "kubernetes"
-        ):
-            launcher.rdzv_backend = "static"
-            launcher.rdzv_port = 49500
-
     def to_task(
         self,
         name: str,
@@ -372,9 +388,22 @@ cd /nemo_run/code
             envs=self.env_vars,
             num_nodes=self.num_nodes,
         )
+        # Handle regular file mounts
         file_mounts = self.file_mounts or {}
         file_mounts["/nemo_run"] = self.job_dir
-        task.set_file_mounts(self.file_mounts)
+        task.set_file_mounts(file_mounts)
+
+        # Handle storage mounts separately
+        if self.storage_mounts:
+            from sky.data import Storage
+
+            storage_objects = {}
+            for mount_path, config in self.storage_mounts.items():
+                # Create Storage object from config dict
+                storage_obj = Storage.from_yaml_config(config)
+                storage_objects[mount_path] = storage_obj
+            task.set_storage_mounts(storage_objects)
+
         task.set_resources(self.to_resources())
 
         if env_vars:
@@ -390,11 +419,17 @@ cd /nemo_run/code
         dryrun: bool = False,
     ) -> tuple[Optional[int], Optional["backends.ResourceHandle"]]:
         from sky import backends, launch, stream_and_get
-        from sky.utils import common_utils
+
+        # Backward compatibility for SkyPilot 0.10.3+
+        # dump_yaml_str moved from sky.utils.common_utils to yaml_utils
+        try:
+            from sky.utils import yaml_utils
+        except ImportError:
+            from sky.utils import common_utils as yaml_utils
 
         task_yml = os.path.join(self.job_dir, "skypilot_task.yml")
         with open(task_yml, "w+") as f:
-            f.write(common_utils.dump_yaml_str(task.to_yaml_config()))
+            f.write(yaml_utils.dump_yaml_str(task.to_yaml_config()))
 
         backend = backends.CloudVmRayBackend()
         if num_nodes:
@@ -411,7 +446,7 @@ cd /nemo_run/code
                 idle_minutes_to_autostop=self.idle_minutes_to_autostop,
                 down=self.autodown,
                 fast=True,
-                # retry_until_up=retry_until_up,
+                retry_until_up=self.retry_until_up,
                 # clone_disk_from=clone_disk_from,
             )
         )

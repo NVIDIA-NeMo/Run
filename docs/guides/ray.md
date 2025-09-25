@@ -30,7 +30,7 @@ categories: ["guides"]
 
 The two helpers share a uniform API; the selected executor determines whether NeMo Run uses the Ray operator for Kubernetes or a Slurm job under the hood.
 
-```mermaid
+```{mermaid}
 classDiagram
     RayCluster <|-- KubeRayCluster
     RayCluster <|-- SlurmRayCluster
