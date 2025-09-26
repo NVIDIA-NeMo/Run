@@ -123,7 +123,7 @@ with run.Experiment() as exp:
 
 Track metadata, capture artifacts, and reproduce results with confidence across environments.
 
-### Metadata Tracking
+### Track Metadata
 
 NeMo Run automatically captures comprehensive experiment metadata:
 
@@ -212,7 +212,7 @@ NeMo Run supports Ray across multiple execution environments:
 - **Interactive Development**: Long-lived clusters for iterative workflows
 - **Batch Processing**: Ephemeral clusters for one-off jobs
 
-### Multi-Node Training
+### Train Across Multiple Nodes
 
 ```python
 # Multi-node PyTorch distributed training with Ray
@@ -239,7 +239,7 @@ config = run.Config(
 
 Package code and resources reproducibly using strategies suited to your repository layout and tooling.
 
-### Packaging Strategies
+### Choose Packaging Strategies
 
 NeMo Run supports multiple packaging strategies for reproducible execution:
 
@@ -311,7 +311,7 @@ Connect to ML frameworks, cloud platforms, and monitoring stacks using consisten
 - **Azure**: Azure VMs, AKS, and ML Services integration
 - **Multi-Cloud**: SkyPilot integration for multi-cloud execution
 
-### Monitoring and Observability
+### Monitor and Observe
 
 - **TensorBoard**: Manual TensorBoard integration for experiment tracking
 - **MLflow**: Manual MLflow integration for experiment management

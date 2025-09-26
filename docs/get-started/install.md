@@ -111,13 +111,13 @@ Use these commands to explore the available command-line entry points.
 After installation, you can access NeMo Run via:
 
 ```bash
-# Using the nemorun command
+# Use the nemorun command
 nemorun --help
 
-# Using the nemo command
+# Use the nemo command
 nemo --help
 
-# Using Python module
+# Use the Python module
 python -m nemo_run --help
 ```
 

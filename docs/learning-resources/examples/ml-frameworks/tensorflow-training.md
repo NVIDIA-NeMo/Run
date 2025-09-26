@@ -10,7 +10,7 @@ modality: "text-only"
 
 (tensorflow-training)=
 
-# TensorFlow Training with NeMo Run
+# Train with TensorFlow Using NeMo Run
 
 Complete example of training TensorFlow models with NeMo Run, including distributed training, custom architectures, and production workflows.
 
@@ -202,7 +202,7 @@ with run.Experiment("tensorflow_training") as experiment:
 
 Scale beyond the basics with distributed strategies and custom training loops. These patterns help you adapt NeMo Run to advanced TensorFlow workflows while keeping execution portable.
 
-### Distributed Training
+### Train with Distributed Strategy
 
 ```python
 import tensorflow as tf
@@ -263,7 +263,7 @@ with run.Experiment("distributed_tensorflow_training") as experiment:
     experiment.run()
 ```
 
-### Custom Training Loop
+### Write a Custom Training Loop
 
 ```python
 @tf.function
@@ -337,7 +337,7 @@ with run.Experiment("custom_tensorflow_training") as experiment:
 
 Persist trained models and execute in repeatable environments. These examples demonstrate saving/loading with Keras and running on NeMo Run executors for consistency.
 
-### Model Saving and Loading
+### Save and Load Models
 
 ```python
 def save_and_load_model(model_config: ModelConfig, training_config: TrainingConfig):

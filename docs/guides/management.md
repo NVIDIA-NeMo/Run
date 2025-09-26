@@ -80,7 +80,7 @@ Check the status of an experiment using the `status` method:
 exp.status()
 ```
 
-This method displays the status of each task in the experiment. The following sample output comes from the experiment status in [hello_scripts.py](../../../examples/hello-world/hello_scripts.py):
+This method displays the status of each task in the experiment. The following sample output comes from the experiment status in [hello_scripts.py](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_scripts.py):
 
 ```bash
 Experiment Status for experiment_with_scripts_1730761155

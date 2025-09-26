@@ -316,7 +316,7 @@ python script.py train_with_optimizer plugins=my_plugin
 python script.py train_with_optimizer plugins=plugin_list plugins[0].some_arg=50
 ```
 
-## Troubleshooting
+## Troubleshoot
 
 Use these tips to diagnose common CLI issues quickly and apply targeted fixes.
 

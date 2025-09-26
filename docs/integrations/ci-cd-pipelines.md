@@ -149,7 +149,7 @@ jobs:
         "
 ```
 
-### Automated Model Training Pipeline
+### Automate Model Training Pipeline
 
 ```yaml
 # .github/workflows/automated-training.yml
@@ -237,10 +237,11 @@ test:
   image: python:3.10
   script:
     - pip install git+https://github.com/NVIDIA-NeMo/Run.git
-    - python -c "
+    - |
+      python - <<'PY'
       import nemo_run as run
       print('✅ NeMo Run tests passed')
-    "
+      PY
   only:
     - merge_requests
     - main
@@ -255,7 +256,8 @@ train:
   script:
     - apt-get update && apt-get install -y python3-pip
     - pip install git+https://github.com/NVIDIA-NeMo/Run.git
-    - python3 -c "
+    - |
+      python3 - <<'PY'
       import nemo_run as run
 
       def train_function():
@@ -267,7 +269,7 @@ train:
       with run.Experiment('gitlab_training') as experiment:
           experiment.add(config, name='training')
           experiment.run()
-      "
+      PY
   only:
     - main
 ```
@@ -552,7 +554,7 @@ def run_ci_experiment(experiment_name, config):
         experiment.run()
 ```
 
-### Automated Testing
+### Automate Testing
 
 ```python
 # test_automation.py
@@ -586,7 +588,7 @@ if __name__ == "__main__":
     test_experiment()
 ```
 
-### Error Handling
+### Handle Errors
 
 ```python
 # ci_error_handling.py
@@ -630,7 +632,7 @@ When integrating NeMo Run with CI/CD pipelines:
 
 (ci-cd-troubleshooting)=
 
-## Troubleshooting
+## Troubleshoot
 
 Use these tips and commands to diagnose common CI issues and keep pipelines healthy.
 

@@ -4,9 +4,9 @@ A comprehensive Sphinx extension for conditional content rendering based on rele
 
 ## Features
 
-### Multi-Level Content Gating
+### Gate Content at Multiple Levels
 - **Document Level**: Filter entire documents via frontmatter
-- **Toctree Level**: Conditional toctrees with global and per-entry filtering  
+- **Toctree Level**: Conditional toctrees with global and per-entry filtering
 - **Directive Level**: Conditional grid cards and other directives
 - **Content Level**: Conditional text sections and arbitrary content blocks
 
@@ -18,7 +18,7 @@ A comprehensive Sphinx extension for conditional content rendering based on rele
 
 ## Usage
 
-### 1. Document-Level Filtering
+### 1. Filter at the Document Level
 
 Add to document frontmatter:
 ```yaml
@@ -29,12 +29,12 @@ only: not ga
 
 This excludes the entire document when building with the `ga` tag.
 
-### 2. Toctree Filtering
+### 2. Filter Toctrees
 
 **Global condition (entire toctree):**
 ```rst
 ::::{toctree}
-:only: not ga  
+:only: not ga
 :hidden:
 :caption: Early Access Features
 
@@ -55,7 +55,7 @@ experimental.md :only: internal
 ::::
 ```
 
-### 3. Grid Card Filtering
+### 3. Filter Grid Cards
 
 ```rst
 :::{grid-item-card} EA Feature
@@ -65,7 +65,7 @@ This card only shows in EA builds.
 :::
 ```
 
-### 4. Content Section Filtering
+### 4. Filter Content Sections
 
 ```rst
 :::{conditional}
@@ -91,13 +91,13 @@ Or for inline content:
 :::
 ```
 
-## Building with Tags
+## Build with Tags
 
 ```bash
 # GA build (production)
 sphinx-build -t ga docs/ _build/ga/
 
-# EA build (early access)  
+# EA build (early access)
 sphinx-build -t ea docs/ _build/ea/
 
 # Internal build (all content)
@@ -110,7 +110,7 @@ sphinx-build docs/ _build/
 ## Condition Syntax
 
 - `ga` - Include only if `ga` tag present
-- `not ga` - Include only if `ga` tag NOT present  
+- `not ga` - Include only if `ga` tag NOT present
 - `ea` - Include only if `ea` tag present
 - `not ea` - Include only if `ea` tag NOT present
 - `internal` - Include only if `internal` tag present
@@ -124,7 +124,7 @@ Documents inherit `only` conditions from parent directory `index.md` files:
 feature-x/
 ├── index.md          # only: ea
 ├── tutorial.md       # inherits "only: ea"
-└── reference.md      # inherits "only: ea" 
+└── reference.md      # inherits "only: ea"
 ```
 
 ## Configuration
@@ -142,4 +142,4 @@ extensions = [
 - `__init__.py` - Main extension setup
 - `condition_evaluator.py` - Shared condition evaluation logic
 - `document_filter.py` - Document-level filtering
-- `conditional_directives.py` - Directive-level filtering (toctree, grid cards) 
+- `conditional_directives.py` - Directive-level filtering (toctree, grid cards)

@@ -50,6 +50,7 @@ extensions = [
     "ai_assistant",  # AI Assistant extension for intelligent search responses
     "swagger_plugin_for_sphinx",  # For Swagger API documentation
     "sphinxcontrib.mermaid",  # For Mermaid diagrams
+    "wcag_diagrams",  # WCAG-compliant diagram interactions
 ]
 
 templates_path = ["_templates"]

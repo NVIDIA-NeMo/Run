@@ -10,7 +10,7 @@ modality: "text-only"
 
 (pytorch-training)=
 
-# PyTorch Training with NeMo Run
+# Train with PyTorch Using NeMo Run
 
 Complete example of training PyTorch models with NeMo Run, including distributed training, custom architectures, and production workflows.
 
@@ -116,7 +116,7 @@ class DataConfig:
     pin_memory: bool = True
 ```
 
-### Step 2: Training Function
+### Step 2: Write the Training Function
 
 ```python
 def train_pytorch_model(
@@ -338,7 +338,7 @@ print(f"[Slurm] Final loss: {dist_summary['final_loss']:.4f}")
 
 Explore enhancements for larger training runs and complex workflows, including multi‑GPU setups, distributed strategies, experiment tracking, and more robust execution patterns.
 
-### Multi-GPU Training
+### Train with Multiple GPUs
 
 ```python
 def train_pytorch_distributed(
@@ -433,7 +433,7 @@ with open("pytorch_distributed_summary.json", "r") as f:
 print(f"[DDP] Final loss: {ddp_summary['final_loss']:.4f}")
 ```
 
-### Experiment Tracking
+### Track Experiments
 
 ```python
 import wandb
@@ -557,7 +557,7 @@ experiment_config = ExperimentConfig(
 experiment_config.validate()
 ```
 
-### 2. Error Handling
+### 2. Handle Errors
 
 ```python
 def robust_training(config):
@@ -575,7 +575,7 @@ def robust_training(config):
         return {"error": str(e)}
 ```
 
-### 3. Model Checkpointing
+### 3. Checkpoint Models
 
 ```python
 def train_with_checkpoints(config):

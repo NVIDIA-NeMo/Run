@@ -1,0 +1,106 @@
+.clickable-diagram {
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
+    border: 2px solid #4A90E2;
+    border-radius: 8px;
+    padding: 10px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.clickable-diagram:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+}
+
+.clickable-diagram:active {
+    transform: scale(0.98);
+}
+
+/* Modal styles for expanded view */
+.diagram-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+}
+
+.diagram-modal-content {
+    position: relative;
+    margin: 5% auto;
+    padding: 20px;
+    width: 90%;
+    max-width: 1200px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.diagram-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #666;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.diagram-modal-close:hover {
+    color: #333;
+}
+
+.diagram-modal img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.diagram-modal-description {
+    margin-top: 12px;
+    color: #444;
+    line-height: 1.5;
+}
+
+/* Hide auxiliary buttons (Copy / Explain / Ask AI) inside the diagram area and modal */
+#architecture-diagram .copybtn,
+.diagram-modal .copybtn,
+#architecture-diagram .ai-assistant-button,
+.diagram-modal .ai-assistant-button,
+#architecture-diagram .ai-explain-button,
+.diagram-modal .ai-explain-button,
+#architecture-diagram .ai-toolbar,
+.diagram-modal .ai-toolbar,
+#architecture-diagram .ai-btn,
+.diagram-modal .ai-btn {
+    display: none !important;
+}
+
+/* Ensure Mermaid diagrams render with transparent backgrounds */
+#architecture-mermaid .mermaid {
+    background-color: transparent !important;
+}
+#architecture-mermaid svg {
+    background-color: transparent !important;
+}
+
+/* Use a plain style for mermaid wrapper to avoid double backgrounds */
+.clickable-diagram.plain {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+}
+.clickable-diagram.plain:hover,
+.clickable-diagram.plain:active {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove edge label backgrounds (e.g., "Logs & Metrics", "Outputs") */
+#architecture-mermaid .mermaid .edgeLabel { background: transparent !important; }
+#architecture-mermaid .mermaid .edgeLabel rect { fill: transparent !important; }

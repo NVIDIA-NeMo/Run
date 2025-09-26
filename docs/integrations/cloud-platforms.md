@@ -10,7 +10,7 @@ modality: "text-only"
 
 (cloud-platforms)=
 
-# Cloud Platforms Integration
+# Integrate Cloud Platforms
 
 This guide covers integrating NeMo Run with popular cloud platforms to scale your ML experiments across distributed computing resources.
 
@@ -23,6 +23,7 @@ NeMo Run supports integration with major cloud providers:
 - **Google Cloud Platform (GCP)** - Compute Engine, GKE, Vertex AI
 - **Microsoft Azure** - Virtual Machines, AKS, Machine Learning
 - **NVIDIA DGX Cloud** - DGX Cloud clusters
+- **SkyPilot** - Multi-cloud execution layer (AWS, GCP, Azure, OCI)
 - **Kubernetes** - Any Kubernetes cluster
 - **Docker** - Containerized execution
 
@@ -48,7 +49,7 @@ ec2_executor = run.DockerExecutor(
     }
 )
 
-# Training function
+# Write the Training Function
 def train_on_ec2(model_config, dataset):
     model = model_config.build()
     # Training logic
@@ -69,7 +70,7 @@ with run.Experiment("ec2_training") as experiment:
 ```python
 import nemo_run as run
 
-# EKS cluster configuration using Docker executor
+# Configure the EKS Cluster Using the Docker Executor
 eks_executor = run.DockerExecutor(
     container_image="nvidia/pytorch:24.05-py3",
     num_gpus=1,
@@ -115,7 +116,7 @@ spot_executor = run.DockerExecutor(
     }
 )
 
-# Fault-tolerant training
+# Train with Fault Tolerance
 def fault_tolerant_training(model_config, dataset, checkpoint_path: str):
     # Load checkpoint if exists
     if os.path.exists(checkpoint_path):
@@ -159,7 +160,7 @@ gcp_executor = run.DockerExecutor(
     }
 )
 
-# Training function
+# Write the Training Function
 def train_on_gcp(model_config, dataset):
     model = model_config.build()
     # Training logic
@@ -220,7 +221,7 @@ azure_executor = run.DockerExecutor(
     }
 )
 
-# Training function
+# Write the Training Function
 def train_on_azure(model_config, dataset):
     model = model_config.build()
     # Training logic
@@ -279,7 +280,7 @@ dgx_executor = run.DGXCloudExecutor(
     image="nvidia/pytorch:24.05-py3"
 )
 
-# Training function
+# Write the Training Function
 def train_on_dgx(model_config, dataset):
     model = model_config.build()
     # Training logic
@@ -294,6 +295,40 @@ with run.Experiment("dgx_training") as experiment:
     )
     experiment.run()
 ```
+
+(cloud-skypilot)=
+## SkyPilot Integration
+
+Launch across multiple clouds with cost-aware scheduling and auto-resume using the SkyPilot executor.
+
+```python
+import nemo_run as run
+
+# SkyPilot executor for multi-cloud (configure your resources via SkyPilot)
+skypilot_executor = run.SkypilotExecutor(
+    # Example placeholders – set as appropriate for your SkyPilot setup
+    # resources={"accelerators": "A100:8", "region": "us-west"},
+)
+
+# Write the Training Function
+def train_with_skypilot(model_config, dataset):
+    model = model_config.build()
+    # Training logic
+    return model
+
+# Run on SkyPilot
+with run.Experiment("skypilot_training") as experiment:
+    experiment.add(
+        run.Partial(train_with_skypilot, model_config, dataset),
+        name="skypilot_training",
+        executor=skypilot_executor,
+    )
+    experiment.run()
+```
+
+Notes:
+- SkyPilot enables multi‑cloud execution (AWS, GCP, Azure, OCI) with spot/auto‑resume and data syncing.
+- Configure cluster resources and credentials per your SkyPilot environment.
 
 (cloud-k8s)=
 ## Kubernetes Integration
@@ -315,7 +350,7 @@ k8s_executor = run.DockerExecutor(
     }
 )
 
-# Training function
+# Write the Training Function
 def train_on_k8s(model_config, dataset):
     model = model_config.build()
     # Training logic
@@ -349,7 +384,7 @@ docker_executor = run.DockerExecutor(
     ]
 )
 
-# Training function
+# Write the Training Function
 def train_in_docker(model_config, dataset):
     model = model_config.build()
     # Training logic
@@ -492,7 +527,7 @@ run.run(
 )
 ```
 
-### Auto-scaling Configuration
+### Configure Auto-scaling
 
 ```python
 import nemo_run as run
@@ -576,12 +611,12 @@ run.run(
 ```
 
 (cloud-monitoring)=
-## Monitoring and Logging
+## Monitor and Log
 
 Add provider-specific monitoring to your runs and capture logs and metrics alongside experiments.
 
 (cloud-monitoring-specific)=
-### Cloud-Specific Monitoring
+### Monitor Cloud-Specific Signals
 
 ```python
 import nemo_run as run
@@ -617,7 +652,7 @@ def train_with_monitoring(model_config, dataset):
     logger.info("Training completed")
     return model
 
-# Run with monitoring
+# Run with Monitoring
 run.run(
     run.Partial(train_with_monitoring, model_config, dataset),
     executor=secure_executor

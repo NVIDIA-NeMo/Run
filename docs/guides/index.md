@@ -15,6 +15,7 @@ modality: "text-only"
 Comprehensive guides for mastering NeMo Run's core features and capabilities.
 
 (guides-what-youll-find)=
+
 ## What You'll Find Here
 
 This section contains comprehensive guides for mastering NeMo Run's core features and capabilities:
@@ -27,98 +28,100 @@ This section contains comprehensive guides for mastering NeMo Run's core feature
 - **Troubleshooting Guide** with comprehensive debugging and problem resolution techniques
 
 (guides-overview)=
+
 ## Guides Overview
 
-::::::{grid} 1 2 3 3
-:::gutter: 2 2 2 2
+::::{grid} 1 2 2 2
+:gutter: 2 2 2 2
 
-:::::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
-:::link: configuration
-:::link-type: doc
-:::link-alt: Configuration guide
-:::class-body: text-center
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
+:link: configuration
+:link-type: doc
+:link-alt: Configuration guide
+:class-body: text-center
 
 Advanced configuration patterns with type-safe configurations, complex parameter management, and Fiddle integration for AI developers.
 
 +++
 {bdg-primary}`Configuration` {bdg-secondary}`Type Safety`
-:::::
+:::
 
-:::::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Launch Workloads
-:::link: execution
-:::link-type: doc
-:::link-alt: Launch Workloads guide
-:::class-body: text-center
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Launch Workloads
+:link: execution
+:link-type: doc
+:link-alt: Launch Workloads guide
+:class-body: text-center
 
 Launch workloads across local, Docker, Slurm, and cloud platforms with unified task management.
 
 +++
 {bdg-warning}`Launch` {bdg-secondary}`Multi-Environment`
-:::::
+:::
 
-:::::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI
-:::link: cli
-:::link-type: doc
-:::link-alt: CLI guide
-:::class-body: text-center
+:::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI
+:link: cli
+:link-type: doc
+:link-alt: CLI guide
+:class-body: text-center
 
 Run experiments from the command line with type-safe overrides, file-based configs, and executor selection.
 
 +++
 {bdg-primary}`CLI` {bdg-secondary}`Command Line`
-:::::
+:::
 
-:::::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-:::link: management
-:::link-type: doc
-:::link-alt: Management guide
-:::class-body: text-center
+:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
+:link: management
+:link-type: doc
+:link-alt: Management guide
+:class-body: text-center
 
 Experiment lifecycle management with task orchestration, metadata tracking, and reproducibility features.
 
 +++
 {bdg-info}`Management` {bdg-secondary}`Experiments`
-:::::
+:::
 
-:::::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Package Code for Deployment
-:::link: packaging
-:::link-type: doc
-:::link-alt: Package Code for Deployment
-:::class-body: text-center
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Package Code for Deployment
+:link: packaging
+:link-type: doc
+:link-alt: Package Code for Deployment
+:class-body: text-center
 
 Code packaging strategies including GitArchive, Pattern, and Hybrid packagers for reproducible remote execution.
 
 +++
 {bdg-success}`Packaging` {bdg-secondary}`Deployment`
-:::::
+:::
 
-:::::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
-:::link: ray
-:::link-type: doc
-:::link-alt: Ray Clusters and Jobs
-:::class-body: text-center
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
+:link: ray
+:link-type: doc
+:link-alt: Ray Clusters and Jobs
+:class-body: text-center
 
 Distributed computing with Ray clusters and jobs on Kubernetes and Slurm environments for scalable ML workflows.
 
 +++
 {bdg-warning}`Distributed` {bdg-secondary}`Ray`
-:::::
+:::
 
-:::::{grid-item-card} {octicon}`bug;1.5em;sd-mr-1` Troubleshooting
-:::link: troubleshooting
-:::link-type: doc
-:::link-alt: Troubleshooting guide
-:::class-body: text-center
+:::{grid-item-card} {octicon}`bug;1.5em;sd-mr-1` Troubleshooting
+:link: troubleshooting
+:link-type: doc
+:link-alt: Troubleshooting guide
+:class-body: text-center
 
 Comprehensive debugging and problem resolution for common issues, error messages, and advanced debugging techniques.
 
 +++
 {bdg-danger}`Debugging` {bdg-secondary}`Support`
+:::
+
 :::::
 
-::::::
-
 (guides-learning-path)=
+
 ## Recommended Learning Path
 
 We recommend following these guides in order for the best learning experience:

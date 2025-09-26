@@ -10,7 +10,7 @@ modality: "text-only"
 
 (ml-frameworks)=
 
-# ML Frameworks Integration
+# Integrate ML Frameworks
 
 This guide covers integrating NeMo Run with popular Machine Learning frameworks to streamline your ML workflows.
 
@@ -228,7 +228,7 @@ with run.Experiment("sklearn_training") as experiment:
 Configure and train gradient boosting models using NeMo Run for reproducible execution.
 
 (integrations-ml-xgboost-config)=
-### Gradient Boosting Configuration
+### Configure Gradient Boosting
 
 ```python
 import nemo_run as run

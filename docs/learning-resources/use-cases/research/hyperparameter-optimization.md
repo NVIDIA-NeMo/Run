@@ -543,10 +543,10 @@ def cached_optimization():
     return study
 ```
 
-## Monitoring and Debugging
+## Monitor and Debug
 Track progress and diagnose failed trials.
 
-### 1. Optimization Progress Monitoring
+### 1. Monitor Optimization Progress
 
 ```python
 def monitor_optimization_progress(study: optuna.Study):
@@ -566,7 +566,7 @@ def monitor_optimization_progress(study: optuna.Study):
     )
 ```
 
-### 2. Debugging Failed Trials
+### 2. Debug Failed Trials
 
 ```python
 def debug_failed_trials(study: optuna.Study):

@@ -198,7 +198,7 @@ This demonstrates how NeMo Run can:
 - Compare different configurations
 - Organize results by experiment name
 
-## Understanding the Concepts
+## Understand the Concepts
 
 Learn the core primitives used throughout NeMo Run.
 
@@ -254,7 +254,7 @@ Now that you've completed your first experiment, you're ready to explore:
 3. **[Examples](../examples/index.md)** - See more complex examples
 4. **[Reference](../../references/index)** - Explore the complete API
 
-## Troubleshooting
+## Troubleshoot
 
 Fix common issues you may encounter while following this tutorial.
 

@@ -165,7 +165,7 @@ The extension uses an improved asset management pattern:
 - **Path Resolution**: Proper path resolution for CSS and JavaScript files
 - **Error Handling**: Graceful handling of missing assets
 
-## Styling
+## Apply Styles
 
 The extension includes comprehensive CSS styling that:
 - Integrates with NVIDIA theme colors
@@ -194,4 +194,4 @@ The extension gracefully handles:
 - **Caching**: Reduces redundant API calls
 - **Request throttling**: Prevents excessive requests during typing
 - **Asynchronous loading**: Non-blocking AI analysis
-- **Fallback UI**: Maintains functionality when AI is unavailable 
+- **Fallback UI**: Maintains functionality when AI is unavailable

@@ -32,7 +32,7 @@ Model deployment is a critical phase in the ML lifecycle that requires careful p
 - Performance comparison
 - Automated winner selection
 
-### Performance Monitoring
+### Monitor Performance
 
 - Real-time performance metrics
 - Model drift detection

@@ -1,0 +1,112 @@
+## WCAG Rules for Docs (MyST + Sphinx)
+
+Purpose: Ensure documentation meets WCAG 2.1/2.2 AA without breaking Sphinx-Design grid cards or MyST builds. These rules encode the accessibility changes implemented in this repo and how to apply them consistently.
+
+### Scope
+- Applies to files under `docs/` using MyST Markdown and Sphinx-Design.
+- Focus areas: link purpose clarity, keyboard operability, dialog (modal) semantics, code block labeling, images alt text, and page metadata.
+- Compatibility: All patterns here are verified with MyST/Sphinx and the existing theme/extensions in this repo.
+
+### Core Rules
+1) Grid cards must expose a descriptive link name
+- Add `:link-alt:` to each `grid-item-card` so the anchor has a clear accessible name.
+- Do not change grid syntax like `:grid`, `:gutter`, or card structure.
+
+Example (safe):
+```markdown
+::::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
+:link: references/index
+:link-type: doc
+:link-alt: CLI, configuration, and API reference for NeMo Run
+:class-body: text-center
+
+Access CLI reference, configuration docs, FAQs, and complete API documentation.
+::::
+```
+
+2) Avoid ambiguous link text
+- Replace links like “click here”/“here” with descriptive text that clarifies destination and purpose.
+- Keep relative links correct for the current file’s location.
+
+Example:
+```markdown
+- Bad: See details [here](guides/execution.md#packagers)
+- Good: See the [Packagers section of the Execution guide](../guides/execution.md#packagers)
+```
+
+3) Label all code fences with a language
+- Use `bash`, `python`, `yaml`, etc. This improves semantics and navigation for assistive tech.
+- Keep existing content unchanged; only add the language tag when missing.
+
+4) Architecture diagram modal is an accessible dialog (docs/about/architecture.md)
+- Trigger element: make focusable and operable via keyboard.
+  - Add `tabindex="0"`, `role="button"`, concise `aria-label`.
+  - Support Enter/Space to open.
+- Modal container: give dialog semantics and keyboard support.
+  - Add `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to the modal title element’s `id`.
+  - Move focus to the close button on open; trap `Tab`/`Shift+Tab` within modal; close on `Escape` and outside click; restore focus to the trigger on close.
+  - Use a button element for the close control with `aria-label="Close dialog"`.
+- Do not override focus outlines; preserve default focus visibility.
+- Do not set `role="img"` on the trigger or use nonstandard attributes like `aria-description`.
+
+Minimal JS pattern used in this repo (excerpt):
+```javascript
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+modal.setAttribute('aria-labelledby', 'architecture-modal-title');
+// ...
+const closeBtn = modal.querySelector('.diagram-modal-close');
+closeBtn.focus();
+modal.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') return;
+  const focusables = getFocusable(modal);
+  if (focusables.length === 0) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+// Esc/outside click → close, restore focus to opener
+```
+
+5) Page metadata
+- Each page should include a short, meaningful `description` in the frontmatter. Most pages already comply.
+
+6) Images
+- Provide meaningful `alt` text for informative images.
+- Use empty `alt=""` for purely decorative images.
+- Prefer Markdown image syntax. If using HTML `<img>`, ensure `alt` is present.
+
+### WCAG Mapping
+- 2.4.4 Link Purpose (In Context): `:link-alt:` on grid cards; descriptive link text.
+- 2.1.1 Keyboard: focusable triggers and Enter/Space activation; Tab navigation.
+- 2.4.7 Focus Visible: do not remove focus outlines.
+- 1.1.1 Non-text Content: image `alt` text guidance.
+- 1.3.1 Info and Relationships / 4.1.2 Name, Role, Value: `role="dialog"`, `aria-modal`, `aria-labelledby`.
+
+### Implementation Notes (Repo-specific)
+- Sphinx-Design supports `:link-alt:`; already used in `docs/guides/index.md` and `docs/references/index.md`. Extending usage is safe.
+- Do not alter grid structure (`::::{grid}`, `::::{grid-item-card}`, `:gutter:`). Only add `:link-alt:` lines.
+- Raw `<style>`/`<script>` blocks are already used in `docs/about/architecture.md`; adding ARIA/focus code is safe for MyST/Sphinx.
+- Keep relative links correct when replacing ambiguous link text (e.g., from `guides/...` to `../guides/...` if needed).
+
+### Review Checklist (PRs touching docs)
+- Grid cards: `:link-alt:` present and descriptive on all new/edited cards.
+- Links: No ambiguous link text like “here”, “click here”, “this”.
+- Code fences: All triple-backticks declare a language.
+- Modals: If creating/altering a modal, ensure dialog semantics and focus handling per rules above.
+- Images: All `<img>` or Markdown images have appropriate `alt` text.
+- Frontmatter: `description` present and meaningful.
+- Build: `make docs-html` (or project target) produces no Sphinx errors; verify affected pages render correctly.
+
+### Quick Test Commands
+```bash
+# Build HTML
+make docs-html
+
+# Live preview
+make docs-live
+```
+
+### Changelog
+- 2025-09-26: Initial version codifying implemented WCAG changes for this repo.

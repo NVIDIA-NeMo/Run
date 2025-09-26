@@ -35,6 +35,7 @@ Browse featured examples across frameworks and real‑world scenarios.
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` PyTorch Training
 :link: ml-frameworks/pytorch-training
 :link-type: doc
+:link-alt: PyTorch training example
 :class-body: text-center
 
 Complete PyTorch training pipeline with distributed training, custom models, and production workflows.
@@ -46,6 +47,7 @@ Complete PyTorch training pipeline with distributed training, custom models, and
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` TensorFlow Training
 :link: ml-frameworks/tensorflow-training
 :link-type: doc
+:link-alt: TensorFlow training example
 :class-body: text-center
 
 Complete TensorFlow training pipeline with distributed strategies, custom training loops, and model persistence.
@@ -57,6 +59,7 @@ Complete TensorFlow training pipeline with distributed strategies, custom traini
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` LLM Fine-tuning
 :link: real-world/llm-fine-tuning
 :link-type: doc
+:link-alt: LLM fine-tuning example
 :class-body: text-center
 
 Real-world LLM fine-tuning with LoRA, QLoRA, instruction tuning, and production deployment.
@@ -82,7 +85,7 @@ Before running examples, ensure you have:
 - Access to computing resources (local, cloud, or cluster)
 - Basic understanding of the target framework or platform
 
-### Running Examples
+### Run Examples
 
 1. **Choose an example** that matches your use case
 2. **Install dependencies** as specified in the example

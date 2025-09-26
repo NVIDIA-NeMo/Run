@@ -28,7 +28,7 @@ This tutorial will teach you how to:
 - Understanding of {doc}`Your First Experiment <first-experiment>`
 - Understanding of {doc}`Configuring Your First Model <configuring-your-first-model>`
 
-## Step 1: Basic Model Saving
+## Step 1: Save a Basic Model
 
 Let's start with a simple example of saving a model:
 
@@ -126,7 +126,7 @@ pred = loaded_model.predict(test_input)
 print(f"Loaded model inference OK. Output shape: {pred.shape}")
 ```
 
-## Step 2: Saving with NeMo Run Configurations
+## Step 2: Save with NeMo Run Configurations
 
 Now let's learn how to save both models and their configurations:
 
@@ -370,7 +370,7 @@ with run.Experiment("advanced_saving_experiment") as experiment:
         print(f"  Metadata: {loaded_model.metadata}")
 ```
 
-## Step 4: Model Checkpointing
+## Step 4: Checkpoint Models
 
 Learn how to save model checkpoints during training:
 

@@ -679,7 +679,7 @@ seed = 42
 debug = false
 ```
 
-## Configuration Loading and Saving
+## Load and Save Configuration
 
 Load and save configurations using file extensions to pick the format automatically. The serializer preserves structure across formats, so you can edit a YAML file and load it back as a buildable `Config`/`Partial` with no manual conversions.
 

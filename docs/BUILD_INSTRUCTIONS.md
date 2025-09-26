@@ -67,7 +67,7 @@ uv run --active python -m sphinx -b html . _build/html
 ### **Alternative Build Commands**
 
 ```bash
-# Using Makefile (from project root)
+# Use Makefile (from project root)
 make docs-html
 
 # Strict build (fails on warnings)
@@ -134,7 +134,7 @@ After successful build:
 - **Main index**: `docs/_build/html/nemo-run-index.html`
 - **Search page**: `docs/_build/html/search.html`
 
-## **Troubleshooting**
+## **Troubleshoot**
 
 ### **If uv is not found:**
 
@@ -272,7 +272,7 @@ The documentation build system is designed to be cross-platform and handles Wind
 
 ## **Setting Up Documentation in a New Repository**
 
-### **Copying docs-example-project-setup to Your GitHub Repo**
+### **Copy docs-example-project-setup to Your GitHub Repo**
 
 If you want to set up documentation in a new GitHub repository using the NVIDIA docs-example-project-setup as a template:
 
@@ -284,7 +284,7 @@ git clone https://gitlab-master.nvidia.com/llane/docs-example-project-setup.git
 # Navigate to the cloned directory
 cd docs-example-project-setup
 
-# Create a new branch for staging/sandbox testing
+# Create a new branch for staging/sandbox tests
 git checkout -b staging
 ```
 
@@ -302,7 +302,7 @@ cd archive
 git clone https://gitlab-master.nvidia.com/llane/docs-example-project-setup.git
 cd ..
 
-# This archive directory serves as your starting point reference
+# Use this archive directory as your starting reference
 # You can always go back to see the original structure and content
 ```
 
@@ -384,7 +384,7 @@ git commit -m "Add documentation setup from NVIDIA docs-example-project-setup"
 git push origin staging
 ```
 
-### **Important Notes for Sandbox Testing**
+### **Important Notes for Sandbox Tests**
 
 - **Environment Variables**: You may need to set up environment variables for features like Pinecone integration
 - **Custom Extensions**: Some extensions may require additional configuration or API keys
@@ -392,10 +392,10 @@ git push origin staging
 - **Content Structure**: Modify the documentation structure to match your project's needs
 - **Build Testing**: Test all build environments (internal, ga, ea, draft) to ensure they work correctly
 
-### **Troubleshooting New Setup**
+### **Troubleshoot New Setup**
 
 ```bash
-# If build fails due to missing dependencies
+# If the build fails due to missing dependencies
 make docs-clean
 make docs-env
 make docs-html

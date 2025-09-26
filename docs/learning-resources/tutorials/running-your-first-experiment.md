@@ -28,7 +28,7 @@ This tutorial will teach you how to:
 - Understanding of {doc}`Your First Experiment <first-experiment>`
 - Understanding of {doc}`Configuring Your First Model <configuring-your-first-model>`
 
-## Step 1: Understanding Experiments
+## Step 1: Understand Experiments
 
 An experiment in NeMo Run is a collection of related runs that you want to execute together. Let's start with a simple example:
 
@@ -66,7 +66,7 @@ with run.Experiment("my_first_experiment") as experiment:
 print("Experiment completed!")
 ```
 
-## Step 2: Using Partial Functions
+## Step 2: Use Partial Functions
 
 `run.Partial` allows you to create functions with some parameters fixed. This is useful for creating variations of your training functions:
 
@@ -127,7 +127,7 @@ large_result = fdl.build(large_network)()
 print(f"Large network result: {large_result}")
 ```
 
-## Step 3: Combining Config and Partial
+## Step 3: Combine Config and Partial
 
 Now let's combine what we learned about `Config` with `Partial` and `Experiment`:
 

@@ -36,6 +36,7 @@ Use the cards below to jump into focused guides with runnable examples and recom
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` ML Frameworks
 :link: ml-frameworks
 :link-type: doc
+:link-alt: ML frameworks integration guide
 :class-body: text-center
 
 Integrate with PyTorch, TensorFlow, JAX, and other popular ML frameworks for seamless model training and deployment.
@@ -47,9 +48,10 @@ Integrate with PyTorch, TensorFlow, JAX, and other popular ML frameworks for sea
 :::{grid-item-card} {octicon}`cloud;1.5em;sd-mr-1` Cloud Platforms
 :link: cloud-platforms
 :link-type: doc
+:link-alt: Cloud platforms integration guide
 :class-body: text-center
 
-Connect with AWS, GCP, Azure, and other cloud providers for scalable distributed computing and deployment.
+Connect with AWS, GCP, Azure, Kubernetes, plus SkyPilot (multi‑cloud) and DGX Cloud for scalable distributed computing and deployment.
 
 +++
 {bdg-warning}`Cloud` {bdg-secondary}`Deployment`
@@ -58,6 +60,7 @@ Connect with AWS, GCP, Azure, and other cloud providers for scalable distributed
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Monitoring Tools
 :link: monitoring-tools
 :link-type: doc
+:link-alt: Monitoring tools integration guide
 :class-body: text-center
 
 Integrate with WandB, MLflow, TensorBoard, and other monitoring solutions for comprehensive experiment tracking.
@@ -69,6 +72,7 @@ Integrate with WandB, MLflow, TensorBoard, and other monitoring solutions for co
 :::{grid-item-card} {octicon}`git-branch;1.5em;sd-mr-1` CI/CD Pipelines
 :link: ci-cd-pipelines
 :link-type: doc
+:link-alt: CI/CD pipelines integration guide
 :class-body: text-center
 
 Automate experiment execution with GitHub Actions, GitLab CI, Jenkins, and other CI/CD platforms.

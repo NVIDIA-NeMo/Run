@@ -10,7 +10,7 @@ modality: "text-only"
 
 (llm-fine-tuning)=
 
-# LLM Fine-tuning with NeMo Run
+# Fine-tune an LLM with NeMo Run
 
 Complete real-world example of fine-tuning large language models using NeMo Run, including instruction tuning, parameter-efficient methods, and production deployment.
 
@@ -181,7 +181,7 @@ def setup_model_and_lora(
 
     return model
 
-# Training function
+# Write the Training Function
 def train_llm_model(
     model_config: ModelConfig,
     training_config: TrainingConfig,
@@ -431,7 +431,7 @@ def setup_qlora_model(
 
     return model
 
-# QLoRA training
+# Train with QLoRA
 def train_qlora_model(
     model_config: ModelConfig,
     training_config: TrainingConfig,
@@ -491,7 +491,7 @@ with run.Experiment("qlora_fine_tuning") as experiment:
     experiment.run()
 ```
 
-## Monitoring and Logging
+## Monitor and Log
 
 Track training with structured logs and external tools for visibility.
 
@@ -527,7 +527,7 @@ def monitor_training(
 
     return model, trainer
 
-# Monitored training experiment
+# Run a Monitored Training Experiment
 with run.Experiment("monitored_llm_training") as experiment:
     experiment.add(
         run.Partial(

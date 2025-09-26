@@ -20,6 +20,7 @@ Welcome to the NeMo Run documentation! NeMo Run is NVIDIA's Python framework for
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` About NeMo Run
 :link: about/index
 :link-type: doc
+:link-alt: About NeMo Run overview page
 :class-body: text-center
 
 Explore NeMo Run's core concepts, architecture, key features, and benefits for ML experiment management.
@@ -31,6 +32,7 @@ Explore NeMo Run's core concepts, architecture, key features, and benefits for M
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Get Started
 :link: get-started/index
 :link-type: doc
+:link-alt: Quickstart and installation for NeMo Run
 :class-body: text-center
 
 Set up your environment and run your first ML experiment with NeMo Run's type-safe configuration and multi-environment execution.
@@ -42,6 +44,7 @@ Set up your environment and run your first ML experiment with NeMo Run's type-sa
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Learning Resources
 :link: learning-resources/index
 :link-type: doc
+:link-alt: Tutorials, examples, and use cases
 :class-body: text-center
 
 Learn NeMo Run with step-by-step tutorials, working examples, and real-world use cases for ML experiment management.
@@ -53,6 +56,7 @@ Learn NeMo Run with step-by-step tutorials, working examples, and real-world use
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
 :link: references/index
 :link-type: doc
+:link-alt: CLI, configuration, and API reference
 :class-body: text-center
 
 Access CLI reference, configuration docs, FAQs, and complete API documentation.
@@ -73,6 +77,7 @@ Access CLI reference, configuration docs, FAQs, and complete API documentation.
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
 :link: guides/ray
 :link-type: doc
+:link-alt: Ray integration guide
 
 Scale ML experiments across multiple GPUs and nodes with Ray clusters.
 
@@ -83,6 +88,7 @@ Scale ML experiments across multiple GPUs and nodes with Ray clusters.
 :::{grid-item-card} {octicon}`plus;1.5em;sd-mr-1` Configuration Management
 :link: guides/configuration
 :link-type: doc
+:link-alt: Configuration management guide
 
 Master type-safe configuration with Fiddle integration for robust experiment setup.
 
@@ -93,6 +99,7 @@ Master type-safe configuration with Fiddle integration for robust experiment set
 :::{grid-item-card} {octicon}`zap;1.5em;sd-mr-1` Launch Workloads
 :link: guides/execution
 :link-type: doc
+:link-alt: Launch workloads guide
 
 Launch workloads across local, Docker, Slurm, and cloud environments.
 
@@ -103,6 +110,7 @@ Launch workloads across local, Docker, Slurm, and cloud environments.
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
 :link: references/index
 :link-type: doc
+:link-alt: CLI, configuration, and API reference
 
 Access CLI reference, configuration docs, FAQs, and complete API documentation.
 

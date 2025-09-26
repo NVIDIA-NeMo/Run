@@ -30,7 +30,7 @@ ML pipelines in NeMo Run provide comprehensive tools for building, deploying, an
 - State persistence
 - Rollback capabilities
 
-### Monitoring and Alerting
+### Monitor and Alert
 - Real-time pipeline monitoring
 - Performance metrics tracking
 - Automated alerting systems

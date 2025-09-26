@@ -10,7 +10,7 @@ modality: "text-only"
 
 (about-overview)=
 
-# About NeMo Run
+# NeMo Run Overview
 
 NeMo Run is NVIDIA's Python framework for configuring, executing, and managing ML experiments across diverse computing environments.
 
@@ -86,6 +86,7 @@ Explore NeMo Run's powerful features for configuration, execution, and experimen
 :::::
 
 (about-key-benefits)=
+
 ## Key Benefits
 
 Understand how NeMo Run’s design translates into practical advantages for configuration, execution, and experiment management.
@@ -121,6 +122,7 @@ Comprehensive experiment tracking and management capabilities:
 - **Artifact Management**: Comprehensive artifact collection and storage
 
 (about-target-users)=
+
 ## Target Users
 
 NeMo Run serves multiple roles across ML teams. Use this guide to see how each audience benefits.
@@ -131,6 +133,7 @@ NeMo Run serves multiple roles across ML teams. Use this guide to see how each a
 - **Data Scientists**: Prototype and scale ML experiments with minimal infrastructure overhead
 
 (about-use-cases)=
+
 ## Use Cases
 
 Explore common scenarios where NeMo Run streamlines workflows, from research to production operations.
@@ -163,6 +166,7 @@ For teams managing ML infrastructure:
 - **Cost Management**: Efficient resource utilization across platforms
 
 (about-key-technologies)=
+
 ## Key Technologies
 
 NeMo Run is built on a robust technology stack designed for performance and flexibility:
@@ -174,11 +178,12 @@ NeMo Run is built on a robust technology stack designed for performance and flex
 - **Slurm**: High-performance computing scheduler for cluster execution
 
 (about-competitive-advantages)=
+
 ## Competitive Advantages
 
 See how NeMo Run compares to traditional scripts and other ML frameworks across configuration, execution, and tracking.
 
-### vs. Traditional Scripts
+### Comparison with Traditional Scripts
 
 | Traditional Approach | NeMo Run |
 |---------------------|----------|
@@ -188,7 +193,7 @@ See how NeMo Run compares to traditional scripts and other ML frameworks across 
 | Difficult reproducibility | One-command reproduction |
 | Limited scalability | Built-in scaling capabilities |
 
-### vs. Other ML Frameworks
+### Comparison with Other ML Frameworks
 
 **Configuration Management**
 
@@ -206,6 +211,7 @@ See how NeMo Run compares to traditional scripts and other ML frameworks across 
 - **Others**: Often requires external tracking systems
 
 (about-technical-advantages)=
+
 ## Technical Advantages
 
 Dive deeper into architectural, performance, and developer-experience benefits that improve day‑to‑day work.
@@ -232,6 +238,7 @@ Dive deeper into architectural, performance, and developer-experience benefits t
 - **Documentation**: Automatic documentation generation from configurations
 
 (about-real-world-impact)=
+
 ## Real-World Impact
 
 These outcomes highlight how NeMo Run improves productivity, operations, and collaboration in practice.
@@ -256,12 +263,3 @@ These outcomes highlight how NeMo Run improves productivity, operations, and col
 - **Knowledge Transfer**: Easy sharing of experiments and configurations
 - **Code Reuse**: Reusable configuration components and patterns
 - **Documentation**: Automatic documentation from configurations
-
-```{toctree}
-:caption: About NeMo Run
-:maxdepth: 2
-:hidden:
-purpose
-key-features
-architecture
-```

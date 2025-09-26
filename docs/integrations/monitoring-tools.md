@@ -10,7 +10,7 @@ modality: "text-only"
 
 (monitoring-tools)=
 
-# Monitoring Tools Integration
+# Integrate Monitoring Tools
 
 This guide covers integrating NeMo Run with popular monitoring and experiment tracking tools to enhance your ML workflow observability.
 
@@ -32,7 +32,7 @@ NeMo Run integrates with leading monitoring and experiment tracking platforms:
 Track metrics, parameters, and artifacts for NeMo Run experiments using Weights & Biases.
 
 (monitoring-wandb-basic)=
-### Basic WandB Integration
+### Integrate WandB (Basic)
 
 ```python
 import nemo_run as run
@@ -47,7 +47,7 @@ model_config = run.Config(
     torch.nn.Linear(128, 10)
 )
 
-# Training function with WandB
+# Write a Training Function with WandB
 def train_with_wandb(model_config, dataset, project_name: str, run_name: str):
     # Initialize WandB
     wandb.init(project=project_name, name=run_name)
@@ -85,7 +85,7 @@ with run.Experiment("wandb_training") as experiment:
 ```
 
 (monitoring-wandb-advanced)=
-### Advanced WandB Integration
+### Integrate WandB (Advanced)
 
 ```python
 import nemo_run as run
@@ -107,7 +107,7 @@ class WandBConfig:
             config=config or {}
         )
 
-# Comprehensive training with WandB
+# Train with Comprehensive WandB Integration
 def comprehensive_wandb_training(
     model_config,
     dataset,
@@ -180,12 +180,12 @@ with run.Experiment("comprehensive_training") as experiment:
 ```
 
 (monitoring-mlflow)=
-## MLflow Integration
+## Integrate MLflow
 
 Log parameters, metrics, and models to MLflow for experiment management and reproducibility.
 
 (monitoring-mlflow-basic)=
-### Basic MLflow Integration
+### Integrate MLflow (Basic)
 
 ```python
 import nemo_run as run
@@ -200,7 +200,7 @@ model_config = run.Config(
     torch.nn.Linear(128, 10)
 )
 
-# Training function with MLflow
+# Write a Training Function with MLflow
 def train_with_mlflow(model_config, dataset, experiment_name: str):
     # Set MLflow experiment
     mlflow.set_experiment(experiment_name)
@@ -236,7 +236,7 @@ with run.Experiment("mlflow_training") as experiment:
 ```
 
 (monitoring-mlflow-advanced)=
-### Advanced MLflow Integration
+### Integrate MLflow (Advanced)
 
 ```python
 import nemo_run as run
@@ -302,12 +302,12 @@ with run.Experiment("comprehensive_mlflow") as experiment:
 ```
 
 (monitoring-tensorboard)=
-## TensorBoard Integration
+## Integrate TensorBoard
 
 Visualize scalars, histograms, graphs, and images from NeMo Run experiments with TensorBoard.
 
 (monitoring-tensorboard-basic)=
-### Basic TensorBoard Integration
+### Integrate TensorBoard (Basic)
 
 ```python
 import nemo_run as run
@@ -322,7 +322,7 @@ model_config = run.Config(
     torch.nn.Linear(128, 10)
 )
 
-# Training function with TensorBoard
+# Write a Training Function with TensorBoard
 def train_with_tensorboard(model_config, dataset, log_dir: str):
     # Initialize TensorBoard writer
     writer = SummaryWriter(log_dir)
@@ -362,7 +362,7 @@ with run.Experiment("tensorboard_training") as experiment:
 ```
 
 (monitoring-tensorboard-advanced)=
-### Advanced TensorBoard Integration
+### Integrate TensorBoard (Advanced)
 
 ```python
 import nemo_run as run
@@ -437,12 +437,12 @@ with run.Experiment("advanced_tensorboard") as experiment:
 ```
 
 (monitoring-neptune)=
-## Neptune Integration
+## Integrate Neptune
 
 Record metrics and artifacts with Neptune for both quick runs and comprehensive experiments.
 
 (monitoring-neptune-basic)=
-### Basic Neptune Integration
+### Integrate Neptune (Basic)
 
 ```python
 import nemo_run as run
@@ -457,7 +457,7 @@ model_config = run.Config(
     torch.nn.Linear(128, 10)
 )
 
-# Training function with Neptune
+# Write a Training Function with Neptune
 def train_with_neptune(model_config, dataset, project_name: str, api_token: str):
     # Initialize Neptune
     neptune.init(project=project_name, api_token=api_token)
@@ -494,7 +494,7 @@ with run.Experiment("neptune_training") as experiment:
 ```
 
 (monitoring-neptune-advanced)=
-### Advanced Neptune Integration
+### Integrate Neptune (Advanced)
 
 ```python
 import nemo_run as run
@@ -553,12 +553,12 @@ with run.Experiment("advanced_neptune") as experiment:
 ```
 
 (monitoring-comet)=
-## Comet Integration
+## Integrate Comet
 
 Log parameters, metrics, and assets to Comet for experiment tracking and model management.
 
 (monitoring-comet-basic)=
-### Basic Comet Integration
+### Integrate Comet (Basic)
 
 ```python
 import nemo_run as run
@@ -573,7 +573,7 @@ model_config = run.Config(
     torch.nn.Linear(128, 10)
 )
 
-# Training function with Comet
+# Write a Training Function with Comet
 def train_with_comet(model_config, dataset, project_name: str, workspace: str):
     # Initialize Comet
     experiment = comet_ml.Experiment(project_name=project_name, workspace=workspace)
@@ -610,7 +610,7 @@ with run.Experiment("comet_training") as experiment:
 ```
 
 (monitoring-comet-advanced)=
-### Advanced Comet Integration
+### Integrate Comet (Advanced)
 
 ```python
 import nemo_run as run
@@ -683,12 +683,12 @@ with run.Experiment("advanced_comet") as experiment:
 ```
 
 (monitoring-unified)=
-## Unified Monitoring Integration
+## Integrate Unified Monitoring
 
 Combine multiple monitoring tools behind a single logging interface to standardize metrics and parameters.
 
 (monitoring-unified-multitool)=
-### Multi-Tool Integration
+### Integrate Multiple Tools
 
 ```python
 import nemo_run as run
@@ -823,12 +823,12 @@ with run.Experiment("unified_training") as experiment:
 ```
 
 (monitoring-custom)=
-## Custom Monitoring Integration
+## Integrate Custom Monitoring
 
 Build lightweight logging for bespoke environments using simple files or APIs.
 
 (monitoring-custom-building)=
-### Building Your Own Monitoring
+### Build Your Own Monitoring
 
 ```python
 import nemo_run as run
@@ -905,12 +905,12 @@ with run.Experiment("custom_monitoring") as experiment:
 ```
 
 (monitoring-best-practices)=
-## Best Practices for Monitoring Integration
+## Best Practices for Monitoring
 
 Adopt consistent logging patterns and safe error handling across tools to keep production runs robust.
 
 (monitoring-best-consistent)=
-### 1. Consistent Logging
+### 1. Log Consistently
 
 ```python
 import nemo_run as run
@@ -948,7 +948,7 @@ def train_with_consistent_logging(model_config, dataset, monitoring):
 ```
 
 (monitoring-best-error)=
-### 2. Error Handling
+### 2. Handle Errors
 
 ```python
 import nemo_run as run
