@@ -10,14 +10,7 @@ categories: ["guides"]
 
 NeMo Run provides flexible packaging strategies to deploy your code to remote execution environments. Understanding these packaging options is crucial for ensuring your experiments run correctly across different computing environments.
 
-## Overview
 
-Packaging determines how your local code is transferred to remote execution environments. NeMo Run supports multiple packaging strategies:
-
-- **Base Packager**: Simple pass-through packaging
-- **Git Archive Packager**: Version-controlled code packaging
-- **Pattern Packager**: File pattern-based packaging
-- **Hybrid Packager**: Combine multiple packaging strategies
 
 ## Packaging Support Matrix
 

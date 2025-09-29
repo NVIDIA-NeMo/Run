@@ -8,9 +8,10 @@ content_type: "tutorial"
 modality: "text-only"
 ---
 
+(manage-multiple-runs)=
 (running-your-first-experiment)=
 
-# Run Your First Experiment
+# Manage Multiple Runs with Experiment and Partial
 
 Learn how to use NeMo Run's `Experiment` and `Partial` classes to organize and run your machine learning experiments.
 
@@ -25,8 +26,8 @@ This tutorial will teach you how to:
 ## Prerequisites
 
 - Basic Python knowledge
-- Understanding of {doc}`Your First Experiment <first-experiment>`
-- Understanding of {doc}`Configuring Your First Model <configuring-your-first-model>`
+- Understanding of {doc}`Your First Experiment <run-first-experiment>`
+- Understanding of {doc}`Configure Your First Model <configure-your-first-model>`
 
 ## Step 1: Understand Experiments
 
@@ -378,7 +379,7 @@ print("Architecture comparison completed")
 
 Now that you understand how to run experiments with NeMo Run, you can:
 
-1. Learn about {doc}`Saving and Loading Models <saving-and-loading-models>`
+1. Learn about {doc}`Saving and Loading Models <save-and-load-models>`
 2. Explore {doc}`Hyperparameter Tuning Basics <hyperparameter-tuning-basics>`
 3. Try the [Experiment Tracking](../use-cases/collaboration/experiment-tracking.md) tutorial
 

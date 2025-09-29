@@ -17,6 +17,7 @@ Learn how to use NeMo Run's `Config` class to create type-safe, reusable configu
 ## Overview
 
 This tutorial will teach you how to:
+
 - Use `run.Config` to create type-safe configurations
 - Configure models with different parameters
 - Build and use configured objects
@@ -25,7 +26,7 @@ This tutorial will teach you how to:
 ## Prerequisites
 
 - Basic Python knowledge
-- Understanding of {doc}`Your First Experiment <first-experiment>`
+- Understanding of {doc}`Your First Experiment <run-first-experiment>`
 
 ## Step 1: Basic Configuration
 
@@ -285,13 +286,14 @@ nn_config = run.Config(
 
 Now that you understand how to configure models with NeMo Run, you can:
 
-1. Learn about {doc}`Running Your First Experiment <running-your-first-experiment>`
-2. Explore {doc}`Saving and Loading Models <saving-and-loading-models>`
+1. Learn about {doc}`Manage Multiple Runs with Experiment and Partial <manage-multiple-runs>`
+2. Explore {doc}`Saving and Loading Models <save-and-load-models>`
 3. Try the {doc}`Hyperparameter Tuning Basics <hyperparameter-tuning-basics>` tutorial
 
 ## Summary
 
 In this tutorial, you learned:
+
 - How to use `run.Config` to create type-safe configurations
 - Different patterns for configuring models and functions
 - How to validate configurations

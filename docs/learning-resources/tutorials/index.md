@@ -91,10 +91,10 @@ Optimize model performance with grid search, random search, and Bayesian optimiz
 
 We recommend following these tutorials in order for the best learning experience:
 
-1. **{doc}`Your First Experiment <first-experiment>`** - Start here to learn the basics of NeMo Run installation, configuration, and execution
-2. **{doc}`Configure Your First Model <configuring-your-first-model>`** - Learn how to use `run.Config` for type-safe model configuration
-3. **{doc}`Run Your First Experiment <running-your-first-experiment>`** - Master `run.Experiment` and `run.Partial` for organized experiment management
-4. **{doc}`Save and Load Models <saving-and-loading-models>`** - Learn model persistence with proper serialization and metadata tracking
+1. **{doc}`Run Your First Experiment <run-first-experiment>`** - Start here to learn the basics of NeMo Run installation, configuration, and execution
+2. **{doc}`Configure Your First Model <configure-your-first-model>`** - Learn how to use `run.Config` for type-safe model configuration
+3. **{doc}`Manage Multiple Runs <manage-multiple-runs>`** - Master `run.Experiment` and `run.Partial` for organized experiment management
+4. **{doc}`Save and Load Models <save-and-load-models>`** - Learn model persistence with proper serialization and metadata tracking
 5. **{doc}`Perform Hyperparameter Tuning <hyperparameter-tuning-basics>`** - Master optimization techniques with grid search, random search, and Bayesian optimization
 
 ## Prerequisites
@@ -117,9 +117,9 @@ If you encounter issues while following these tutorials:
 :hidden:
 :maxdepth: 2
 
-first-experiment
-configuring-your-first-model
-running-your-first-experiment
-saving-and-loading-models
+run-first-experiment
+configure-your-first-model
+manage-multiple-runs
+save-and-load-models
 hyperparameter-tuning-basics
 ```

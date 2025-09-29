@@ -17,6 +17,7 @@ Learn how to perform hyperparameter tuning using NeMo Run's experiment managemen
 ## Overview
 
 This tutorial will teach you how to:
+
 - Perform grid search hyperparameter optimization
 - Use random search for hyperparameter tuning
 - Implement custom search strategies
@@ -26,9 +27,9 @@ This tutorial will teach you how to:
 ## Prerequisites
 
 - Basic Python knowledge
-- Understanding of {doc}`Your First Experiment <first-experiment>`
-- Understanding of {doc}`Configuring Your First Model <configuring-your-first-model>`
-- Understanding of {doc}`Running Your First Experiment <running-your-first-experiment>`
+- Understanding of {doc}`Your First Experiment <run-first-experiment>`
+- Understanding of {doc}`Configure Your First Model <configure-your-first-model>`
+- Understanding of {doc}`Manage Multiple Runs with Experiment and Partial <manage-multiple-runs>`
 
 ## Step 1: Basic Grid Search
 
@@ -671,6 +672,7 @@ Now that you understand hyperparameter tuning with NeMo Run, you can:
 ## Summary
 
 In this tutorial, you learned:
+
 - How to perform grid search hyperparameter optimization
 - How to implement random search for more efficient tuning
 - How to create Bayesian optimization strategies

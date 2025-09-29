@@ -276,5 +276,5 @@ with run.Experiment("script_execution") as exp:
 Continue with deeper guides and production-oriented workflows.
 
 - Explore [Configuration Guide](../guides/configuration) for advanced patterns
-- Learn [Launch Workloads](../guides/execution) for multi-environment setups
+- Learn [Execute Workloads](../guides/execution) for multi-environment setups
 - Check [Guides](../guides/index) for production workflows

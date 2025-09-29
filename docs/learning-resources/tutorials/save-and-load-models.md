@@ -8,6 +8,7 @@ content_type: "tutorial"
 modality: "text-only"
 ---
 
+(save-and-load-models)=
 (saving-and-loading-models)=
 
 # Save and Load Models
@@ -25,8 +26,8 @@ This tutorial will teach you how to:
 ## Prerequisites
 
 - Basic Python knowledge
-- Understanding of {doc}`Your First Experiment <first-experiment>`
-- Understanding of {doc}`Configuring Your First Model <configuring-your-first-model>`
+- Understanding of {doc}`Your First Experiment <run-first-experiment>`
+- Understanding of {doc}`Configure Your First Model <configure-your-first-model>`
 
 ## Step 1: Save a Basic Model
 

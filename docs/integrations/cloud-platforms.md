@@ -15,6 +15,7 @@ modality: "text-only"
 This guide covers integrating NeMo Run with popular cloud platforms to scale your ML experiments across distributed computing resources.
 
 (cloud-supported-platforms)=
+
 ## Supported Cloud Platforms
 
 NeMo Run supports integration with major cloud providers:
@@ -28,11 +29,20 @@ NeMo Run supports integration with major cloud providers:
 - **Docker** - Containerized execution
 
 (cloud-aws)=
+
 ## AWS Integration
 
 Run on EC2 and EKS using DockerExecutor-based setups. Supply credentials via environment variables and choose GPU-enabled instances as needed.
 
+### Prerequisites
+
+- AWS CLI configured, or set environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`
+- IAM permissions for required services (EC2/EKS/S3 as applicable)
+- For EKS: `KUBECONFIG` points to the target cluster; GPU nodes available; NVIDIA device plugin installed
+- Adequate GPU and instance quotas in the target region
+
 (cloud-aws-ec2)=
+
 ### EC2 Instance Configuration
 
 ```python
@@ -139,11 +149,20 @@ run.run(
 ```
 
 (cloud-gcp)=
+
 ## Google Cloud Platform (GCP) Integration
 
 Use Compute Engine and GKE to execute NeMo Run experiments, authenticating via service accounts and environment variables.
 
+### Prerequisites
+
+- Google Cloud CLI is authenticated, or set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON
+- Required IAM roles (for example, Compute Admin, GKE Admin as needed)
+- For GKE: `KUBECONFIG` points to the cluster; GPU node pool with NVIDIA drivers/device plugin
+- Adequate GPU quota in the target region/zone
+
 (cloud-gcp-compute)=
+
 ### Compute Engine Configuration
 
 ```python
@@ -199,11 +218,19 @@ run.run(
 ```
 
 (cloud-azure)=
+
 ## Microsoft Azure Integration
 
 Target Azure VMs and AKS clusters with DockerExecutor, passing Azure credentials through environment variables.
 
+### Prerequisites
+
+- Azure CLI logged in, or set environment variables: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
+- Appropriate roles on the subscription/resource group
+- For AKS: valid kubeconfig; GPU node pool available; NVIDIA device plugin installed
+
 (cloud-azure-vm)=
+
 ### Azure Virtual Machines
 
 ```python
@@ -238,6 +265,7 @@ with run.Experiment("azure_training") as experiment:
 ```
 
 (cloud-azure-aks)=
+
 ### AKS (Azure Kubernetes Service) Integration
 
 ```python
@@ -261,11 +289,18 @@ run.run(
 ```
 
 (cloud-dgx)=
+
 ## NVIDIA DGX Cloud Integration
 
 Submit experiments to DGX Cloud clusters using the dedicated executor and your project and cluster identifiers.
 
+### Prerequisites
+
+- Access to a DGX Cloud project and cluster; known `project_id` and `cluster_id`
+- Account quotas/credits enabled and permission to pull required container images
+
 (cloud-dgx-config)=
+
 ### DGX Cloud Configuration
 
 ```python
@@ -297,9 +332,17 @@ with run.Experiment("dgx_training") as experiment:
 ```
 
 (cloud-skypilot)=
+
 ## SkyPilot Integration
 
 Launch across multiple clouds with cost-aware scheduling and auto-resume using the SkyPilot executor.
+
+### Prerequisites
+
+```bash
+pip install "nemo_run[skypilot]"  # or: nemo_run[skypilot-all]
+sky check
+```
 
 ```python
 import nemo_run as run
@@ -308,6 +351,7 @@ import nemo_run as run
 skypilot_executor = run.SkypilotExecutor(
     # Example placeholders – set as appropriate for your SkyPilot setup
     # resources={"accelerators": "A100:8", "region": "us-west"},
+    cloud="kubernetes",
 )
 
 # Write the Training Function
@@ -327,15 +371,25 @@ with run.Experiment("skypilot_training") as experiment:
 ```
 
 Notes:
+
 - SkyPilot enables multi‑cloud execution (AWS, GCP, Azure, OCI) with spot/auto‑resume and data syncing.
+- Run `sky check` to validate your setup and credentials.
 - Configure cluster resources and credentials per your SkyPilot environment.
 
 (cloud-k8s)=
+
 ## Kubernetes Integration
 
 Run against generic Kubernetes clusters by pointing DockerExecutor at a kubeconfig and GPU-enabled nodes.
 
+### Prerequisites
+
+- `KUBECONFIG` pointing to the target cluster
+- GPU nodes available and NVIDIA device plugin installed
+- Permissions to create pods/resources in the target namespace
+
 (cloud-k8s-generic)=
+
 ### Generic Kubernetes Configuration
 
 ```python
@@ -364,11 +418,19 @@ run.run(
 ```
 
 (cloud-docker)=
+
 ## Docker Integration
 
 Containerize local and remote runs with DockerExecutor, mounting volumes and selecting GPU resources.
 
+### Prerequisites
+
+- Docker Engine installed; NVIDIA Container Toolkit configured (verify `nvidia-smi` inside a container)
+- Ability to pull the chosen container image (e.g., `nvidia/pytorch:24.05-py3`)
+- For GPU use, host has compatible NVIDIA drivers installed
+
 (cloud-docker-local)=
+
 ### Local Docker Execution
 
 ```python
@@ -401,11 +463,13 @@ with run.Experiment("docker_training") as experiment:
 ```
 
 (cloud-multicloud)=
+
 ## Multi-Cloud Configuration
 
 Select executors dynamically based on the active cloud provider to reuse the same experiment code anywhere.
 
 (cloud-multicloud-envaware)=
+
 ### Environment-Aware Configuration
 
 ```python
@@ -484,11 +548,13 @@ with run.Experiment("gcp_training") as experiment:
 ```
 
 (cloud-cost)=
+
 ## Cost Optimization Strategies
 
 Use spot instances and auto-scaling to reduce costs while maintaining throughput and reliability.
 
 (cloud-cost-spot)=
+
 ### Spot Instance Management
 
 ```python
@@ -561,11 +627,13 @@ run.run(
 ```
 
 (cloud-security)=
+
 ## Security Best Practices
 
 Manage credentials securely with environment variables and least-privilege access across providers.
 
 (cloud-security-credentials)=
+
 ### Credential Management
 
 ```python
@@ -611,11 +679,13 @@ run.run(
 ```
 
 (cloud-monitoring)=
+
 ## Monitor and Log
 
 Add provider-specific monitoring to your runs and capture logs and metrics alongside experiments.
 
 (cloud-monitoring-specific)=
+
 ### Monitor Cloud-Specific Signals
 
 ```python
@@ -660,6 +730,7 @@ run.run(
 ```
 
 (cloud-next-steps)=
+
 ## Next Steps
 
 Explore related integration guides to extend your cloud workflows with NeMo Run.

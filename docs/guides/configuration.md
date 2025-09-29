@@ -224,4 +224,4 @@ bash ./scripts/run_pretraining.sh
 ```
 
 Run the configured instance in any supported environment via executors.
-See the [Launch Workloads](./execution.md) guide to learn how to define executors.
+See the [Execute Workloads](./execution.md) guide to learn how to define executors.

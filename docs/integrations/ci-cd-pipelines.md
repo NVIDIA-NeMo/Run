@@ -10,7 +10,7 @@ modality: "text-only"
 
 (ci-cd-pipelines)=
 
-# CI/CD Pipeline Integration
+# Integrate CI/CD Pipelines
 
 This guide covers integrating NeMo Run with Continuous Integration/Continuous Deployment (CI/CD) pipelines to automate ML experiment execution, testing, and deployment.
 

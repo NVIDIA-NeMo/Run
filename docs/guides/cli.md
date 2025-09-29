@@ -1,4 +1,4 @@
-# Run Experiments
+# Run Experiments with CLI
 
 NeMo Run CLI is a Python-based command-line tool designed to efficiently configure and execute machine learning experiments. It provides a type-safe, Python-centric alternative to argparse and Hydra, streamlining workflows from prototyping to scaling across diverse environments.
 

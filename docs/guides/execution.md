@@ -1,5 +1,5 @@
 (guides-execute-workloads)=
-# Launch Workloads
+# Execute Workloads
 
 Execute NeMo Run workloads consistently on local machines and remote clusters. This guide covers requirements, executors, launchers, packagers, and workflows from single tasks to full experiments.
 
@@ -52,91 +52,14 @@ Supported launchers:
 - `torchrun` or `run.Torchrun`: Launch the task using `torchrun`. See the `Torchrun` class for configuration options. Use `executor.launcher = "torchrun"` or `executor.launcher = Torchrun(...)`.
 - `ft` or `run.core.execution.FaultTolerance`: Launch the task using NVIDIA fault-tolerant launcher. See the `FaultTolerance` class for configuration options. Use `executor.launcher = "ft"` or `executor.launcher = FaultTolerance(...)`.
 
-:::{note}
+::::{note}
 The launcher may not work well with `run.Script`. Report issues at [https://github.com/NVIDIA-NeMo/Run/issues](https://github.com/NVIDIA-NeMo/Run/issues).
-:::
+::::
 
 (guides-packagers)=
 ## Packagers
 
-The packager support matrix is as follows:
-
-| Executor | Packagers |
-|----------|----------|
-| `LocalExecutor` | `run.Packager` |
-| `DockerExecutor` | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-| `SlurmExecutor` | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-| `SkypilotExecutor` | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-| `DGXCloudExecutor` | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-| `LeptonExecutor`   | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
-
-`run.Packager` is a pass-through base packager.
-
-`run.GitArchivePackager` uses `git archive` to package your code. Refer to the API reference for `run.GitArchivePackager` to see the exact mechanics of packaging using `git archive`.
-At a high level, it works in the following way:
-
-1. `base_path` = `git rev-parse --show-toplevel`.
-2. Optionally define a `subpath` as `base_path/GitArchivePackager.subpath` by setting the `subpath` attribute on `GitArchivePackager`.
-3. `cd base_path && git archive --format=tar.gz --output={output_file} {GitArchivePackager.subpath}:{subpath}`
-
-This extracted tar file becomes the working directory for your job. As an example, given the following directory structure with `subpath="src"`:
-
-```text
-- docs
-- src
-  - your_library
-- tests
-```
-
-Your working directory at the time of execution will look like:
-
-```text
-- your_library
-```
-
-If you execute a Python function, this working directory is automatically included in your Python path.
-
-:::{note}
-`git archive` doesn't package uncommitted changes. A future update may add support for including uncommitted changes while honoring `.gitignore`.
-:::
-
-`run.PatternPackager` uses a pattern to package your code. It is useful for packaging code that is not under version control. For example, if you have a directory structure like this:
-
-```text
-- docs
-- src
-  - your_library
-```
-
-You can use `run.PatternPackager` to package your code by specifying `include_pattern` as `src/**` and `relative_path` as `os.getcwd()`. This packages the entire `src` directory. The command used to list the files to package is:
-
-```bash
-# relative_include_pattern = os.path.relpath(self.include_pattern, self.relative_path)
-cd {relative_path} && find {relative_include_pattern} -type f
-```
-
-`run.HybridPackager` allows combining multiple packagers into a single archive. This is useful when you need to package different parts of your project using different strategies (e.g., a git archive for committed code and a pattern packager for generated artifacts).
-
-Each sub-packager in the `sub_packagers` dictionary is assigned a key, which becomes the directory name under which its contents are placed in the final archive. If `extract_at_root` is set to `True`, all contents are placed directly in the root of the archive, potentially overwriting files if names conflict.
-
-Example:
-
-```python
-import nemo_run as run
-import os
-
-hybrid_packager = run.HybridPackager(
-    sub_packagers={
-        "code": run.GitArchivePackager(subpath="src"),
-        "configs": run.PatternPackager(include_pattern="configs/*.yaml", relative_path=os.getcwd())
-    }
-)
-
-# Usage with an executor:
-# executor.packager = hybrid_packager
-```
-
-This would create an archive where the contents of `src` are under a `code/` directory and matched `configs/*.yaml` files are under a `configs/` directory.
+Each executor uses a packager to transfer your code to the execution environment. See Package Code for Deployment for packager details and examples.
 
 (guides-define-executors)=
 ## Define Executors
@@ -269,9 +192,9 @@ As the examples show, defining executors in Python offers flexibility. You can m
 
 The `DGXCloudExecutor` integrates with a DGX Cloud cluster's Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
 
-:::{warning}
+::::{warning}
 The `DGXCloudExecutor` is supported only when launching experiments from a pod running on the DGX Cloud cluster itself. This launching pod must have access to a Persistent Volume Claim (PVC) where the experiment and job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
-:::
+::::
 
 Here's an example configuration:
 

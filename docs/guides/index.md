@@ -8,6 +8,9 @@ content_type: "guide"
 modality: "text-only"
 ---
 
+<!-- markdownlint-disable MD041 -->
+<!-- cspell:words markdownlint cspell octicon bdg Slurm cli configs youll mle -->
+
 (guides)=
 
 # About NeMo Run Guides
@@ -21,7 +24,7 @@ Comprehensive guides for mastering NeMo Run's core features and capabilities.
 This section contains comprehensive guides for mastering NeMo Run's core features and capabilities:
 
 - **Configuration Guide** with type-safe configuration patterns, validation, and Fiddle integration
-- **Launch Workloads Guide** covering multi-environment execution across local, Docker, Slurm, and cloud platforms
+- **Execute Workloads Guide** covering multi-environment execution across local, Docker, Slurm, and cloud platforms
 - **Management Guide** for experiment lifecycle management, metadata tracking, and reproducibility
 - **Packaging Guide** with code deployment strategies for reproducible remote execution
 - **Ray Integration Guide** for distributed computing with Ray clusters and jobs
@@ -46,16 +49,28 @@ Advanced configuration patterns with type-safe configurations, complex parameter
 {bdg-primary}`Configuration` {bdg-secondary}`Type Safety`
 :::
 
-:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Launch Workloads
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execute Workloads
 :link: execution
 :link-type: doc
-:link-alt: Launch Workloads guide
+:link-alt: Execute Workloads guide
 :class-body: text-center
 
 Launch workloads across local, Docker, Slurm, and cloud platforms with unified task management.
 
 +++
-{bdg-warning}`Launch` {bdg-secondary}`Multi-Environment`
+{bdg-warning}`Execute` {bdg-secondary}`Multi-Environment`
+:::
+
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Package Code for Deployment
+:link: packaging
+:link-type: doc
+:link-alt: Package Code for Deployment
+:class-body: text-center
+
+Code packaging strategies including GitArchive, Pattern, and Hybrid packagers for reproducible remote execution.
+
++++
+{bdg-success}`Packaging` {bdg-secondary}`Deployment`
 :::
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI
@@ -80,18 +95,6 @@ Experiment lifecycle management with task orchestration, metadata tracking, and 
 
 +++
 {bdg-info}`Management` {bdg-secondary}`Experiments`
-:::
-
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Package Code for Deployment
-:link: packaging
-:link-type: doc
-:link-alt: Package Code for Deployment
-:class-body: text-center
-
-Code packaging strategies including GitArchive, Pattern, and Hybrid packagers for reproducible remote execution.
-
-+++
-{bdg-success}`Packaging` {bdg-secondary}`Deployment`
 :::
 
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
@@ -124,12 +127,12 @@ Comprehensive debugging and problem resolution for common issues, error messages
 
 ## Recommended Learning Path
 
-We recommend following these guides in order for the best learning experience:
+- Follow the guides in this sequence for the best learning experience:
 
 1. **[Configuration](configuration.md)** - Type-safe experiment configuration with Fiddle integration
-2. **[Launch Workloads](execution.md)** - Multi-environment execution strategies and task management
-3. **[CLI](cli.md)** - Run experiments from the command line with type-safe overrides
-4. **[Management](management.md)** - Experiment tracking, metadata, and reproducibility
-5. **[Package Code for Deployment](packaging.md)** - Code deployment strategies for remote execution
+2. **[Execute Workloads](execution.md)** - Multi-environment execution strategies and task management
+3. **[Package Code for Deployment](packaging.md)** - Code deployment strategies for remote execution
+4. **[CLI](cli.md)** - Run experiments from the command line with type-safe overrides
+5. **[Management](management.md)** - Experiment tracking, metadata, and reproducibility
 6. **[Ray Integration](ray.md)** - Distributed computing capabilities (optional)
 7. **[Troubleshooting](troubleshooting.md)** - Debugging and problem resolution (as needed)
