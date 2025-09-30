@@ -194,9 +194,6 @@ run.run(config)
 run.run(config, executor=run.LocalExecutor())
 ```
 
-<!-- For multi-run management using run.Experiment and run.Partial, see: -->
-<!-- {doc}`Run Your First Experiment <running-your-first-experiment>` -->
-
 ## Next Steps
 
 Now that you've completed your first experiment, you're ready to explore:

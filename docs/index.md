@@ -14,168 +14,147 @@ Welcome to the NeMo Run documentation. This page provides a quick overview of th
 
 ## Quick Navigation
 
-:::::{grid} 1 2 2 2
-::gutter: 2 2 2 2
+:::: {grid} 1 2 2 2
+:gutter: 1 1 1 2
 
-::::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` About NeMo Run
-::link: about/index
-::link-type: doc
-::link-alt: About NeMo Run overview page
-::class-body: text-center
+::: {grid-item-card} {octicon}`gear;1.5em;sd-mr-1` About NeMo Run
+:link: about/index
+:link-type: doc
 
 Explore NeMo Run's core concepts, architecture, key features, and benefits for ML experiment management.
 
 +++
-:{bdg-secondary}`Overview` {bdg-secondary}`Concepts`
-::::
+{bdg-secondary}`Overview` {bdg-secondary}`Concepts`
+:::
 
-::::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Get Started
-::link: get-started/index
-::link-type: doc
-::link-alt: Quickstart and installation for NeMo Run
-::class-body: text-center
+::: {grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Get Started
+:link: get-started/index
+:link-type: doc
 
 Set up your environment and run your first ML experiment with NeMo Run's type-safe configuration and multi-environment execution.
 
 +++
-:{bdg-success}`Beginner` {bdg-secondary}`Setup`
-::::
+{bdg-success}`Beginner` {bdg-secondary}`Setup`
+:::
 
-::::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Learning Resources
-::link: learning-resources/index
-::link-type: doc
-::link-alt: Tutorials, examples, and use cases
-::class-body: text-center
+::: {grid-item-card} {octicon}`play;1.5em;sd-mr-1` Learning Resources
+:link: learning-resources/index
+:link-type: doc
 
 Learn NeMo Run with step-by-step tutorials, working examples, and real-world use cases for ML experiment management.
 
 +++
-:{bdg-primary}`Learning` {bdg-secondary}`Hands-on`
-::::
+{bdg-primary}`Learning` {bdg-secondary}`Hands-on`
+:::
 
-::::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Guides
-::link: guides/index
-::link-type: doc
-::link-alt: In-depth guides for NeMo Run
-::class-body: text-center
+::: {grid-item-card} {octicon}`book;1.5em;sd-mr-1` Guides
+:link: guides/index
+:link-type: doc
 
 Deep-dive guides for configuration, execution, CLI, management, packaging, Ray, and troubleshooting.
 
 +++
-:{bdg-primary}`Guides` {bdg-secondary}`How‑to`
-::::
+{bdg-primary}`Guides` {bdg-secondary}`How‑to`
+:::
 
-::::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` Integrations
-::link: integrations/index
-::link-type: doc
-::link-alt: Integrations overview
-::class-body: text-center
+::: {grid-item-card} {octicon}`code;1.5em;sd-mr-1` Integrations
+:link: integrations/index
+:link-type: doc
 
 Connect NeMo Run to ML frameworks, cloud platforms, monitoring tools, and CI/CD pipelines.
 
 +++
-:{bdg-info}`Integrations` {bdg-secondary}`Platforms`
-::::
+{bdg-info}`Integrations` {bdg-secondary}`Platforms`
+:::
 
-::::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
-::link: references/index
-::link-type: doc
-::link-alt: CLI, configuration, and API reference
-::class-body: text-center
+::: {grid-item-card} {octicon}`book;1.5em;sd-mr-1` References
+:link: references/index
+:link-type: doc
 
 Access CLI reference, configuration docs, FAQs, and complete API documentation.
 
 +++
-:{bdg-secondary}`Reference` {bdg-secondary}`Documentation`
+{bdg-secondary}`Reference` {bdg-secondary}`Documentation`
+:::
+
 ::::
-
-<!-- Removed duplicate References card -->
-
-::::::
 
 ## Key Resources
 
-:::::{grid} 1 2 2 2
-::gutter: 2 2 2 2
+:::: {grid} 1 2 2 2
+:gutter: 1 1 1 2
 
-::::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
-::link: guides/configuration
-::link-type: doc
-::link-alt: Configuration guide
+::: {grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
+:link: guides/configuration
+:link-type: doc
 
 Type-safe configuration patterns, validation, and Fiddle integration for robust experiment setup.
 
 +++
-:{bdg-primary}`Configuration` {bdg-secondary}`Type Safety`
-::::
+{bdg-primary}`Configuration` {bdg-secondary}`Type Safety`
+:::
 
-::::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execute Workloads
-::link: guides/execution
-::link-type: doc
-::link-alt: Execute Workloads guide
+::: {grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execute Workloads
+:link: guides/execution
+:link-type: doc
 
 Run across local, Docker, Slurm, Kubernetes, and cloud platforms with unified task management.
 
 +++
-:{bdg-warning}`Execute` {bdg-secondary}`Multi‑Environment`
-::::
+{bdg-warning}`Execute` {bdg-secondary}`Multi‑Environment`
+:::
 
-::::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI
-::link: guides/cli
-::link-type: doc
-::link-alt: CLI guide
+::: {grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI
+:link: guides/cli
+:link-type: doc
 
 Type-safe command-line usage with overrides, file-based configs, and executor selection.
 
 +++
-:{bdg-primary}`CLI` {bdg-secondary}`Commands`
-::::
+{bdg-primary}`CLI` {bdg-secondary}`Commands`
+:::
 
-::::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-::link: guides/management
-::link-type: doc
-::link-alt: Management guide
+::: {grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
+:link: guides/management
+:link-type: doc
 
 Experiment lifecycle management, metadata tracking, reproducibility, and task orchestration.
 
 +++
-:{bdg-info}`Management` {bdg-secondary}`Experiments`
-::::
+{bdg-info}`Management` {bdg-secondary}`Experiments`
+:::
 
-::::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
-::link: guides/packaging
-::link-type: doc
-::link-alt: Packaging guide
+::: {grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
+:link: guides/packaging
+:link-type: doc
 
 Code packaging strategies (GitArchive, Pattern, Hybrid) for reproducible remote execution.
 
 +++
-:{bdg-success}`Packaging` {bdg-secondary}`Deployment`
-::::
+{bdg-success}`Packaging` {bdg-secondary}`Deployment`
+:::
 
-::::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
-::link: guides/ray
-::link-type: doc
-::link-alt: Ray integration guide
+::: {grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
+:link: guides/ray
+:link-type: doc
 
 Distributed computing with Ray clusters and jobs on Kubernetes and Slurm.
 
 +++
-:{bdg-warning}`Distributed` {bdg-secondary}`Ray`
-::::
+{bdg-warning}`Distributed` {bdg-secondary}`Ray`
+:::
 
-::::{grid-item-card} {octicon}`bug;1.5em;sd-mr-1` Troubleshooting
-::link: guides/troubleshooting
-::link-type: doc
-::link-alt: Troubleshooting guide
+::: {grid-item-card} {octicon}`bug;1.5em;sd-mr-1` Troubleshooting
+:link: guides/troubleshooting
+:link-type: doc
 
 Debugging, common problems, and advanced problem resolution techniques.
 
 +++
-:{bdg-danger}`Debugging` {bdg-secondary}`Support`
-::::
+{bdg-danger}`Debugging` {bdg-secondary}`Support`
+:::
 
-:::::::
+::::
 
 ## Where to Go Next
 
@@ -185,7 +164,7 @@ Debugging, common problems, and advanced problem resolution techniques.
 
 ## Choose Your Path
 
-- **Researchers**: Start with [Your First Experiment](learning-resources/tutorials/first-experiment) → then try [Hyperparameter Tuning Basics](learning-resources/tutorials/hyperparameter-tuning-basics)
+- **Researchers**: Start with [Your First Experiment](learning-resources/tutorials/run-first-experiment) → then try [Hyperparameter Tuning Basics](learning-resources/tutorials/hyperparameter-tuning-basics)
 - **ML Engineers**: Go to [Configuration](guides/configuration), [Execute Workloads](guides/execution), and the [CLI](guides/cli)
 - **DevOps**: See [Cloud Platforms](integrations/cloud-platforms), [Packaging](guides/packaging), and [Management](guides/management)
 

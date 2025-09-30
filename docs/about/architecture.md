@@ -26,9 +26,8 @@ NeMo Run follows a three‑layer architecture with explicit responsibilities and
 
 In short, validated configurations flow into executors; executor runs emit logs and artifacts; and the management layer persists those outputs for analysis and exact reruns.
 
-:::{div}
+:::::{div} .clickable-diagram .plain
 :name: architecture-mermaid
-:class: clickable-diagram plain
 
 ```{mermaid}
 %%{init: {"theme": "base", "themeVariables": {"background":"transparent", "primaryColor":"#ffffff", "primaryTextColor":"#1f2937", "primaryBorderColor":"#d1d5db", "lineColor":"#4A90E2", "tertiaryColor":"#ffffff", "clusterBkg":"#ffffff", "clusterBorder":"#d1d5db", "edgeLabelBackground":"#ffffff", "fontSize":"14px", "fontFamily":"Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'"}}}%%
@@ -81,7 +80,7 @@ flowchart LR
 
 *Click the diagram to view it in full size*
 
-:::
+::::
 
 (arch-core-components)=
 

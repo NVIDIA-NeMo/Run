@@ -9,7 +9,6 @@ modality: "text-only"
 ---
 
 (manage-multiple-runs)=
-(running-your-first-experiment)=
 
 # Manage Multiple Runs with Experiment and Partial
 

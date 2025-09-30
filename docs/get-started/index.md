@@ -143,13 +143,13 @@ Follow this structured progression to master NeMo Run:
 
 1. Installation and Setup → [Installation Guide](install.md)
 2. First Experiment → [Quick Start Guide](quickstart.md)
-3. Basic Tutorial → [Your First Experiment](../learning-resources/tutorials/first-experiment.md)
-4. Configuration Tutorial → [Configure Your First Model](../learning-resources/tutorials/configuring-your-first-model.md)
+3. Basic Tutorial → [Your First Experiment](../learning-resources/tutorials/run-first-experiment.md)
+4. Configuration Tutorial → [Configure Your First Model](../learning-resources/tutorials/configure-your-first-model.md)
 
 ### Intermediate Path (2–4 weeks)
 
-1. Experiment Management → [Run Your First Experiment](../learning-resources/tutorials/running-your-first-experiment.md)
-2. Model Persistence → [Save and Load Models](../learning-resources/tutorials/saving-and-loading-models.md)
+1. Experiment Management → [Manage Multiple Runs](../learning-resources/tutorials/manage-multiple-runs.md)
+2. Model Persistence → [Save and Load Models](../learning-resources/tutorials/save-and-load-models.md)
 3. Hyperparameter Tuning → [Hyperparameter Tuning Basics](../learning-resources/tutorials/hyperparameter-tuning-basics.md)
 4. Framework Examples → [PyTorch Training](../learning-resources/examples/ml-frameworks/pytorch-training.md)
 

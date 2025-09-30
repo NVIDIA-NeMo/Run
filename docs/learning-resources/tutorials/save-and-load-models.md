@@ -9,7 +9,6 @@ modality: "text-only"
 ---
 
 (save-and-load-models)=
-(saving-and-loading-models)=
 
 # Save and Load Models
 

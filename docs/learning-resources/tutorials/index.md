@@ -23,6 +23,10 @@ Through these tutorials, you'll learn how to:
 - **Track and analyze experiment results** with comprehensive logging
 - **Deploy models to production** with scalable execution patterns
 
+## Explore the Hello World Tutorial Series
+
+Kick off with a friendly series of "Hello World" style tutorials to quickly grasp NeMo Run basics. These bite-sized guides focus on setup, configuration, and executing your first minimal workflows.
+
 ## Tutorial Overview
 
 Explore the tutorial catalog and pick a starting point.
@@ -31,7 +35,7 @@ Explore the tutorial catalog and pick a starting point.
 :gutter: 2 2 2 2
 
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Your First Experiment
-:link: first-experiment
+:link: run-first-experiment
 :link-type: doc
 :class-body: text-center
 
@@ -42,7 +46,7 @@ Start your NeMo Run journey with a simple ML experiment. Learn installation, bas
 :::
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configure Your First Model
-:link: configuring-your-first-model
+:link: configure-your-first-model
 :link-type: doc
 :class-body: text-center
 
@@ -53,7 +57,7 @@ Master type-safe configuration with `run.Config`. Learn dataclass integration, v
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Run Your First Experiment
-:link: running-your-first-experiment
+:link: manage-multiple-runs
 :link-type: doc
 :class-body: text-center
 
@@ -64,7 +68,7 @@ Organize experiments with `run.Experiment` and `run.Partial`. Learn experiment m
 :::
 
 :::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Save and Load Models
-:link: saving-and-loading-models
+:link: save-and-load-models
 :link-type: doc
 :class-body: text-center
 
@@ -87,16 +91,6 @@ Optimize model performance with grid search, random search, and Bayesian optimiz
 
 ::::
 
-## Tutorial Progression
-
-We recommend following these tutorials in order for the best learning experience:
-
-1. **{doc}`Run Your First Experiment <run-first-experiment>`** - Start here to learn the basics of NeMo Run installation, configuration, and execution
-2. **{doc}`Configure Your First Model <configure-your-first-model>`** - Learn how to use `run.Config` for type-safe model configuration
-3. **{doc}`Manage Multiple Runs <manage-multiple-runs>`** - Master `run.Experiment` and `run.Partial` for organized experiment management
-4. **{doc}`Save and Load Models <save-and-load-models>`** - Learn model persistence with proper serialization and metadata tracking
-5. **{doc}`Perform Hyperparameter Tuning <hyperparameter-tuning-basics>`** - Master optimization techniques with grid search, random search, and Bayesian optimization
-
 ## Prerequisites
 
 Confirm the basics before you begin.
@@ -104,6 +98,31 @@ Confirm the basics before you begin.
 - Basic Python knowledge
 - Familiarity with machine learning concepts
 - NeMo Run installed (see [Installation Guide](../../get-started/install.md))
+
+## Tutorial Progression
+
+We recommend following these tutorials in order for the best learning experience:
+
+1. **{doc}`Your First Experiment <run-first-experiment>`** - Start here to learn the basics of NeMo Run installation, configuration, and execution
+2. **{doc}`Configure Your First Model <configure-your-first-model>`** - Learn how to use `run.Config` for type-safe model configuration
+3. **{doc}`Manage Multiple Runs <manage-multiple-runs>`** - Master `run.Experiment` and `run.Partial` for organized experiment management
+4. **{doc}`Save and Load Models <save-and-load-models>`** - Learn model persistence with proper serialization and metadata tracking
+5. **{doc}`Perform Hyperparameter Tuning <hyperparameter-tuning-basics>`** - Master optimization techniques with grid search, random search, and Bayesian optimization
+
+## Explore More Tutorials: Hello World
+
+The `hello_world` tutorial series offers a concise, end-to-end introduction to NeMo Run using a simple example. You'll learn how to:
+
+- Configure Python functions using `Partial` and `Config` classes
+- Execute configured functions locally and on remote clusters
+- Visualize configurations with `graphviz`
+- Create and manage experiments using `run.Experiment`
+
+Explore the series on GitHub:
+
+- [**Hello World: Configure Functions with Partial and Config** (`hello_world.ipynb`)](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_world.ipynb)
+- [**Hello Experiments: Create and Manage Experiments** (`hello_experiments.ipynb`)](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_experiments.ipynb)
+- [**Hello Scripts: Local and Remote Execution** (`hello_scripts.py`)](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_scripts.py)
 
 ## Get Help
 

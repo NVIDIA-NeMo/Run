@@ -71,9 +71,9 @@ Real-world applications and workflows organized by domain
 
 New to NeMo Run? Start here:
 
-- **[Your First Experiment](tutorials/first-experiment.md)** - Get started with the basics
-- **[Configuring Your First Model](tutorials/configuring-your-first-model.md)** - Learn type-safe configuration
-- **[Running Your First Experiment](tutorials/running-your-first-experiment.md)** - Master experiment management
+- **[Your First Experiment](tutorials/run-first-experiment.md)** - Get started with the basics
+- **[Configuring Your First Model](tutorials/configure-your-first-model.md)** - Learn type-safe configuration
+- **[Manage Multiple Runs](tutorials/manage-multiple-runs.md)** - Master experiment management
 
 ## Prerequisites
 
