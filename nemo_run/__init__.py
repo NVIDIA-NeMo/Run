@@ -29,6 +29,7 @@ from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
+from nemo_run.core.execution.skypilot_jobs import SkypilotJobsExecutor
 from nemo_run.core.packaging import GitArchivePackager, HybridPackager, Packager, PatternPackager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.devspace.base import DevSpace
@@ -68,6 +69,7 @@ __all__ = [
     "run",
     "Script",
     "SkypilotExecutor",
+    "SkypilotJobsExecutor",
     "SlurmExecutor",
     "SSHTunnel",
     "Torchrun",
