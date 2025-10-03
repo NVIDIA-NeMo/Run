@@ -177,7 +177,7 @@ def test_dgx_cloud_executor_ttl_configuration():
         custom_spec={"ttlSecondsAfterFinished": 7200},
     )
     assert executor_with_ttl.custom_spec["ttlSecondsAfterFinished"] == 7200
-    
+
     # Test with default TTL (should have default 3600 seconds)
     executor_default_ttl = DGXCloudExecutor(
         base_url="https://dgx.example.com",
@@ -189,7 +189,7 @@ def test_dgx_cloud_executor_ttl_configuration():
         job_dir=tempfile.mkdtemp(),
     )
     assert executor_default_ttl.custom_spec == {"ttlSecondsAfterFinished": 3600}
-    
+
     # Test with TTL and other custom_spec fields
     executor_mixed_spec = DGXCloudExecutor(
         base_url="https://dgx.example.com",
@@ -202,7 +202,7 @@ def test_dgx_cloud_executor_ttl_configuration():
         custom_spec={
             "ttlSecondsAfterFinished": 3600,
             "activeDeadlineSeconds": 7200,
-            "restartPolicy": "OnFailure"
+            "restartPolicy": "OnFailure",
         },
     )
     assert executor_mixed_spec.custom_spec["ttlSecondsAfterFinished"] == 3600

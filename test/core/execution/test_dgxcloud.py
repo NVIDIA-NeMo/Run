@@ -62,7 +62,7 @@ class TestDGXCloudExecutor:
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
         )
-        
+
         # Should have default TTL of 3600 seconds (1 hour)
         assert executor.custom_spec == {"ttlSecondsAfterFinished": 3600}
 
@@ -78,10 +78,10 @@ class TestDGXCloudExecutor:
             custom_spec={
                 "ttlSecondsAfterFinished": 7200,
                 "activeDeadlineSeconds": 14400,
-                "restartPolicy": "Never"
+                "restartPolicy": "Never",
             },
         )
-        
+
         # Should have all custom_spec fields
         assert executor.custom_spec["ttlSecondsAfterFinished"] == 7200
         assert executor.custom_spec["activeDeadlineSeconds"] == 14400
@@ -98,7 +98,7 @@ class TestDGXCloudExecutor:
             pvc_nemo_run_dir="/workspace/nemo_run",
             custom_spec={"restartPolicy": "OnFailure"},  # No TTL specified
         )
-        
+
         # Should only have the specified custom_spec field, no default TTL
         assert executor.custom_spec == {"restartPolicy": "OnFailure"}
 
