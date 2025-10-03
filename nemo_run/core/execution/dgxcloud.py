@@ -62,7 +62,7 @@ class DGXCloudExecutor(Executor):
     pvc_job_dir: str = field(init=False, default="")
     pvcs: list[dict[str, Any]] = field(default_factory=list)
     distributed_framework: str = "PyTorch"
-    custom_spec: dict[str, Any] = field(default_factory=dict)
+    custom_spec: dict[str, Any] = field(default_factory=lambda: {"ttlSecondsAfterFinished": 3600})
 
     def get_auth_token(self) -> Optional[str]:
         url = f"{self.base_url}/token"

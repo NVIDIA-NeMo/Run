@@ -37,6 +37,7 @@ class TestDGXCloudExecutor:
             gpus_per_node=8,
             pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "/workspace", "claimName": "test-claim"}],
+            custom_spec={"ttlSecondsAfterFinished": 7200},
         )
 
         assert executor.base_url == "https://dgxapi.example.com"
@@ -48,7 +49,58 @@ class TestDGXCloudExecutor:
         assert executor.gpus_per_node == 8
         assert executor.pvcs == [{"path": "/workspace", "claimName": "test-claim"}]
         assert executor.distributed_framework == "PyTorch"
+        assert executor.custom_spec["ttlSecondsAfterFinished"] == 7200
         assert executor.pvc_nemo_run_dir == "/workspace/nemo_run"
+
+    def test_init_default_ttl(self):
+        """Test that DGXCloudExecutor has default TTL when not specified in custom_spec"""
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+        )
+        
+        # Should have default TTL of 3600 seconds (1 hour)
+        assert executor.custom_spec == {"ttlSecondsAfterFinished": 3600}
+
+    def test_init_custom_spec_with_other_fields(self):
+        """Test that DGXCloudExecutor can have TTL alongside other custom_spec fields"""
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            custom_spec={
+                "ttlSecondsAfterFinished": 7200,
+                "activeDeadlineSeconds": 14400,
+                "restartPolicy": "Never"
+            },
+        )
+        
+        # Should have all custom_spec fields
+        assert executor.custom_spec["ttlSecondsAfterFinished"] == 7200
+        assert executor.custom_spec["activeDeadlineSeconds"] == 14400
+        assert executor.custom_spec["restartPolicy"] == "Never"
+
+    def test_init_override_default_ttl(self):
+        """Test that DGXCloudExecutor can override default TTL with custom_spec"""
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            custom_spec={"restartPolicy": "OnFailure"},  # No TTL specified
+        )
+        
+        # Should only have the specified custom_spec field, no default TTL
+        assert executor.custom_spec == {"restartPolicy": "OnFailure"}
 
     @patch("requests.post")
     def test_get_auth_token_success(self, mock_post):

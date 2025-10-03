@@ -44,6 +44,7 @@ def dgx_cloud_executor():
         container_image="nvcr.io/nvidia/test:latest",
         pvc_nemo_run_dir="/workspace/nemo_run",
         job_dir=tempfile.mkdtemp(),
+        custom_spec={"ttlSecondsAfterFinished": 7200},
     )
 
 
@@ -160,3 +161,50 @@ def test_save_and_get_job_dirs():
 
         assert "test_app_id" in job_dirs
         assert isinstance(job_dirs["test_app_id"]["executor"], DGXCloudExecutor)
+
+
+def test_dgx_cloud_executor_ttl_configuration():
+    """Test that DGXCloudExecutor properly handles TTL configuration via custom_spec"""
+    # Test with custom TTL in custom_spec
+    executor_with_ttl = DGXCloudExecutor(
+        base_url="https://dgx.example.com",
+        app_id="test_app_id",
+        app_secret="test_secret",
+        project_name="test_project",
+        container_image="nvcr.io/nvidia/test:latest",
+        pvc_nemo_run_dir="/workspace/nemo_run",
+        job_dir=tempfile.mkdtemp(),
+        custom_spec={"ttlSecondsAfterFinished": 7200},
+    )
+    assert executor_with_ttl.custom_spec["ttlSecondsAfterFinished"] == 7200
+    
+    # Test with default TTL (should have default 3600 seconds)
+    executor_default_ttl = DGXCloudExecutor(
+        base_url="https://dgx.example.com",
+        app_id="test_app_id",
+        app_secret="test_secret",
+        project_name="test_project",
+        container_image="nvcr.io/nvidia/test:latest",
+        pvc_nemo_run_dir="/workspace/nemo_run",
+        job_dir=tempfile.mkdtemp(),
+    )
+    assert executor_default_ttl.custom_spec == {"ttlSecondsAfterFinished": 3600}
+    
+    # Test with TTL and other custom_spec fields
+    executor_mixed_spec = DGXCloudExecutor(
+        base_url="https://dgx.example.com",
+        app_id="test_app_id",
+        app_secret="test_secret",
+        project_name="test_project",
+        container_image="nvcr.io/nvidia/test:latest",
+        pvc_nemo_run_dir="/workspace/nemo_run",
+        job_dir=tempfile.mkdtemp(),
+        custom_spec={
+            "ttlSecondsAfterFinished": 3600,
+            "activeDeadlineSeconds": 7200,
+            "restartPolicy": "OnFailure"
+        },
+    )
+    assert executor_mixed_spec.custom_spec["ttlSecondsAfterFinished"] == 3600
+    assert executor_mixed_spec.custom_spec["activeDeadlineSeconds"] == 7200
+    assert executor_mixed_spec.custom_spec["restartPolicy"] == "OnFailure"
