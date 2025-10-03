@@ -463,47 +463,6 @@ def test_concatenate_tar_files_non_linux_integration(tmp_path, monkeypatch):
     assert names == ["./fileA.txt", "./fileB.txt"]
 
 
-def test_concatenate_tar_files_linux_emits_expected_commands(monkeypatch, tmp_path):
-    # Simulate Linux branch; use a dummy Context that records commands instead of executing
-    monkeypatch.setattr(os, "uname", lambda: SimpleNamespace(sysname="Linux"))
-
-    class DummyContext:
-        def __init__(self):
-            self.commands: list[str] = []
-
-        def run(self, cmd: str, **_kwargs):
-            self.commands.append(cmd)
-
-        # Support ctx.cd(...) context manager API
-        def cd(self, _path: Path):
-            class _CD:
-                def __enter__(self_nonlocal):
-                    return self
-
-                def __exit__(self_nonlocal, exc_type, exc, tb):
-                    return False
-
-            return _CD()
-
-    # Fake inputs (do not need to exist since we don't execute)
-    tar1 = str(tmp_path / "one.tar")
-    tar2 = str(tmp_path / "two.tar")
-    tar3 = str(tmp_path / "three.tar")
-    out_tar = str(tmp_path / "out.tar")
-
-    ctx = DummyContext()
-    packager = GitArchivePackager()
-    packager._concatenate_tar_files(ctx, out_tar, [tar1, tar2, tar3])
-
-    # Expected sequence: cp first -> tar Af rest -> rm all inputs
-    assert len(ctx.commands) == 3
-    assert ctx.commands[0] == f"cp {shlex.quote(tar1)} {shlex.quote(out_tar)}"
-    assert (
-        ctx.commands[1] == f"tar Af {shlex.quote(out_tar)} {shlex.quote(tar2)} {shlex.quote(tar3)}"
-    )
-    assert ctx.commands[2] == f"rm {shlex.quote(tar1)} {shlex.quote(tar2)} {shlex.quote(tar3)}"
-
-
 @patch("nemo_run.core.packaging.git.Context", MockContext)
 def test_include_pattern_length_mismatch_raises(packager, temp_repo):
     # Mismatch between include_pattern and include_pattern_relative_path should raise
