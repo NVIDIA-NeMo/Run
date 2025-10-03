@@ -636,7 +636,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         If sequential=True, all tasks will be run one after the other.
         The order is based on the order in which they were added.
 
-        Parallel mode only works if all exectuors in the experiment support it.
+        Parallel mode only works if all executors in the experiment support it.
         Currently, all executors support parallel mode.
 
         In sequential mode, if all executor supports dependencies, then all tasks will be scheduled at once
