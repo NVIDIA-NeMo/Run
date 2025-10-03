@@ -89,6 +89,8 @@ class GitArchivePackager(Packager):
         quoted_output_file = shlex.quote(output_file)
 
         # Extract all fragments and repack once (faster than iterative extract/append)
+        # Note: Avoid using tar Af based solution as it does not properly concatenate
+        # tar files for additional filepaths and submodules.
         temp_dir = f"temp_extract_{uuid.uuid4()}"
         ctx.run(f"mkdir -p {temp_dir}")
         for file in quoted_files:
