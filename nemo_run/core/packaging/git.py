@@ -88,22 +88,13 @@ class GitArchivePackager(Packager):
         quoted_files = [shlex.quote(f) for f in files_to_concatenate]
         quoted_output_file = shlex.quote(output_file)
 
-        if os.uname().sysname == "Linux":
-            # Start from the first archive then append the rest, to avoid self-append issues
-            first_file, *rest_files = quoted_files
-            ctx.run(f"cp {first_file} {quoted_output_file}")
-            if rest_files:
-                ctx.run(f"tar Af {quoted_output_file} {' '.join(rest_files)}")
-            # Remove all input fragments
-            ctx.run(f"rm {' '.join(quoted_files)}")
-        else:
-            # Extract all fragments and repack once (faster than iterative extract/append)
-            temp_dir = f"temp_extract_{uuid.uuid4()}"
-            ctx.run(f"mkdir -p {temp_dir}")
-            for file in quoted_files:
-                ctx.run(f"tar xf {file} -C {temp_dir}")
-            ctx.run(f"tar cf {quoted_output_file} -C {temp_dir} .")
-            ctx.run(f"rm -r {temp_dir} {' '.join(quoted_files)}")
+        # Extract all fragments and repack once (faster than iterative extract/append)
+        temp_dir = f"temp_extract_{uuid.uuid4()}"
+        ctx.run(f"mkdir -p {temp_dir}")
+        for file in quoted_files:
+            ctx.run(f"tar xf {file} -C {temp_dir}")
+        ctx.run(f"tar cf {quoted_output_file} -C {temp_dir} .")
+        ctx.run(f"rm -r {temp_dir} {' '.join(quoted_files)}")
 
     def package(self, path: Path, job_dir: str, name: str) -> str:
         output_file = os.path.join(job_dir, f"{name}.tar.gz")
