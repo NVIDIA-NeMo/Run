@@ -52,6 +52,7 @@ from nemo_run.config import (
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
+from nemo_run.core.execution.kubeflow import KubeflowExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
@@ -206,6 +207,7 @@ nemo experiment cancel {exp_id} 0
         DockerExecutor,
         DGXCloudExecutor,
         LeptonExecutor,
+        KubeflowExecutor,
     )
     _DETACH_SUPPORTED_EXECUTORS = (
         SlurmExecutor,
@@ -213,6 +215,7 @@ nemo experiment cancel {exp_id} 0
         SkypilotJobsExecutor,
         DGXCloudExecutor,
         LeptonExecutor,
+        KubeflowExecutor,
     )
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)
     _RUNNER_DEPENDENT_EXECUTORS = (LocalExecutor,)
@@ -342,6 +345,7 @@ nemo experiment cancel {exp_id} 0
 
         self.log_level = log_level
         self._runner = get_runner(component_defaults=None, experiment=self)
+        self._detach_mode = False  # Will be set in _run_dag
 
         if not _reconstruct:
             self.executor = executor if executor else LocalExecutor()
@@ -470,6 +474,23 @@ nemo experiment cancel {exp_id} 0
             task_id=task_id,
             task_dir=name if reuse_job_dir else task_id,
         )
+
+        # Set detach mode on executor if supported
+        if hasattr(self, "detach") and hasattr(executor, "set_detach_mode"):
+            set_detach_mode = getattr(executor, "set_detach_mode", None)
+            if set_detach_mode:
+                self.console.log(
+                    f"Setting detach mode to {self.detach} on executor {type(executor).__name__}"
+                )
+                set_detach_mode(self.detach)
+            else:
+                self.console.log(
+                    f"Executor {type(executor).__name__} doesn't support set_detach_mode"
+                )
+        else:
+            self.console.log(
+                f"Experiment detach mode: {getattr(self, 'detach', 'not set')}, Executor has set_detach_mode: {hasattr(executor, 'set_detach_mode')}"
+            )
 
         cloned = copy.deepcopy(task) if isinstance(task, Script) else task.clone()
         job = Job(
@@ -783,6 +804,12 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             )
             wait = False
             self.detach = detach
+            self._detach_mode = detach
+
+            # Create a new runner with detach mode for this execution
+            from nemo_run.run.torchx_backend.runner import get_runner
+
+            self._runner = get_runner(component_defaults=None, detach_mode=detach)
 
         for level in order:
             # Launch jobs in this level concurrently since they are independent

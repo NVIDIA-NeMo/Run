@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": "../../.."
+		},
+		{
+			"path": "../../../../../twlabs/mpt-platform-workbench"
+		},
+		{
+			"path": "../../../../../twlabs/mpt-platform-mle-experiments/kubernetes/NeMo"
+		},
+		{
+			"path": "../../../../../kubeflow/sdk"
+		},
+		{
+			"path": "../../../../../twlabs/mpt-platform-mle-experiments/gpt-pretrain-kubeflow"
+		},
+		{
+			"path": "../../../../../kubeflow/trainer"
+		}
+	],
+	"settings": {}
+}

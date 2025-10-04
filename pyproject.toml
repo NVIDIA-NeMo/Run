@@ -33,6 +33,8 @@ dependencies = [
     "leptonai>=0.25.0",
     "packaging",
     "toml",
+    "kubernetes>=28.0.0",
+    "kubeflow @ git+https://github.com/jskswamy/kubeflow-sdk.git@main",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -47,18 +49,17 @@ skypilot = "nemo_run.run.torchx_backend.schedulers.skypilot:create_scheduler"
 local_persistent = "nemo_run.run.torchx_backend.schedulers.local:create_scheduler"
 docker_persistent = "nemo_run.run.torchx_backend.schedulers.docker:create_scheduler"
 dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
+kubeflow = "nemo_run.run.torchx_backend.schedulers.kubeflow:create_scheduler"
 lepton = "nemo_run.run.torchx_backend.schedulers.lepton:create_scheduler"
 skypilot_jobs = "nemo_run.run.torchx_backend.schedulers.skypilot_jobs:create_scheduler"
 
 [project.optional-dependencies]
-skypilot = [
-    "skypilot[kubernetes]>=0.10.0",
-]
-skypilot-all = [
-    "skypilot[all]>=0.10.0",
-]
-ray = [
-    "kubernetes"
+skypilot = ["skypilot[kubernetes]>=0.10.0"]
+skypilot-all = ["skypilot[all]>=0.10.0"]
+ray = ["kubernetes"]
+kubernetes = [
+    "kubernetes>=28.0.0",
+    "kubeflow @ git+https://github.com/jskswamy/kubeflow-sdk.git@main",
 ]
 
 [dependency-groups]
@@ -72,12 +73,10 @@ dev = [
     "ipykernel>=6.29.4",
     "ipywidgets>=8.1.2",
     "jupyter>=1.1.1",
-    "pytest-cov"
+    "pytest-cov",
 ]
 
-lint = [
-    "ruff>=0.4.4",
-]
+lint = ["ruff>=0.4.4"]
 
 docs = [
     "astroid==3.3.8",
@@ -100,20 +99,23 @@ conflicts = [
     [
         { group = "docs", name = "colorama" },
         { extra = "skypilot", name = "colorama" },
-        { extra = "skypilot-all", name = "colorama" }
-    ]
+        { extra = "skypilot-all", name = "colorama" },
+    ],
 ]
 
 [tool.pytest.ini_options]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 addopts = '-m "not slow"'
 
 [tool.coverage.run]
 branch = true
 include = ["nemo_run/**/*.py"]
-omit = ["nemo_run/core/tunnel/callback.py", "nemo_run/help.py", "nemo_run/**/__init__.py", "nemo_run/**/_version.py"]
+omit = [
+    "nemo_run/core/tunnel/callback.py",
+    "nemo_run/help.py",
+    "nemo_run/**/__init__.py",
+    "nemo_run/**/_version.py",
+]
 
 [tool.coverage.report]
 # Regexes for lines to exclude from consideration
@@ -133,7 +135,7 @@ exclude_also = [
 
     # Don't complain about abstract methods, they aren't run:
     "@(abc\\.)?abstractmethod",
-    ]
+]
 
 ignore_errors = true
 
@@ -147,7 +149,7 @@ allow-direct-references = true
 packages = ["nemo_run"]
 
 [tool.hatch.version]
-path  = "nemo_run/package_info.py"
+path = "nemo_run/package_info.py"
 
 [tool.ruff]
 line-length = 100

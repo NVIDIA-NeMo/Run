@@ -3776,6 +3776,24 @@ wheels = [
 ]
 
 [[package]]
+name = "kubeflow"
+version = "0.1.0"
+source = { git = "https://github.com/jskswamy/kubeflow-sdk.git?subdirectory=python#42739715e04aee91e7b4a13735ff96f603d035b4" }
+dependencies = [
+    { name = "kubeflow-trainer-api" },
+    { name = "kubernetes" },
+    { name = "pydantic" },
+]
+
+[[package]]
+name = "kubeflow-trainer-api"
+version = "2.0.0"
+source = { git = "https://github.com/kubeflow/trainer.git?subdirectory=api%2Fpython_api&rev=master#d997dd96f38feeda45af2a24179e515d388425e4" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[[package]]
 name = "kubernetes"
 version = "32.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4407,6 +4425,8 @@ dependencies = [
     { name = "fiddle" },
     { name = "inquirerpy" },
     { name = "jinja2" },
+    { name = "kubeflow" },
+    { name = "kubernetes" },
     { name = "leptonai" },
     { name = "networkx" },
     { name = "omegaconf" },
@@ -4418,6 +4438,10 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+kubernetes = [
+    { name = "kubeflow" },
+    { name = "kubernetes" },
+]
 ray = [
     { name = "kubernetes" },
 ]
@@ -4463,6 +4487,10 @@ requires-dist = [
     { name = "fiddle", specifier = ">=0.3.0" },
     { name = "inquirerpy", specifier = ">=0.3.4" },
     { name = "jinja2", specifier = ">=3.1.4" },
+    { name = "kubeflow", git = "https://github.com/jskswamy/kubeflow-sdk.git?subdirectory=python" },
+    { name = "kubeflow", marker = "extra == 'kubernetes'", git = "https://github.com/jskswamy/kubeflow-sdk.git?subdirectory=python" },
+    { name = "kubernetes", specifier = ">=28.0.0" },
+    { name = "kubernetes", marker = "extra == 'kubernetes'", specifier = ">=28.0.0" },
     { name = "kubernetes", marker = "extra == 'ray'" },
     { name = "leptonai", specifier = ">=0.25.0" },
     { name = "networkx", specifier = ">=3.3" },
@@ -4475,7 +4503,7 @@ requires-dist = [
     { name = "torchx", specifier = ">=0.7.0" },
     { name = "typer", specifier = ">=0.12.3" },
 ]
-provides-extras = ["ray", "skypilot", "skypilot-all"]
+provides-extras = ["kubernetes", "ray", "skypilot", "skypilot-all"]
 
 [package.metadata.requires-dev]
 dev = [
