@@ -55,8 +55,8 @@ from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
-from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.execution.skypilot_jobs import SkypilotJobsExecutor
+from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE, configure_logging, deconfigure_logging
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.client import SSHTunnel, Tunnel
@@ -639,7 +639,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         If sequential=True, all tasks will be run one after the other.
         The order is based on the order in which they were added.
 
-        Parallel mode only works if all exectuors in the experiment support it.
+        Parallel mode only works if all executors in the experiment support it.
         Currently, all executors support parallel mode.
 
         In sequential mode, if all executor supports dependencies, then all tasks will be scheduled at once
