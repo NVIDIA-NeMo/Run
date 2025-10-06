@@ -56,6 +56,7 @@ from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
+from nemo_run.core.execution.skypilot_jobs import SkypilotJobsExecutor
 from nemo_run.core.frontend.console.api import CONSOLE, configure_logging, deconfigure_logging
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.client import SSHTunnel, Tunnel
@@ -201,6 +202,7 @@ nemo experiment cancel {exp_id} 0
         SlurmExecutor,
         LocalExecutor,
         SkypilotExecutor,
+        SkypilotJobsExecutor,
         DockerExecutor,
         DGXCloudExecutor,
         LeptonExecutor,
@@ -208,6 +210,7 @@ nemo experiment cancel {exp_id} 0
     _DETACH_SUPPORTED_EXECUTORS = (
         SlurmExecutor,
         SkypilotExecutor,
+        SkypilotJobsExecutor,
         DGXCloudExecutor,
         LeptonExecutor,
     )
