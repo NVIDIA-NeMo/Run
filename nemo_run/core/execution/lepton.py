@@ -17,6 +17,7 @@ from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
 from leptonai.api.v1.types.deployment import (
     EnvVar,
+    EnvValue,
     LeptonContainer,
     Mount,
 )
@@ -232,7 +233,16 @@ class LeptonExecutor(Executor):
         """
         client = APIClient()
 
-        envs = [EnvVar(name=key, value=value) for key, value in self.env_vars.items()]
+        # Process environment variables - handle both regular values and secret references
+        envs = []
+        for key, value in self.env_vars.items():
+            if isinstance(value, dict) and "value_from" in value:
+                # Handle secret reference
+                secret_name_ref = value["value_from"]["secret_name_ref"]
+                envs.append(EnvVar(name=key, value_from=EnvValue(secret_name_ref=secret_name_ref)))
+            else:
+                # Handle regular environment variable
+                envs.append(EnvVar(name=key, value=str(value)))
 
         cmd = ["/bin/bash", "-c", f"bash {self.lepton_job_dir}/launch_script.sh"]
 
