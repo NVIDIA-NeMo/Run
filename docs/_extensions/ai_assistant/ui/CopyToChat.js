@@ -190,13 +190,13 @@
     // Clean and analyze the code
     const trimmedCode = code.trim();
     const lines = trimmedCode.split('\n');
-
+    
     // Detect NeMo Run patterns
     const isNemoRun = /run\.Config|run\.Partial|nemo_run/i.test(code);
     const isPython = lang === 'python' || /^(import|from|def|class|if __name__)/.test(trimmedCode);
     const isConfig = /\.yaml|\.yml|config:|parameters:/i.test(code);
     const isBash = lang === 'bash' || /^(#!\/bin\/bash|export|cd |mkdir|pip install)/m.test(code);
-
+    
     let sections = [];
 
     // Purpose section
@@ -208,7 +208,7 @@
         });
       } else if (/run\.Partial/.test(code)) {
         sections.push({
-          title: 'Purpose',
+          title: 'Purpose', 
           content: 'This uses NeMo Run\'s Partial to create a partially configured function with some arguments pre-filled, enabling flexible job composition.'
         });
       } else {
@@ -241,14 +241,14 @@
 
     // Key components
     const keyPoints = [];
-
+    
     if (isNemoRun) {
       if (/executor/.test(code)) keyPoints.push('Defines execution environment (local, SLURM, etc.)');
       if (/nodes?=/.test(code)) keyPoints.push('Specifies number of compute nodes');
       if (/devices=/.test(code)) keyPoints.push('Sets GPU/device allocation');
       if (/env_vars/.test(code)) keyPoints.push('Configures environment variables');
     }
-
+    
     if (isPython) {
       if (/import/.test(code)) keyPoints.push('Imports required modules and dependencies');
       if (/def __init__/.test(code)) keyPoints.push('Constructor method initializes object state');
@@ -271,7 +271,7 @@
 
     // Common patterns/best practices
     const tips = [];
-
+    
     if (isNemoRun) {
       if (/run\.Config/.test(code)) {
         tips.push('Config objects are serializable and can be saved/loaded');
@@ -709,6 +709,7 @@ Please provide a comprehensive translation that helps ${targetLanguage} speakers
   });
 
   ready(function () {
+    installToolbar();
     createPageTranslator();
   });
 })();

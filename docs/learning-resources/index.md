@@ -47,7 +47,7 @@ Step-by-step learning guides organized by difficulty level
 :link-alt: Examples
 :class-body: text-center
 
-Complete, runnable code snippets demonstrating real-world examples
+Complete, runnable code examples demonstrating real-world use cases
 
 +++
 {bdg-success}`Code` {bdg-secondary}`Samples`
