@@ -1,7 +1,7 @@
-Guides
-=================
+# Guides
 
-```{toctree}
+
+:::{toctree}
 :maxdepth: 2
 :hidden:
 
@@ -11,7 +11,7 @@ execution
 management
 ray
 cli
-```
+:::
 
 Welcome to the NeMo-Run guides! This section provides comprehensive documentation on how to use NeMo-Run effectively for your machine learning experiments.
 
@@ -36,7 +36,7 @@ For more advanced usage:
 NeMo-Run is built around three core responsibilities:
 
 1. **Configuration** - Define your ML experiments using a flexible, Pythonic configuration system.
-2. **Execution** - Run your experiments seamlessly across local machines, Slurm clusters, cloud providers, and more.
-3. **Management** - Track, reproduce, and organize your experiments with built-in experiment management.
+1. **Execution** - Run your experiments seamlessly across local machines, Slurm clusters, cloud providers, and more.
+1. **Management** - Track, reproduce, and organize your experiments with built-in experiment management.
 
 Each guide dives deep into these concepts with practical examples and best practices. Choose a guide above to get started!

@@ -2,7 +2,7 @@
 
 NeMo Run CLI is a Python-based command-line tool designed to efficiently configure and execute machine learning experiments. It provides a type-safe, Python-centric alternative to argparse and Hydra, streamlining workflows from prototyping to scaling across diverse environments.
 
-## 1. Introduction
+## Introduction
 
 NeMo Run CLI simplifies experiment management by leveraging Python's capabilities:
 
@@ -65,7 +65,7 @@ def train():
 - **Typer**: General-purpose CLIs with good documentation that don't require nested configuration
 - **argparse**: Simple scripts with minimal configuration needs and standard library requirements
 
-## 2. Core Concepts
+## Core Concepts
 
 - **Entrypoints**: Python functions decorated with `@run.cli.entrypoint` serving as primary CLI commands.
 - **Factories**: Functions decorated with `@run.cli.factory` that configure complex objects (e.g., models, optimizers).
@@ -73,7 +73,7 @@ def train():
 - **Experiments**: Groups of tasks executed sequentially or concurrently.
 - **RunContext**: Manages execution settings, including executor configurations.
 
-## 3. Getting Started
+## Getting Started
 
 ### Example 1: Basic Entrypoint
 
@@ -116,7 +116,7 @@ Output:
 Unknown argument 'epocks'. Did you mean 'epochs'?
 ```
 
-## 4. Advanced Configuration
+## Advanced Configuration
 
 ### Nested Configurations with Dataclasses
 
@@ -213,25 +213,25 @@ File contents:
 │ 2 target = "main.train_model"
 │ 3 batch_size = 32
 │ 4 epochs = 10
-│ 5 
+│ 5
 │ 6 [model]
 │ 7 target = "main.Model"
 │ 8 activation = "relu"
 │ 9 hidden_size = 256
 │ 10 num_layers = 5
-│ 11 
+│ 11
 │ 12 [optimizer]
 │ 13 target = "main.Optimizer"
 │ 14 betas = [ 0.9, 0.999,]
 │ 15 learning_rate = 0.001
 │ 16 weight_decay = 1e-5
-│ 17 
+│ 17
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 Export complete. Skipping execution.
 
 ```
 
-## 5. Executors
+## Executors
 
 Executors determine where your code runs, such as local environments, Docker containers, or Slurm clusters.
 
@@ -283,7 +283,7 @@ def slurm_cluster() -> run.Executor:
         job_dir=BASE_DIR,
         container_image="nvcr.io/nvidia/nemo:dev",
         container_mounts=[
-            f"/home/{USER}:/home/{USER}", 
+            f"/home/{USER}:/home/{USER}",
             "/lustre:/lustre",
         ],
         time="4:00:00",
@@ -298,7 +298,7 @@ Execute lazily:
 python script.py --lazy model=alexnet epochs=5 run.executor=slurm_cluster run.executor.nodes=2
 ```
 
-## 6. Advanced CLI Features
+## Advanced CLI Features
 
 ### Dry Runs and Help Messages
 
@@ -393,4 +393,3 @@ The help output clearly shows:
 5. Registered factory functions for each complex argument type
 
 This makes it easy for users to discover what factory functions they can use to configure complex arguments like `model` and `optimizer`, along with information about where these factories are defined (module name and line number).
-

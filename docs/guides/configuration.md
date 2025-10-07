@@ -113,7 +113,10 @@ In our context, this is equivalent to:
      _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
      seq_length: 16384
 ```
-> Note: we've used the [Hydra instantiation](https://hydra.cc/docs/advanced/instantiate_objects/overview/) syntax here.
+
+```{note}
+We've used the [Hydra instantiation](https://hydra.cc/docs/advanced/instantiate_objects/overview/) syntax here.
+```
 
 Python operations are performed on the config rather than directly on the class. For example:
 
