@@ -34,6 +34,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxcontrib.mermaid",
     "sphinx_copybutton",
+    "sphinx_new_tab_link",
 ]
 
 templates_path = ["_templates"]
