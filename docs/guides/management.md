@@ -12,7 +12,9 @@ exp = Experiment("My Experiment")
 
 When executed, it will automatically generate a unique experiment ID for you, which represents one unique run of the experiment.
 
-> [!NOTE] > `Experiment` is a context manager and `Experiment.add` and `Experiment.run` methods can currently only be used after entering the context manager.
+```{note}
+`Experiment` is a context manager and `Experiment.add` and `Experiment.run` methods can currently only be used after entering the context manager.
+```
 
 ## Add Tasks
 
@@ -73,7 +75,7 @@ You can check the status of an experiment using the `status` method:
 exp.status()
 ```
 
-This method will display information about the status of each task in the experiment. The following is a sample output from the status of experiment in [hello_scripts.py](../../../examples/hello-world/hello_scripts.py):
+This method will display information about the status of each task in the experiment. The following is a sample output from the status of experiment in [hello_scripts.py](../../examples/hello-world/hello_scripts.py):
 
 ```bash
 Experiment Status for experiment_with_scripts_1730761155
