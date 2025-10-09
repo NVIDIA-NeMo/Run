@@ -17,8 +17,10 @@ from dataclasses import dataclass
 from typing import Any, Optional, Type
 
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import configure_logging
+from nemo_run.run.ray.lepton import LeptonRayJob
 from nemo_run.run.ray.slurm import SlurmRayJob
 
 # Import guard for Kubernetes dependencies
@@ -41,10 +43,13 @@ class RayJob:
     executor: Executor
     pre_ray_start_commands: Optional[list[str]] = None
     log_level: str = "INFO"
+    cluster_name: Optional[str] = None  # Used to connect to existing RayCluster
+    ray_version: Optional[str] = None
 
     def __post_init__(self) -> None:  # noqa: D401 – simple implementation
         configure_logging(level=self.log_level)
         backend_map: dict[Type[Executor], Type[Any]] = {
+            LeptonExecutor: LeptonRayJob,
             SlurmExecutor: SlurmRayJob,
         }
 
@@ -56,6 +61,10 @@ class RayJob:
 
         backend_cls = backend_map[self.executor.__class__]
         self.backend = backend_cls(name=self.name, executor=self.executor)
+
+        if isinstance(self.executor, LeptonExecutor):
+            self.backend.cluster_name = self.cluster_name
+            self.backend.ray_version = self.ray_version
 
     # ------------------------------------------------------------------
     # Public API
@@ -84,8 +93,8 @@ class RayJob:
             dryrun=dryrun,
         )
 
-    def stop(self) -> None:
-        self.backend.stop()  # type: ignore[attr-defined]
+    def stop(self, wait: bool = False) -> None:
+        self.backend.stop(wait=wait)  # type: ignore[attr-defined]
 
     def status(self, display: bool = True):
         return self.backend.status(display=display)  # type: ignore[attr-defined]
