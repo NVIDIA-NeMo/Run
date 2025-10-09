@@ -1,0 +1,118 @@
+{
+    "categories": [
+      {
+        "title": "## Executors\n\n<details><summary>Changelog</summary>",
+        "labels": ["executor", "local", "slurm", "dgxcloud", "lepton", "skypilot", "docker"],
+        "exclude_labels": ["ignore"]
+      },
+      {
+        "title": "</details>\n\n## Ray Integration\n\n<details><summary>Changelog</summary>",
+        "labels": ["ray", "kuberay", "ray-slurm"],
+        "exclude_labels": ["ignore"]
+      },
+      {
+        "title": "</details>\n\n## CLI & Configuration\n\n<details><summary>Changelog</summary>",
+        "labels": ["cli", "config", "parsing"],
+        "exclude_labels": ["ignore"]
+      },
+      {
+        "title": "</details>\n\n## Experiment & Job Management\n\n<details><summary>Changelog</summary>",
+        "labels": ["experiment", "job", "task"],
+        "exclude_labels": ["ignore"]
+      },
+      {
+        "title": "</details>\n\n## Packaging & Deployment\n\n<details><summary>Changelog</summary>",
+        "labels": ["packaging", "deployment"],
+        "exclude_labels": ["ignore"]
+      },
+      {
+        "title": "</details>\n\n## Documentation\n\n<details><summary>Changelog</summary>",
+        "labels": ["docs", "documentation"],
+        "exclude_labels": ["ignore"]
+      },
+      {
+        "title": "</details>\n\n## CI/CD\n\n<details><summary>Changelog</summary>",
+        "labels": ["ci", "github-actions", "workflow"],
+        "exclude_labels": ["ignore"]
+      },
+      {
+        "title": "</details>\n\n## Bug Fixes\n\n<details><summary>Changelog</summary>",
+        "labels": ["bug", "bugfix", "fix"],
+        "exclude_labels": ["ignore"]
+      }
+    ],
+    "ignore_labels": [
+      "ignore",
+      "skip-changelog"
+    ],
+    "sort": "ASC",
+    "template": "\n${{CHANGELOG}}</details>\n\n## Others\n\n<details><summary>Changelog</summary>\n\n${{UNCATEGORIZED}}\n</details>\n",
+    "pr_template": "- ${{TITLE}} [#${{NUMBER}}](${{URL}})",
+    "empty_template": "- No changes in this release",
+    "label_extractor": [
+      {
+        "pattern": "(.*executor.*)|(.*local.*)|(.*slurm.*)|(.*dgxcloud.*)|(.*lepton.*)|(.*skypilot.*)|(.*docker.*)",
+        "target": "executor",
+        "flags": "gimu",
+        "on_property": ["title", "body"]
+      },
+      {
+        "pattern": "(.*ray.*)|(.*kuberay.*)",
+        "target": "ray",
+        "flags": "gimu",
+        "on_property": ["title", "body"]
+      },
+      {
+        "pattern": "(.*cli.*)|(.*command.*)|(.*parse.*)|(.*argument.*)",
+        "target": "cli",
+        "flags": "gimu",
+        "on_property": ["title", "body"]
+      },
+      {
+        "pattern": "(.*experiment.*)|(.*job.*)|(.*task.*)",
+        "target": "experiment",
+        "flags": "gimu",
+        "on_property": ["title", "body"]
+      },
+      {
+        "pattern": "(.*packag.*)|(.*deploy.*)|(.*archive.*)|(.*mount.*)",
+        "target": "packaging",
+        "flags": "gimu",
+        "on_property": ["title", "body"]
+      },
+      {
+        "pattern": "(.*doc.*)|(.*readme.*)|(.*guide.*)|(.*tutorial.*)",
+        "target": "docs",
+        "flags": "gimu",
+        "on_property": ["title", "body"]
+      },
+      {
+        "pattern": "(.*\\bci\\b.*)|(.*github.*)|(.*workflow.*)|(.*action.*)",
+        "target": "ci",
+        "flags": "gimu",
+        "on_property": ["title", "body"]
+      },
+      {
+        "pattern": "(.*\\[bug.*)|(.*\\bfix\\b.*)|(.*bugfix.*)|(.*patch.*)",
+        "target": "bug",
+        "flags": "gimu",
+        "on_property": ["title", "body"]
+      }
+    ],
+    "duplicate_filter": {
+      "pattern": ".+",
+      "on_property": "title",
+      "method": "match"
+    },
+    "transformers": [
+    ],
+    "max_tags_to_fetch": 100,
+    "max_pull_requests": 500,
+    "max_back_track_time_days": 365,
+    "exclude_merge_branches": [
+    ],
+    "tag_resolver": {
+      "method": "semver"
+    }
+}
+
