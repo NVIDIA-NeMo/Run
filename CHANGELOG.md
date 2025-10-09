@@ -7,8 +7,6 @@
 
 ## Executors
 
-<details><summary>Changelog</summary>
-
 - Added Pre-Launch Commands Support to LeptonExecutor [#312](https://github.com/NVIDIA-NeMo/Run/pull/312)
 - Remove breaking torchrun config for single-node runs [#292](https://github.com/NVIDIA-NeMo/Run/pull/292)
 - Upgrade skypilot to v0.10.0, introduce network_tier [#297](https://github.com/NVIDIA-NeMo/Run/pull/297)
@@ -17,82 +15,48 @@
 - Fix skypilot archive mount bug [#288](https://github.com/NVIDIA-NeMo/Run/pull/288)
 - finetune on dgxcloud with nemo-run and deploy on bedrock example [#286](https://github.com/NVIDIA-NeMo/Run/pull/286)
 
-</details>
-
 ## Ray Integration
-
-<details><summary>Changelog</summary>
 
 - Add nsys patch in ray sub template [#318](https://github.com/NVIDIA-NeMo/Run/pull/318)
 - Add logs dir to container mount for ray slurm [#287](https://github.com/NVIDIA-NeMo/Run/pull/287)
 - Allow customizing folder for SlurmRayRequest [#281](https://github.com/NVIDIA-NeMo/Run/pull/281)
 
-</details>
-
 ## CLI & Configuration
-
-<details><summary>Changelog</summary>
-
-</details>
 
 ## Experiment & Job Management
 
-<details><summary>Changelog</summary>
-
 - Use thread pool for status, run methods inside experiment + other fixes [#295](https://github.com/NVIDIA-NeMo/Run/pull/295)
-
-</details>
 
 ## Packaging & Deployment
 
-<details><summary>Changelog</summary>
-
 - Correctly append tar files for packaging [#317](https://github.com/NVIDIA-NeMo/Run/pull/317)
 
-</details>
-
 ## Documentation
-
-<details><summary>Changelog</summary>
 
 - Create CHANGELOG.md [#314](https://github.com/NVIDIA-NeMo/Run/pull/314)
 - docs: Fixing doc build issue [#290](https://github.com/NVIDIA-NeMo/Run/pull/290)
 - fix docs tutorial links and add intro to guides/index.md [#285](https://github.com/NVIDIA-NeMo/Run/pull/285)
 - README [#277](https://github.com/NVIDIA-NeMo/Run/pull/277)
 
-</details>
-
 ## CI/CD
-
-<details><summary>Changelog</summary>
 
 - changelog workflow [#315](https://github.com/NVIDIA-NeMo/Run/pull/315)
 - Update release.yml [#306](https://github.com/NVIDIA-NeMo/Run/pull/306)
 - ci(fix): Use GITHUB_TOKEN for community bot [#302](https://github.com/NVIDIA-NeMo/Run/pull/302)
 - ci: Add community-bot [#300](https://github.com/NVIDIA-NeMo/Run/pull/300)
 
-</details>
-
 ## Bug Fixes
-
-<details><summary>Changelog</summary>
 
 - [Bugfix] Adding a check for name length [#273](https://github.com/NVIDIA-NeMo/Run/pull/273)
 - misc fixes [#280](https://github.com/NVIDIA-NeMo/Run/pull/280)
 - adding fix for lowercase and name length k8s requirements [#274](https://github.com/NVIDIA-NeMo/Run/pull/274)
 
-</details>
-
 ## Others
-
-<details><summary>Changelog</summary>
 
 - Specify nodes for gpu metrics collection and split data to each rank [#320](https://github.com/NVIDIA-NeMo/Run/pull/320)
 - Apply '_enable_goodbye_message' check to both goodbye messages. [#319](https://github.com/NVIDIA-NeMo/Run/pull/319)
 - Update refs [#278](https://github.com/NVIDIA-NeMo/Run/pull/278)
 - chore: Bump to version 0.6.0rc0.dev0 [#272](https://github.com/NVIDIA-NeMo/Run/pull/272)
-
-</details>
 
 ## NVIDIA Nemo Run 0.5.0
 

@@ -1,42 +1,42 @@
 {
     "categories": [
       {
-        "title": "## Executors\n\n<details><summary>Changelog</summary>",
+        "title": "## Executors\n\n",
         "labels": ["executor", "local", "slurm", "dgxcloud", "lepton", "skypilot", "docker"],
         "exclude_labels": ["ignore"]
       },
       {
-        "title": "</details>\n\n## Ray Integration\n\n<details><summary>Changelog</summary>",
+        "title": "\n## Ray Integration\n\n",
         "labels": ["ray", "kuberay", "ray-slurm"],
         "exclude_labels": ["ignore"]
       },
       {
-        "title": "</details>\n\n## CLI & Configuration\n\n<details><summary>Changelog</summary>",
+        "title": "\n## CLI & Configuration\n\n",
         "labels": ["cli", "config", "parsing"],
         "exclude_labels": ["ignore"]
       },
       {
-        "title": "</details>\n\n## Experiment & Job Management\n\n<details><summary>Changelog</summary>",
+        "title": "\n## Experiment & Job Management\n\n",
         "labels": ["experiment", "job", "task"],
         "exclude_labels": ["ignore"]
       },
       {
-        "title": "</details>\n\n## Packaging & Deployment\n\n<details><summary>Changelog</summary>",
+        "title": "\n## Packaging & Deployment\n\n",
         "labels": ["packaging", "deployment"],
         "exclude_labels": ["ignore"]
       },
       {
-        "title": "</details>\n\n## Documentation\n\n<details><summary>Changelog</summary>",
+        "title": "\n## Documentation\n\n",
         "labels": ["docs", "documentation"],
         "exclude_labels": ["ignore"]
       },
       {
-        "title": "</details>\n\n## CI/CD\n\n<details><summary>Changelog</summary>",
+        "title": "\n## CI/CD\n\n",
         "labels": ["ci", "github-actions", "workflow"],
         "exclude_labels": ["ignore"]
       },
       {
-        "title": "</details>\n\n## Bug Fixes\n\n<details><summary>Changelog</summary>",
+        "title": "\n## Bug Fixes\n\n",
         "labels": ["bug", "bugfix", "fix"],
         "exclude_labels": ["ignore"]
       }
@@ -46,7 +46,7 @@
       "skip-changelog"
     ],
     "sort": "ASC",
-    "template": "\n${{CHANGELOG}}</details>\n\n## Others\n\n<details><summary>Changelog</summary>\n\n${{UNCATEGORIZED}}\n</details>\n",
+    "template": "\n${{CHANGELOG}}\n## Others\n\n${{UNCATEGORIZED}}\n",
     "pr_template": "- ${{TITLE}} [#${{NUMBER}}](${{URL}})",
     "empty_template": "- No changes in this release",
     "label_extractor": [
