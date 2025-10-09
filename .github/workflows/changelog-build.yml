@@ -49,7 +49,7 @@ jobs:
           RELEASE_VERSION=${RELEASE_BRANCH#r}
           CHANGELOG=$(echo "$CHANGELOG" | sed '/^[[:blank:]]*#/s/#/###/')
 
-          RELEASE_NOTES="## NVIDIA Neural Modules $RELEASE_VERSION
+          RELEASE_NOTES="## NVIDIA Nemo Run $RELEASE_VERSION
 
           ### Detailed Changelogs:
 
