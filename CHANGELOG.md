@@ -1,6 +1,11 @@
 # Changelog
 
 <!-- Next changelog -->
+## NVIDIA Neural Modules 0.6.0
+
+### Detailed Changelogs:
+
+- no changes
 ## NVIDIA Nemo Run 0.5.0
 
 
