@@ -645,7 +645,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         In sequential mode, if all executor supports dependencies, then all tasks will be scheduled at once
         by specifying the correct dependencies to each task.
         Otherwise, the experiment.run call will block and each task that is scheduled will be executed sequentially.
-        In this particular case, we cannot guarantee the state of the exeperiment if the process exits in the middle.
+        In this particular case, we cannot guarantee the state of the experiment if the process exits in the middle.
 
         Currently, only the slurm executor supports dependencies.
 
