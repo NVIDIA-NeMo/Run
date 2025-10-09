@@ -1,42 +1,74 @@
 {
     "categories": [
       {
+<<<<<<< HEAD
         "title": "## Executors\n\n",
+=======
+        "title": "## Executors\n\n<details><summary>Changelog</summary>",
+>>>>>>> 7d6a559 (add changelog-config (#356))
         "labels": ["executor", "local", "slurm", "dgxcloud", "lepton", "skypilot", "docker"],
         "exclude_labels": ["ignore"]
       },
       {
+<<<<<<< HEAD
         "title": "\n## Ray Integration\n\n",
+=======
+        "title": "</details>\n\n## Ray Integration\n\n<details><summary>Changelog</summary>",
+>>>>>>> 7d6a559 (add changelog-config (#356))
         "labels": ["ray", "kuberay", "ray-slurm"],
         "exclude_labels": ["ignore"]
       },
       {
+<<<<<<< HEAD
         "title": "\n## CLI & Configuration\n\n",
+=======
+        "title": "</details>\n\n## CLI & Configuration\n\n<details><summary>Changelog</summary>",
+>>>>>>> 7d6a559 (add changelog-config (#356))
         "labels": ["cli", "config", "parsing"],
         "exclude_labels": ["ignore"]
       },
       {
+<<<<<<< HEAD
         "title": "\n## Experiment & Job Management\n\n",
+=======
+        "title": "</details>\n\n## Experiment & Job Management\n\n<details><summary>Changelog</summary>",
+>>>>>>> 7d6a559 (add changelog-config (#356))
         "labels": ["experiment", "job", "task"],
         "exclude_labels": ["ignore"]
       },
       {
+<<<<<<< HEAD
         "title": "\n## Packaging & Deployment\n\n",
+=======
+        "title": "</details>\n\n## Packaging & Deployment\n\n<details><summary>Changelog</summary>",
+>>>>>>> 7d6a559 (add changelog-config (#356))
         "labels": ["packaging", "deployment"],
         "exclude_labels": ["ignore"]
       },
       {
+<<<<<<< HEAD
         "title": "\n## Documentation\n\n",
+=======
+        "title": "</details>\n\n## Documentation\n\n<details><summary>Changelog</summary>",
+>>>>>>> 7d6a559 (add changelog-config (#356))
         "labels": ["docs", "documentation"],
         "exclude_labels": ["ignore"]
       },
       {
+<<<<<<< HEAD
         "title": "\n## CI/CD\n\n",
+=======
+        "title": "</details>\n\n## CI/CD\n\n<details><summary>Changelog</summary>",
+>>>>>>> 7d6a559 (add changelog-config (#356))
         "labels": ["ci", "github-actions", "workflow"],
         "exclude_labels": ["ignore"]
       },
       {
+<<<<<<< HEAD
         "title": "\n## Bug Fixes\n\n",
+=======
+        "title": "</details>\n\n## Bug Fixes\n\n<details><summary>Changelog</summary>",
+>>>>>>> 7d6a559 (add changelog-config (#356))
         "labels": ["bug", "bugfix", "fix"],
         "exclude_labels": ["ignore"]
       }
@@ -46,7 +78,11 @@
       "skip-changelog"
     ],
     "sort": "ASC",
+<<<<<<< HEAD
     "template": "\n${{CHANGELOG}}\n## Others\n\n${{UNCATEGORIZED}}\n",
+=======
+    "template": "\n${{CHANGELOG}}</details>\n\n## Others\n\n<details><summary>Changelog</summary>\n\n${{UNCATEGORIZED}}\n</details>\n",
+>>>>>>> 7d6a559 (add changelog-config (#356))
     "pr_template": "- ${{TITLE}} [#${{NUMBER}}](${{URL}})",
     "empty_template": "- No changes in this release",
     "label_extractor": [
