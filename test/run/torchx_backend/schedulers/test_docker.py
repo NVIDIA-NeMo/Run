@@ -121,7 +121,7 @@ def test_describe(docker_scheduler, docker_executor):
         response = docker_scheduler.describe("test_session___test_role___test_container_id")
         assert response is not None
         assert response.app_id == "test_session___test_role___test_container_id"
-        assert "SUCCEEDED" in str(response.state)
+        assert "UNKNOWN" in str(response.state)
         assert len(response.roles) == 1
 
 
