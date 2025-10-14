@@ -21,6 +21,11 @@ from nemo_run.core.packaging.git import GitArchivePackager
 logger = logging.getLogger(__name__)
 
 
+def _default_custom_spec() -> dict[str, Any]:
+    """Default custom_spec with TTL configuration for automatic pod cleanup."""
+    return {"ttlSecondsAfterFinished": 3600}
+
+
 class DGXCloudState(Enum):
     CREATING = "Creating"
     INITIALIZING = "Initializing"
@@ -62,7 +67,7 @@ class DGXCloudExecutor(Executor):
     pvc_job_dir: str = field(init=False, default="")
     pvcs: list[dict[str, Any]] = field(default_factory=list)
     distributed_framework: str = "PyTorch"
-    custom_spec: dict[str, Any] = field(default_factory=dict)
+    custom_spec: dict[str, Any] = field(default_factory=_default_custom_spec)
 
     def get_auth_token(self) -> Optional[str]:
         url = f"{self.base_url}/token"
