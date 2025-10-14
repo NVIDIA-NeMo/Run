@@ -181,11 +181,9 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             state = next(state for state in states if not is_terminal(state))
         else:
             status_file = os.path.join(req.executor.job_dir, f"status_{role}.out")
-            print(f"status_file: {status_file}")
             if os.path.exists(status_file):
                 with open(status_file, "r") as f:
                     status = json.load(f)
-                    print(status)
                     roles_statuses[role].replicas.append(
                         ReplicaStatus(
                             id=0, role=role, state=int(status["exit_code"]), hostname=container.name
