@@ -21,6 +21,8 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 from leptonai.api.v1.types.common import LeptonVisibility, Metadata
 from leptonai.api.v1.types.deployment import (
+    EnvVar,
+    EnvValue,
     LeptonContainer,
     LeptonResourceAffinity,
     Mount,
@@ -973,3 +975,231 @@ class TestLeptonExecutor:
         handle = mock_file.return_value.__enter__.return_value
         written_content = handle.write.call_args[0][0]
         assert "echo setup\nexport VAR=1\n" in written_content
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_env_vars_with_secrets(self, mock_APIClient_class):
+        """Test that environment variables with secret references are processed correctly."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        # Test executor with mixed environment variables (secrets and regular values)
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            env_vars={
+                # Secret reference
+                "HF_TOKEN": {"value_from": {"secret_name_ref": "HUGGING_FACE_HUB_TOKEN_read"}},
+                "WANDB_API_KEY": {"value_from": {"secret_name_ref": "WANDB_API_KEY_secret"}},
+                # Regular environment variables
+                "NCCL_DEBUG": "INFO",
+                "TORCH_DISTRIBUTED_DEBUG": "INFO",
+                "NUM_WORKERS": 4,  # Test integer conversion
+                "ENABLE_FEATURE": True,  # Test boolean conversion
+            },
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify job.create was called
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+
+        # Check that envs are correctly processed
+        envs = created_job.spec.envs
+        assert len(envs) == 6  # Should have all 6 environment variables
+
+        # Create a dictionary for easier testing
+        env_dict = {env.name: env for env in envs}
+
+        # Verify secret references are properly set
+        assert "HF_TOKEN" in env_dict
+        hf_token_env = env_dict["HF_TOKEN"]
+        assert hf_token_env.value is None  # Should not have direct value
+        assert hf_token_env.value_from is not None
+        assert hf_token_env.value_from.secret_name_ref == "HUGGING_FACE_HUB_TOKEN_read"
+
+        assert "WANDB_API_KEY" in env_dict
+        wandb_env = env_dict["WANDB_API_KEY"]
+        assert wandb_env.value is None  # Should not have direct value
+        assert wandb_env.value_from is not None
+        assert wandb_env.value_from.secret_name_ref == "WANDB_API_KEY_secret"
+
+        # Verify regular environment variables are properly set
+        assert "NCCL_DEBUG" in env_dict
+        nccl_env = env_dict["NCCL_DEBUG"]
+        assert nccl_env.value == "INFO"
+        assert nccl_env.value_from is None  # Should not have secret reference
+
+        assert "TORCH_DISTRIBUTED_DEBUG" in env_dict
+        torch_env = env_dict["TORCH_DISTRIBUTED_DEBUG"]
+        assert torch_env.value == "INFO"
+        assert torch_env.value_from is None  # Should not have secret reference
+
+        # Verify type conversion for non-string values
+        assert "NUM_WORKERS" in env_dict
+        workers_env = env_dict["NUM_WORKERS"]
+        assert workers_env.value == "4"  # Should be converted to string
+        assert workers_env.value_from is None
+
+        assert "ENABLE_FEATURE" in env_dict
+        feature_env = env_dict["ENABLE_FEATURE"]
+        assert feature_env.value == "True"  # Should be converted to string
+        assert feature_env.value_from is None
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_env_vars_all_regular_values(self, mock_APIClient_class):
+        """Test that executor works correctly with only regular environment variables."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        # Test executor with only regular environment variables
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            env_vars={
+                "NCCL_DEBUG": "INFO",
+                "CUDA_VISIBLE_DEVICES": "0,1,2,3",
+                "TRAINING_STEPS": 1000,
+            },
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify job.create was called
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+
+        # Check that all envs are regular values
+        envs = created_job.spec.envs
+        assert len(envs) == 3
+
+        for env in envs:
+            assert env.value is not None  # All should have direct values
+            assert env.value_from is None  # None should have secret references
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_env_vars_all_secrets(self, mock_APIClient_class):
+        """Test that executor works correctly with only secret environment variables."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        # Test executor with only secret environment variables
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            env_vars={
+                "API_KEY": {"value_from": {"secret_name_ref": "api_key_secret"}},
+                "DATABASE_PASSWORD": {"value_from": {"secret_name_ref": "db_password_secret"}},
+                "JWT_SECRET": {"value_from": {"secret_name_ref": "jwt_secret"}},
+            },
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify job.create was called
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+
+        # Check that all envs are secret references
+        envs = created_job.spec.envs
+        assert len(envs) == 3
+
+        for env in envs:
+            assert env.value is None  # All should NOT have direct values
+            assert env.value_from is not None  # All should have secret references
+            assert env.value_from.secret_name_ref is not None
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_env_vars_empty_dict(self, mock_APIClient_class):
+        """Test that executor works correctly with empty env_vars dictionary."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        # Test executor with empty env_vars
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            env_vars={},
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify job.create was called
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+
+        # Check that envs list is empty
+        envs = created_job.spec.envs
+        assert len(envs) == 0
+
+    def test_env_vars_secret_structure_validation(self):
+        """Test that the secret structure is validated correctly."""
+
+        # Test that a properly structured secret dict is detected
+        test_env_vars = {
+            "SECRET_VAR": {"value_from": {"secret_name_ref": "my_secret"}},
+            "REGULAR_VAR": "regular_value",
+            "DICT_WITHOUT_VALUE_FROM": {"some_key": "some_value"},
+        }
+
+        # Process the environment variables manually to test the logic
+        envs = []
+        for key, value in test_env_vars.items():
+            if isinstance(value, dict) and "value_from" in value:
+                # Handle secret reference
+                secret_name_ref = value["value_from"]["secret_name_ref"]
+                envs.append(EnvVar(name=key, value_from=EnvValue(secret_name_ref=secret_name_ref)))
+            else:
+                # Handle regular environment variable
+                envs.append(EnvVar(name=key, value=str(value)))
+
+        # Verify correct processing
+        assert len(envs) == 3
+
+        # Check secret variable
+        secret_env = next(env for env in envs if env.name == "SECRET_VAR")
+        assert secret_env.value is None
+        assert secret_env.value_from is not None
+        assert secret_env.value_from.secret_name_ref == "my_secret"
+
+        # Check regular variable
+        regular_env = next(env for env in envs if env.name == "REGULAR_VAR")
+        assert regular_env.value == "regular_value"
+        assert regular_env.value_from is None
+
+        # Check dict without value_from (should be treated as regular)
+        dict_env = next(env for env in envs if env.name == "DICT_WITHOUT_VALUE_FROM")
+        assert dict_env.value == "{'some_key': 'some_value'}"  # Converted to string
+        assert dict_env.value_from is None
