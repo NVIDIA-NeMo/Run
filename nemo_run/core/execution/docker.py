@@ -276,7 +276,7 @@ class DockerContainer:
 
         container_kwargs.update(self.executor.additional_kwargs)
         assert self.executor.experiment_id
-        tee_cmd = f" 2>&1 | tee -a /{RUNDIR_NAME}/log_{self.name}.out"
+        tee_cmd = f" 2>&1 | tee -a /{RUNDIR_NAME}/log_{self.name}.out; " r"exit ${PIPESTATUS[0]}"
         command = " ".join(self.command)
         command = f'bash -c "{command}{tee_cmd}"'
 
@@ -285,7 +285,8 @@ class DockerContainer:
             self.executor.container_image,
             command,
             detach=True,
-            remove=True,
+            remove=False,
+            auto_remove=False,
             name=self.name,
             hostname=self.name,
             network=self.executor.network,
