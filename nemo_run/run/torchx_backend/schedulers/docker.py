@@ -190,6 +190,8 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
                         )
                     )
                     state = AppState.FAILED if int(status["exit_code"]) != 0 else AppState.SUCCEEDED
+            else:
+                state = AppState.UNKNOWN
 
         return DescribeAppResponse(
             app_id=app_id,

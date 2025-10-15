@@ -19,6 +19,7 @@ from unittest import mock
 import pytest
 from torchx.schedulers.api import AppDryRunInfo
 from torchx.specs import AppDef, Role
+from torchx.specs.api import AppState
 
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.run.torchx_backend.schedulers.docker import (
@@ -122,6 +123,33 @@ def test_describe(docker_scheduler, docker_executor):
         assert response is not None
         assert response.app_id == "test_session___test_role___test_container_id"
         assert "UNKNOWN" in str(response.state)
+        assert len(response.roles) == 1
+
+
+def test_describe_running(docker_scheduler, docker_executor):
+    with (
+        mock.patch.object(DockerJobRequest, "load") as mock_load,
+        mock.patch.object(DockerContainer, "get_container") as mock_get_container,
+        mock.patch.object(PersistentDockerScheduler, "_get_app_state") as mock_get_app_state,
+    ):
+        container = DockerContainer(
+            name="test_role",
+            command=["test"],
+            executor=docker_executor,
+            extra_env={},
+        )
+        mock_load.return_value = DockerJobRequest(
+            id="test_session___test_role___test_container_id",
+            executor=docker_executor,
+            containers=[container],
+        )
+        mock_get_container.return_value = container
+        mock_get_app_state.return_value = AppState.RUNNING
+
+        response = docker_scheduler.describe("test_session___test_role___test_container_id")
+        assert response is not None
+        assert response.app_id == "test_session___test_role___test_container_id"
+        assert "RUNNING" in str(response.state)
         assert len(response.roles) == 1
 
 
