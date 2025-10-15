@@ -170,6 +170,23 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
                     )
                 )
                 states.append(_state)
+            else:
+                status_file = os.path.join(req.executor.job_dir, f"status_{role}.out")
+                if os.path.exists(status_file):
+                    with open(status_file, "r") as f:
+                        status = json.load(f)
+                        roles_statuses[role].replicas.append(
+                            ReplicaStatus(
+                                id=0,
+                                role=role,
+                                state=int(status["exit_code"]),
+                                hostname=container.name,
+                            )
+                        )
+                        state = (
+                            AppState.FAILED if int(status["exit_code"]) != 0 else AppState.SUCCEEDED
+                        )
+                        states.append(state)
 
         state = AppState.UNKNOWN
         if any(is_terminal(state) for state in states):
@@ -179,19 +196,6 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
                 state = AppState.FAILED
         elif len(states) > 0:
             state = next(state for state in states if not is_terminal(state))
-        else:
-            status_file = os.path.join(req.executor.job_dir, f"status_{role}.out")
-            if os.path.exists(status_file):
-                with open(status_file, "r") as f:
-                    status = json.load(f)
-                    roles_statuses[role].replicas.append(
-                        ReplicaStatus(
-                            id=0, role=role, state=int(status["exit_code"]), hostname=container.name
-                        )
-                    )
-                    state = AppState.FAILED if int(status["exit_code"]) != 0 else AppState.SUCCEEDED
-            else:
-                state = AppState.UNKNOWN
 
         return DescribeAppResponse(
             app_id=app_id,

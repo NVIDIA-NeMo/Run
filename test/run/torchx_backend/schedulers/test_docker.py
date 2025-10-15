@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import os
 import tempfile
 from unittest import mock
 
@@ -150,6 +152,71 @@ def test_describe_running(docker_scheduler, docker_executor):
         assert response is not None
         assert response.app_id == "test_session___test_role___test_container_id"
         assert "RUNNING" in str(response.state)
+        assert len(response.roles) == 1
+
+
+def test_describe_failed(docker_scheduler, docker_executor):
+    with (
+        mock.patch.object(DockerJobRequest, "load") as mock_load,
+        mock.patch.object(DockerContainer, "get_container") as mock_get_container,
+        mock.patch.object(PersistentDockerScheduler, "_get_app_state") as mock_get_app_state,
+    ):
+        container = DockerContainer(
+            name="test_role",
+            command=["test"],
+            executor=docker_executor,
+            extra_env={},
+        )
+        req = DockerJobRequest(
+            id="test_session___test_role___test_container_id",
+            executor=docker_executor,
+            containers=[container],
+        )
+        mock_load.return_value = req
+        mock_get_container.return_value = container
+        mock_get_app_state.return_value = None
+        status_file = os.path.join(req.executor.job_dir, f"status_{req.containers[0].name}.out")
+
+        with open(status_file, "w") as f:
+            f.write(json.dumps({"exit_code": 1}))
+
+        response = docker_scheduler.describe(req.id)
+        assert response is not None
+        assert response.app_id == req.id
+        assert "FAILED" in str(response.state)
+        assert len(response.roles) == 1
+
+
+@pytest.mark.xfail
+def test_describe_failure_not_detected(docker_scheduler, docker_executor):
+    with (
+        mock.patch.object(DockerJobRequest, "load") as mock_load,
+        mock.patch.object(DockerContainer, "get_container") as mock_get_container,
+        mock.patch.object(PersistentDockerScheduler, "_get_app_state") as mock_get_app_state,
+    ):
+        container = DockerContainer(
+            name="test_role",
+            command=["test"],
+            executor=docker_executor,
+            extra_env={},
+        )
+        req = DockerJobRequest(
+            id="test_session___test_role___test_container_id",
+            executor=docker_executor,
+            containers=[container],
+        )
+        mock_load.return_value = req
+        mock_get_container.return_value = container
+        mock_get_app_state.return_value = None
+        status_file = os.path.join(req.executor.job_dir, f"status_{req.containers[0].name}.out")
+
+        with open(status_file, "w") as f:
+            f.write(json.dumps({"exit_code": 1}))
+
+        response = docker_scheduler.describe(req.id)
+        assert response is not None
+        assert response.app_id == req.id
+        assert "SUCCEEDED" in str(response.state)
         assert len(response.roles) == 1
 
 
