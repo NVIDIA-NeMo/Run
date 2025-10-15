@@ -285,15 +285,22 @@ class TestDockerContainer:
         assert container.executor == executor
         assert container.extra_env == {"EXTRA": "value"}
 
-    @patch("nemo_run.core.execution.docker.DockerContainer.run")
-    def test_run(self, mock_run, mock_docker_client, mock_container):
+    @patch("docker.DockerClient")
+    @patch("nemo_run.core.execution.docker.ensure_network")
+    def test_run(
+        self,
+        mock_client,
+        mock_ensure_network,
+        mock_docker_client,
+        mock_container,
+    ):
         """Test run method of DockerContainer."""
         executor = DockerExecutor(
             container_image="test:latest",
             runtime="nvidia",
             num_gpus=2,
             shm_size="8g",
-            ulimits=["memlock:unlimited:unlimited"],
+            ulimits=["memlock:0:123"],
             ipc_mode="host",
             privileged=True,
             volumes=["/host:/container"],
@@ -308,11 +315,21 @@ class TestDockerContainer:
             extra_env={"EXTRA": "value"},
         )
 
-        mock_run.return_value = mock_container
+        mock_ensure_network.return_value = None
+
+        def mocked_run(*args, **kwargs):
+            detach = kwargs.pop("detach", None)
+            remove = kwargs.pop("remove", None)
+            assert detach is True
+            assert remove is True
+
+        mock_client.containers.run = mocked_run
+
+        container.run(mock_client, "job123")
 
         # Instead of actually calling run which would fail with the "unlimited" value,
         # we'll check that the container is properly set up
-        assert container.executor.ulimits == ["memlock:unlimited:unlimited"]
+        assert container.executor.ulimits == ["memlock:0:123"]
         assert container.extra_env == {"EXTRA": "value"}
         assert container.executor.experiment_id == "exp123"
 

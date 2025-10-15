@@ -276,9 +276,12 @@ class DockerContainer:
 
         container_kwargs.update(self.executor.additional_kwargs)
         assert self.executor.experiment_id
-        tee_cmd = f" 2>&1 | tee -a /{RUNDIR_NAME}/log_{self.name}.out"
+        tee_cmd = f" 2>&1 | tee -a /{RUNDIR_NAME}/log_{self.name}.out; "
+        save_status_cmd = r"export EXIT_CODE=${PIPESTATUS[0]}; "
+        save_status_cmd += f'printf \'{{\\"id\\": \\"{id}\\", \\"exit_code\\": \\"%s\\"}}\\n\' "$EXIT_CODE" > /{RUNDIR_NAME}/status_{self.name}.out; exit $EXIT_CODE;'
+
         command = " ".join(self.command)
-        command = f'bash -c "{command}{tee_cmd}"'
+        command = f'bash -c "{command}{tee_cmd}{save_status_cmd}"'
 
         ensure_network(client=client, network=self.executor.network)
         return client.containers.run(
