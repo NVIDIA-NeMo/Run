@@ -53,6 +53,7 @@ def mock_docker_client():
     mock_client.containers = mock_containers
     return mock_client
 
+
 @pytest.fixture
 def mock_container():
     """Mock a Docker container."""
@@ -317,8 +318,8 @@ class TestDockerContainer:
         mock_ensure_network.return_value = None
 
         def mocked_run(*args, **kwargs):
-            detach = kwargs.pop('detach', None)
-            remove = kwargs.pop('remove', None)
+            detach = kwargs.pop("detach", None)
+            remove = kwargs.pop("remove", None)
             assert detach is True
             assert remove is True
 
