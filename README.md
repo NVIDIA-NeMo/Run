@@ -5,9 +5,9 @@
 
 NeMo Run is a powerful tool designed to streamline the configuration, execution, and management of machine learning experiments across various computing environments. NeMo Run has three core responsibilities:
 
-1. [Configuration](./docs/source/guides/configuration.md)
-2. [Execution](./docs/source/guides/execution.md)
-3. [Management](./docs/source/guides/management.md)
+1. [Configuration](./docs/guides/configuration.md)
+2. [Execution](./docs/guides/execution.md)
+3. [Management](./docs/guides/management.md)
 
 To learn more, click on each link. This represents the typical order that NeMo Run users follow for setting up and launching experiments.
 
@@ -27,7 +27,7 @@ To learn more, click on each link. This represents the typical order that NeMo R
 
 
 ## Why Use NeMo Run?
-Please see this [detailed guide](./docs/source/guides/why-use-nemo-run.md) for reasons to use NeMo Run.
+Please see this [detailed guide](./docs/guides/why-use-nemo-run.md) for reasons to use NeMo Run.
 
 ## Install NeMo Run
 To install the project, use the following command:
@@ -106,4 +106,4 @@ You can find the tutorial series below:
 Please see the [contribution guide](./CONTRIBUTING.md) to contribute to NeMo Run.
 
 ## FAQs
-Please find a list of frequently asked questions [here](./docs/source/faqs.md).
+Please find a list of frequently asked questions [here](./docs/faqs.md).
