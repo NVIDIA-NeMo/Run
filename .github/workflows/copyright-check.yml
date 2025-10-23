@@ -16,6 +16,7 @@ name: Copyright check
 
 on:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   copyright-check:
