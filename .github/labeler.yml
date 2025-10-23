@@ -1,0 +1,86 @@
+CLI:
+- nemo_run/cli/**/*
+- test/cli/**/*
+
+execution:
+- nemo_run/core/execution/**/*
+- test/core/execution/**/*
+
+executor/slurm:
+- nemo_run/core/execution/slurm.py
+- nemo_run/core/execution/templates/slurm*.j2
+- test/core/execution/test_slurm*.py
+
+executor/docker:
+- nemo_run/core/execution/docker.py
+- test/core/execution/test_docker.py
+- examples/docker/**/*
+
+executor/skypilot:
+- nemo_run/core/execution/skypilot*.py
+- test/core/execution/test_skypilot*.py
+
+executor/dgxcloud:
+- nemo_run/core/execution/dgxcloud.py
+- test/core/execution/test_dgxcloud.py
+- examples/dgxcloud/**/*
+
+executor/lepton:
+- nemo_run/core/execution/lepton.py
+- test/core/execution/test_lepton.py
+
+executor/kuberay:
+- nemo_run/core/execution/kuberay.py
+
+executor/launcher:
+- nemo_run/core/execution/launcher.py
+- test/core/execution/test_launcher.py
+
+ray:
+- nemo_run/run/ray/**/*
+- test/run/ray/**/*
+- docs/guides/ray.md
+
+torchx:
+- nemo_run/run/torchx_backend/**/*
+- test/run/torchx_backend/**/*
+
+packaging:
+- nemo_run/core/packaging/**/*
+- test/core/packaging/**/*
+
+serialization:
+- nemo_run/core/serialization/**/*
+
+frontend:
+- nemo_run/core/frontend/**/*
+- test/core/frontend/**/*
+
+devspace:
+- nemo_run/devspace/**/*
+- test/devspace/**/*
+
+core:
+- nemo_run/core/**/*
+- test/core/**/*
+
+run:
+- nemo_run/run/**/*
+- test/run/**/*
+
+api:
+- nemo_run/api.py
+- nemo_run/cli/api.py
+- test/test_api.py
+
+documentation:
+- docs/**/*
+- README.md
+- examples/**/*
+
+tests:
+- test/**/*
+
+CI:
+- .github/**/*
+
