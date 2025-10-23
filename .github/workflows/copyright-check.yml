@@ -16,7 +16,10 @@ name: Copyright check
 
 on:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   copyright-check:
     uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_copyright_check.yml@v0.65.4
+    with:
+      from-year: 2024
