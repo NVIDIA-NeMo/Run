@@ -196,6 +196,7 @@ class SSHTunnel(Tunnel):
 
     host: str
     user: str
+    port: Optional[int] = None
     identity: Optional[str] = None
     shell: Optional[str] = None
     pre_command: Optional[str] = None
@@ -263,6 +264,7 @@ class SSHTunnel(Tunnel):
         config = Config(overrides={"run": {"in_stream": False}})
         self.session = Connection(
             self.host,
+            port=self.port,
             user=self.user,
             connect_kwargs=connect_kwargs,
             forward_agent=False,
