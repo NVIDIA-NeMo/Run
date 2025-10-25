@@ -162,6 +162,7 @@ class TestSSHTunnel:
 
         mock_connection.assert_called_once_with(
             "test.host",
+            port=None,
             user="test_user",
             connect_kwargs={"key_filename": ["/path/to/key"]},
             forward_agent=False,
