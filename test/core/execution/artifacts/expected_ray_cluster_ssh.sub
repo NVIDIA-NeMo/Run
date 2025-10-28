@@ -91,7 +91,7 @@ nodes_array=($nodes)
 ip_addresses_array=()
 
 for node in $nodes; do
-    ip_address=$(host $node | awk '/has address/ { print $4 }')
+    ip_address=$(getent hosts "$node" | awk '{print $1}' | head -n1)
     # Add the IP address to the array
     ip_addresses_array+=("$ip_address")
 done
