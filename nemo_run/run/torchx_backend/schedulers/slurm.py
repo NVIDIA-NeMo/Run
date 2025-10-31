@@ -114,12 +114,14 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
                 srun_cmds.append([" ".join(srun_cmd)])
 
             command = [app.roles[0].entrypoint] + app.roles[0].args
+            # Allow selecting Ray template via environment variable
+            ray_template_name = os.environ.get("NEMO_SLURM_RAY_TEMPLATE", "ray.sub.j2")
             req = SlurmRayRequest(
                 name=app.roles[0].name,
                 launch_cmd=["sbatch", "--requeue", "--parsable"],
                 command=" ".join(command),
                 cluster_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name, "ray"),
-                template_name="ray.sub.j2",
+                template_name=ray_template_name,
                 executor=executor,
                 workdir=f"/{RUNDIR_NAME}/code",
                 nemo_run_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name),
