@@ -115,7 +115,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
             command = [app.roles[0].entrypoint] + app.roles[0].args
             # Allow selecting Ray template via environment variable
-            ray_template_name = os.environ.get("NEMO_SLURM_RAY_TEMPLATE", "ray.sub.j2")
+            ray_template_name = os.environ.get("NEMO_RUN_SLURM_RAY_TEMPLATE", "ray.sub.j2")
             req = SlurmRayRequest(
                 name=app.roles[0].name,
                 launch_cmd=["sbatch", "--requeue", "--parsable"],

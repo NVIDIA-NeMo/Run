@@ -369,7 +369,7 @@ def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
 
 
 def test_ray_template_env_var(slurm_scheduler, slurm_executor):
-    """Test that NEMO_SLURM_RAY_TEMPLATE environment variable selects the correct template."""
+    """Test that NEMO_RUN_SLURM_RAY_TEMPLATE environment variable selects the correct template."""
     from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
     from nemo_run.run.ray.slurm import SlurmRayRequest
 
@@ -396,7 +396,7 @@ def test_ray_template_env_var(slurm_scheduler, slurm_executor):
 
         # Test custom template name via environment variable
         with (
-            mock.patch.dict(os.environ, {"NEMO_SLURM_RAY_TEMPLATE": "ray_enroot.sub.j2"}),
+            mock.patch.dict(os.environ, {"NEMO_RUN_SLURM_RAY_TEMPLATE": "ray_enroot.sub.j2"}),
             mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
         ):
             mock_fill.return_value = "#!/bin/bash\n# Mock script"
