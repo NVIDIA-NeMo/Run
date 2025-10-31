@@ -698,3 +698,47 @@ class TestSlurmRayRequest:
         ]
         for pattern in expected_patterns:
             assert pattern in script, f"Log path missing expected prefix pattern: {pattern}"
+
+    @pytest.fixture
+    def ray_enroot_request_with_artifact(self) -> tuple[SlurmRayRequest, str]:
+        """Create a Ray enroot cluster request matching expected_ray_cluster_enroot.sub artifact."""
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            time="01:00:00",
+            nodes=2,
+            ntasks_per_node=8,
+            gpus_per_node=8,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=["/tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster"],
+        )
+
+        tunnel_mock = Mock(spec=SSHTunnel)
+        tunnel_mock.job_dir = "/tmp/test_jobs"
+        tunnel_mock.key = "test-cluster"
+        executor.tunnel = tunnel_mock
+
+        request = SlurmRayRequest(
+            name="test-ray-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            template_name="ray_enroot.sub.j2",
+            executor=executor,
+            command="python train.py",
+            workdir="/workspace",
+            launch_cmd=["sbatch", "--requeue", "--parsable", "--dependency=singleton"],
+        )
+
+        return request, os.path.join(ARTIFACTS_DIR, "expected_ray_cluster_enroot.sub")
+
+    def test_ray_enroot_template(
+        self, ray_enroot_request_with_artifact: tuple[SlurmRayRequest, str]
+    ):
+        """Test that ray_enroot.sub.j2 template matches expected artifact exactly."""
+        ray_request, artifact_path = ray_enroot_request_with_artifact
+        generated_script = ray_request.materialize()
+
+        # Read expected artifact for reference
+        with open(artifact_path, "r") as f:
+            expected_script = f.read()
+
+        assert generated_script.strip() == expected_script.strip()
