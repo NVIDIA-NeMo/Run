@@ -287,12 +287,17 @@ get_container_pid() {
   local node=$1
   srun --overlap --nodes=1 -w "$node" bash -c "enroot list -f | awk 'NR>1 && \$2 ~ /^[0-9]+\$/ {print \$2; exit}'"
 }
-head_container_pid=$(get_container_pid "$head_node")
 
 
 # Wait for the head node container to start and for Ray to be ready
 elapsed_time=0
-while ! (srun --overlap --nodes=1 --ntasks=1 -w $head_node test -f $LOG_DIR/STARTED_RAY_HEAD && enroot exec "$head_container_pid" ray status --address $ip_head 2>/dev/null); do
+while true; do
+  if srun --overlap --nodes=1 --ntasks=1 -w $head_node test -f $LOG_DIR/STARTED_RAY_HEAD; then
+    head_container_pid=$(get_container_pid "$head_node")
+    if [[ -n "$head_container_pid" ]] && enroot exec "$head_container_pid" ray status --address $ip_head 2>/dev/null; then
+      break
+    fi
+  fi
   if [[ $elapsed_time -ge $RAY_HEAD_START_TIMEOUT ]]; then
     echo "[ERROR][$(date)] Ray head node failed to start within $RAY_HEAD_START_TIMEOUT seconds. Exiting..."
     touch $LOG_DIR/ENDED
