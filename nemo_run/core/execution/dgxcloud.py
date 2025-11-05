@@ -62,8 +62,6 @@ class DGXCloudExecutor(Executor):
     via a REST API. It acquires an auth token, identifies the project/cluster,
     and launches jobs with a specified command. It can be adapted to meet user
     authentication and job-submission requirements on DGX.
-
-    base_url: DGXC Endpoint
     """
 
     base_url: str
@@ -373,7 +371,12 @@ cd /nemo_run/code
         )
         response_text = response.text.strip()
         workload_name = next(
-            (workload["name"] for workload in json.loads(response_text) if workload["id"] == job_id), None
+            (
+                workload["name"]
+                for workload in json.loads(response_text)
+                if workload["id"] == job_id
+            ),
+            None,
         )
 
         url = f"{self.kube_apiserver_url}/api/v1/namespaces/runai-{self.project_name}/pods/{workload_name}-worker-0/log?container=pytorch"
