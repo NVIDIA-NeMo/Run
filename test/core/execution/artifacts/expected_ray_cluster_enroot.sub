@@ -449,6 +449,11 @@ else
 # Args 1-N launch on worker nodes (nodes 1 through N-1)
 # Optional: set COMMAND='...' to run non-interactively instead of opening an interactive shell
 
+# Helper to get container PID
+get_container_pid() {
+  local node=\$1
+  srun --overlap --nodes=1 -w "\$node" --jobid $SLURM_JOB_ID bash -c "enroot list -f | awk 'NR>1 && \\\$2 ~ /^[0-9]+\\\$/ {print \\\$2; exit}'"
+}
 
 WORKER_NUM=\\\${1:-}
 if [[ -z "\\\$WORKER_NUM" ]]; then
