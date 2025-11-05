@@ -21,10 +21,7 @@ from torchx.schedulers.api import AppDryRunInfo
 from torchx.specs import AppDef, Role
 
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
-from nemo_run.run.torchx_backend.schedulers.dgxcloud import (
-    DGXCloudScheduler,
-    create_scheduler,
-)
+from nemo_run.run.torchx_backend.schedulers.dgxcloud import DGXCloudScheduler, create_scheduler
 
 
 @pytest.fixture
@@ -38,6 +35,7 @@ def mock_app_def():
 def dgx_cloud_executor():
     return DGXCloudExecutor(
         base_url="https://dgx.example.com",
+        kube_apiserver_url="https://127.0.0.1:443",
         app_id="test_app_id",
         app_secret="test_secret",
         project_name="test_project",
