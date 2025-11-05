@@ -25,12 +25,17 @@ from typing import Any, Iterable, Optional
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
-from torchx.schedulers.api import (AppDryRunInfo, DescribeAppResponse,
-                                   ListAppResponse, Scheduler, Stream,
-                                   split_lines, split_lines_iterator)
+from torchx.schedulers.api import (
+    AppDryRunInfo,
+    DescribeAppResponse,
+    ListAppResponse,
+    Scheduler,
+    Stream,
+    split_lines,
+    split_lines_iterator,
+)
 from torchx.schedulers.local_scheduler import LogIterator
-from torchx.specs import (AppDef, AppState, ReplicaStatus, Role, RoleStatus,
-                          runopts)
+from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runopts
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
@@ -281,9 +286,4 @@ def _get_job_dirs() -> dict[str, dict[str, str]]:
             log.debug(f"Failed to deserialize executor: {e}")
             continue
 
-    return data
-    return data
-            continue
-
-    return data
     return data
