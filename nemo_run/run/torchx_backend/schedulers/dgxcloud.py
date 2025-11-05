@@ -32,7 +32,6 @@ from torchx.schedulers.api import (
     Stream,
     split_lines,
 )
-from torchx.schedulers.local_scheduler import LogIterator
 from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runopts
 
 from nemo_run.config import get_nemorun_home

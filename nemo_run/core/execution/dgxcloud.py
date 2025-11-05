@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Type
+from typing import Any, Optional
 
 import requests
 from invoke.context import Context
