@@ -19,7 +19,6 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
@@ -32,7 +31,6 @@ from torchx.schedulers.api import (
     Scheduler,
     Stream,
     split_lines,
-    split_lines_iterator,
 )
 from torchx.schedulers.local_scheduler import LogIterator
 from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runopts
