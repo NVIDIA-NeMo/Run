@@ -145,6 +145,7 @@ def test_save_and_get_job_dirs():
 
         executor = DGXCloudExecutor(
             base_url="https://test.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_id",
             app_secret="test_secret",
             project_name="test_project",

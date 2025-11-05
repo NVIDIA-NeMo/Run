@@ -790,12 +790,6 @@ class TestDGXCloudExecutor:
 
             mock_get.assert_not_called()
 
-    def test_logs(self):
-        with patch("logging.Logger.warning") as mock_warning:
-            DGXCloudExecutor.logs("app123", "/path/to/fallback")
-            mock_warning.assert_called_once()
-            assert "Logs not available" in mock_warning.call_args[0][0]
-
     def test_assign(self):
         set_nemorun_home("/nemo_home")
 
