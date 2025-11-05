@@ -29,6 +29,7 @@ class TestDGXCloudExecutor:
     def test_init(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
