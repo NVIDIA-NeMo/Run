@@ -279,12 +279,9 @@ SRUN_PIDS["ray-head"]=$!
 # Helper function to get container PID using enroot (workaround for --overlap --container-name bug)
 get_container_pid() {
   local node=$1
-  local container_name=$2
-  # Use --overlap WITHOUT --container-name, then use enroot to find the container
-  # Note: Pyxis sometimes names containers as "<unknown>" so we look for the pattern in any field
-  srun --overlap --nodes=1 -w "$node" bash -c "enroot list -f | grep -E '($container_name|<unknown>)' | grep -oP '\s+\K\d+' | head -1"
+  srun --overlap --nodes=1 -w "$node" bash -c "enroot list -f | awk 'NR>1 && \$2 ~ /^[0-9]+\$/ {print \$2; exit}'"
 }
-head_container_pid=$(get_container_pid "$head_node" "ray-head")
+head_container_pid=$(get_container_pid "$head_node")
 
 
 # Wait for the head node container to start and for Ray to be ready
@@ -379,7 +376,7 @@ done
 
 extract_worker_units() {
   # Get the container PID for ray-head
-  head_container_pid=$(get_container_pid "$head_node" "ray-head")
+  head_container_pid=$(get_container_pid "$head_node")
   if [[ -z "$head_container_pid" ]]; then
     echo 0
     return
@@ -443,7 +440,7 @@ COMMAND_WORKDIR=/workspace
 
 if [[ -n "$COMMAND" ]]; then
   # Get container PID and execute command inside it
-  head_container_pid=$(get_container_pid "$head_node" "ray-head")
+  head_container_pid=$(get_container_pid "$head_node")
   srun --overlap --nodes=1 -w "$head_node" -o $LOG_DIR/ray-job.log enroot exec "$head_container_pid" bash -c "cd $COMMAND_WORKDIR && $COMMAND"
 else
   echo "[INFO]: Ray Cluster is idled, run this on the slurm head node to get a shell to the head node:"
@@ -452,17 +449,11 @@ else
 # Args 1-N launch on worker nodes (nodes 1 through N-1)
 # Optional: set COMMAND='...' to run non-interactively instead of opening an interactive shell
 
-# Helper to get container PID
-get_container_pid() {
-  local node=\\\$1
-  local container_name=\\\$2
-  srun --overlap --nodes=1 -w "\\\$node" --jobid $SLURM_JOB_ID bash -c "enroot list -f | grep '\\\$container_name' | grep -oP '\s+\K\d+' | head -1"
-}
 
 WORKER_NUM=\\\${1:-}
 if [[ -z "\\\$WORKER_NUM" ]]; then
   # Empty means we are on the head node
-  HEAD_PID=\\\$(get_container_pid "$head_node" "ray-head")
+  HEAD_PID=\\\$(get_container_pid "$head_node")
   if [[ -n "\\\${COMMAND:-}" ]]; then
     srun -A $SLURM_JOB_ACCOUNT -p $SLURM_JOB_PARTITION --overlap --nodes=1 -w "$head_node" --jobid $SLURM_JOB_ID enroot exec "\\\$HEAD_PID" bash -c "cd $CONTAINER_CWD && \\\$COMMAND"
   else
@@ -477,7 +468,7 @@ else
   fi
   nodes_array=($nodes)
   node="\\\${nodes_array[\\\$WORKER_NUM]}"
-  WORKER_PID=\\\$(get_container_pid "\\\$node" "ray-worker-\\\$WORKER_NUM")
+  WORKER_PID=\\\$(get_container_pid "\\\$node")
   if [[ -n "\\\${COMMAND:-}" ]]; then
     srun -A $SLURM_JOB_ACCOUNT -p $SLURM_JOB_PARTITION --overlap --nodes=1 -w "\\\$node" --jobid $SLURM_JOB_ID enroot exec "\\\$WORKER_PID" bash -c "cd $CONTAINER_CWD && \\\$COMMAND"
   else
