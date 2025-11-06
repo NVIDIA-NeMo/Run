@@ -290,7 +290,7 @@ class DockerContainer:
             detach=True,
             remove=True,
             name=self.name,
-            hostname=self.name,
+            hostname=self.name[:32],
             network=self.executor.network,
             working_dir=f"/{RUNDIR_NAME}/code",
             labels={

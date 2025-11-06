@@ -404,6 +404,80 @@ class TestDockerContainer:
         container.get_container.assert_called_once_with(client=mock_docker_client, id="job123")
         mock_container.remove.assert_called_once_with(force=True)
 
+    @patch("nemo_run.core.execution.docker.ensure_network")
+    def test_run_with_short_container_name(self, mock_ensure_network, mock_docker_client):
+        """Test run method with container name <= 32 characters."""
+        executor = DockerExecutor(container_image="test:latest")
+        executor.experiment_id = "exp123"
+
+        container = DockerContainer(
+            name="short-name",
+            command=["python", "script.py"],
+            executor=executor,
+            extra_env={},
+        )
+
+        mock_docker_client.containers.run.return_value = MagicMock()
+
+        container.run(mock_docker_client, "job123")
+
+        # Verify hostname is set to the full name
+        call_kwargs = mock_docker_client.containers.run.call_args[1]
+        assert call_kwargs["hostname"] == "short-name"
+        assert len(call_kwargs["hostname"]) <= 32
+
+    @patch("nemo_run.core.execution.docker.ensure_network")
+    def test_run_with_long_container_name(self, mock_ensure_network, mock_docker_client):
+        """Test run method with container name > 32 characters."""
+        executor = DockerExecutor(container_image="test:latest")
+        executor.experiment_id = "exp123"
+
+        # Create a name that's longer than 32 characters
+        long_name = "this-is-a-very-long-container-name-that-exceeds-thirty-two-characters"
+        assert len(long_name) > 32
+
+        container = DockerContainer(
+            name=long_name,
+            command=["python", "script.py"],
+            executor=executor,
+            extra_env={},
+        )
+
+        mock_docker_client.containers.run.return_value = MagicMock()
+
+        container.run(mock_docker_client, "job123")
+
+        # Verify hostname is truncated to 32 characters
+        call_kwargs = mock_docker_client.containers.run.call_args[1]
+        assert call_kwargs["hostname"] == long_name[:32]
+        assert len(call_kwargs["hostname"]) == 32
+
+    @patch("nemo_run.core.execution.docker.ensure_network")
+    def test_run_with_exactly_32_char_name(self, mock_ensure_network, mock_docker_client):
+        """Test run method with container name exactly 32 characters."""
+        executor = DockerExecutor(container_image="test:latest")
+        executor.experiment_id = "exp123"
+
+        # Create a name that's exactly 32 characters
+        exact_name = "a" * 32
+        assert len(exact_name) == 32
+
+        container = DockerContainer(
+            name=exact_name,
+            command=["python", "script.py"],
+            executor=executor,
+            extra_env={},
+        )
+
+        mock_docker_client.containers.run.return_value = MagicMock()
+
+        container.run(mock_docker_client, "job123")
+
+        # Verify hostname is set to the full name
+        call_kwargs = mock_docker_client.containers.run.call_args[1]
+        assert call_kwargs["hostname"] == exact_name
+        assert len(call_kwargs["hostname"]) == 32
+
 
 class TestDockerJobRequest:
     def test_init(self, docker_executor):
