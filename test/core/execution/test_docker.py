@@ -447,9 +447,9 @@ class TestDockerContainer:
 
         container.run(mock_docker_client, "job123")
 
-        # Verify hostname is truncated to 32 characters
+        # Verify hostname is truncated to last 32 characters
         call_kwargs = mock_docker_client.containers.run.call_args[1]
-        assert call_kwargs["hostname"] == long_name[:32]
+        assert call_kwargs["hostname"] == long_name[-32:]
         assert len(call_kwargs["hostname"]) == 32
 
     @patch("nemo_run.core.execution.docker.ensure_network")
