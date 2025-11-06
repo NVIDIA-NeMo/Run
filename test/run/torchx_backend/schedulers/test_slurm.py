@@ -366,3 +366,40 @@ def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
         assert result == "12345"
         # Verify the run was called with the expected arguments
         mock_tunnel.run.assert_called_once()
+
+
+def test_ray_template_env_var(slurm_scheduler, slurm_executor):
+    """Test that NEMO_RUN_SLURM_RAY_TEMPLATE environment variable selects the correct template."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+    from nemo_run.run.ray.slurm import SlurmRayRequest
+
+    # Create a Ray-enabled app
+    app_def = AppDef(
+        name="test_ray_app",
+        roles=[Role(name="test_role", image="", entrypoint="python", args=["script.py"])],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+
+        # Test default template name
+        with mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill:
+            mock_fill.return_value = "#!/bin/bash\n# Mock script"
+            dryrun_info = slurm_scheduler._submit_dryrun(app_def, slurm_executor)
+            assert isinstance(dryrun_info.request, SlurmRayRequest)
+            assert dryrun_info.request.template_name == "ray.sub.j2"
+
+        # Test custom template name via environment variable
+        with (
+            mock.patch.dict(os.environ, {"NEMO_RUN_SLURM_RAY_TEMPLATE": "ray_enroot.sub.j2"}),
+            mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
+        ):
+            mock_fill.return_value = "#!/bin/bash\n# Mock script"
+            dryrun_info = slurm_scheduler._submit_dryrun(app_def, slurm_executor)
+            assert isinstance(dryrun_info.request, SlurmRayRequest)
+            assert dryrun_info.request.template_name == "ray_enroot.sub.j2"

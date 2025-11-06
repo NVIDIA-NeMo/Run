@@ -276,9 +276,22 @@ EOF
 srun --container-image=nvcr.io/nvidia/pytorch:24.01-py3 --no-container-mount-home --mpi=pmix -A=test_account -p=gpu --gres=gpu:8 --container-mounts /tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster/logs:/tmp/test_jobs/test-ray-cluster/logs --container-workdir=/workspace --container-name=ray-head --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-head.log bash -x -c "$head_cmd" &
 SRUN_PIDS["ray-head"]=$!
 
+# Helper function to get container PID using enroot (workaround for --overlap --container-name bug)
+get_container_pid() {
+  local node=$1
+  srun --overlap --nodes=1 -w "$node" bash -c "enroot list -f | awk 'NR>1 && \$2 ~ /^[0-9]+\$/ {print \$2; exit}'"
+}
+
+
 # Wait for the head node container to start and for Ray to be ready
 elapsed_time=0
-while ! (srun --overlap --nodes=1 --ntasks=1 -w $head_node test -f $LOG_DIR/STARTED_RAY_HEAD && srun --overlap --container-name=ray-head --nodes=1 --ntasks=1 -w $head_node ray status --address $ip_head 2>/dev/null); do
+while true; do
+  if srun --overlap --nodes=1 --ntasks=1 -w $head_node test -f $LOG_DIR/STARTED_RAY_HEAD; then
+    head_container_pid=$(get_container_pid "$head_node")
+    if [[ -n "$head_container_pid" ]] && enroot exec "$head_container_pid" ray status --address $ip_head 2>/dev/null; then
+      break
+    fi
+  fi
   if [[ $elapsed_time -ge $RAY_HEAD_START_TIMEOUT ]]; then
     echo "[ERROR][$(date)] Ray head node failed to start within $RAY_HEAD_START_TIMEOUT seconds. Exiting..."
     touch $LOG_DIR/ENDED
@@ -365,8 +378,17 @@ done
 # At this stage the Ray cluster bringup has started on the physical nodes in the allocation
 # Before we launch a job on this cluster we need to make sure that the bringup is complete
 # We do so by querying the number of worker_units in the ray cluster and asserting = NUM_ACTORS
+
 extract_worker_units() {
-  status_output=$(srun --overlap --container-name=ray-head --nodes=1 --ntasks=1 -w "$head_node" ray status --address $ip_head)
+  # Get the container PID for ray-head
+  head_container_pid=$(get_container_pid "$head_node")
+  if [[ -z "$head_container_pid" ]]; then
+    echo 0
+    return
+  fi
+
+  # Execute ray status inside the container using enroot exec
+  status_output=$(srun --overlap --nodes=1 -w "$head_node" enroot exec "$head_container_pid" ray status)
   if echo "$status_output" | grep -q "worker_units"; then
     worker_units=$(echo "$status_output" | grep "worker_units" | awk -F'[/. ]' '{print $4}')
     echo $worker_units
@@ -422,21 +444,52 @@ COMMAND="${COMMAND:-python train.py}"
 COMMAND_WORKDIR=/workspace
 
 if [[ -n "$COMMAND" ]]; then
-  srun --no-container-mount-home --gpus=0 --overlap --container-name=ray-head --container-workdir=$COMMAND_WORKDIR --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-job.log bash -c "$COMMAND"
+  # Get container PID and execute command inside it
+  head_container_pid=$(get_container_pid "$head_node")
+  srun --overlap --nodes=1 -w "$head_node" -o $LOG_DIR/ray-job.log enroot exec "$head_container_pid" bash -c "cd $COMMAND_WORKDIR && $COMMAND"
 else
   echo "[INFO]: Ray Cluster is idled, run this on the slurm head node to get a shell to the head node:"
   cat <<EOF >$CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh
-# No args launches on the head node
-WORKER_NUM=\${1:-}
-if [[ -z "\$WORKER_NUM" ]]; then
+# No args launches on the head node (node 0)
+# Args 1-N launch on worker nodes (nodes 1 through N-1)
+# Optional: set COMMAND='...' to run non-interactively instead of opening an interactive shell
+
+# Helper to get container PID
+get_container_pid() {
+  local node=\$1
+  srun --overlap --nodes=1 -w "\$node" --jobid $SLURM_JOB_ID bash -c "enroot list -f | awk 'NR>1 && \\\$2 ~ /^[0-9]+\\\$/ {print \\\$2; exit}'"
+}
+
+WORKER_NUM=\\\${1:-}
+if [[ -z "\\\$WORKER_NUM" ]]; then
   # Empty means we are on the head node
-  srun --no-container-mount-home --gpus=0 -A $SLURM_JOB_ACCOUNT -p $SLURM_JOB_PARTITION --overlap --container-name=ray-head --container-workdir=$CONTAINER_CWD --nodes=1 --ntasks=1 -w "$head_node" --jobid $SLURM_JOB_ID --pty bash
+  HEAD_PID=\\\$(get_container_pid "$head_node")
+  if [[ -n "\\\${COMMAND:-}" ]]; then
+    srun -A $SLURM_JOB_ACCOUNT -p $SLURM_JOB_PARTITION --overlap --nodes=1 -w "$head_node" --jobid $SLURM_JOB_ID enroot exec "\\\$HEAD_PID" bash -c "cd $CONTAINER_CWD && \\\$COMMAND"
+  else
+    srun -A $SLURM_JOB_ACCOUNT -p $SLURM_JOB_PARTITION --overlap --nodes=1 -w "$head_node" --jobid $SLURM_JOB_ID --pty enroot exec "\\\$HEAD_PID" bash -c "cd $CONTAINER_CWD && exec bash"
+  fi
 else
+  # Worker numbers 1 through N-1 correspond to ray-worker-1 through ray-worker-(N-1)
+  # and use nodes_array[1] through nodes_array[N-1]
+  if [[ \\\$WORKER_NUM -lt 1 || \\\$WORKER_NUM -ge $SLURM_JOB_NUM_NODES ]]; then
+    echo "Error: WORKER_NUM must be between 1 and $((SLURM_JOB_NUM_NODES-1))"
+    exit 1
+  fi
   nodes_array=($nodes)
-  srun --no-container-mount-home--gres=gpu:8 -A $SLURM_JOB_ACCOUNT -p $SLURM_JOB_PARTITION --overlap --container-name=ray-worker-\$WORKER_NUM --container-workdir=$CONTAINER_CWD --nodes=1 --ntasks=1 -w "\${nodes_array[\$WORKER_NUM]}" --jobid $SLURM_JOB_ID --pty bash
+  node="\\\${nodes_array[\\\$WORKER_NUM]}"
+  WORKER_PID=\\\$(get_container_pid "\\\$node")
+  if [[ -n "\\\${COMMAND:-}" ]]; then
+    srun -A $SLURM_JOB_ACCOUNT -p $SLURM_JOB_PARTITION --overlap --nodes=1 -w "\\\$node" --jobid $SLURM_JOB_ID enroot exec "\\\$WORKER_PID" bash -c "cd $CONTAINER_CWD && \\\$COMMAND"
+  else
+    srun -A $SLURM_JOB_ACCOUNT -p $SLURM_JOB_PARTITION --overlap --nodes=1 -w "\\\$node" --jobid $SLURM_JOB_ID --pty enroot exec "\\\$WORKER_PID" bash -c "cd $CONTAINER_CWD && exec bash"
+  fi
 fi
 EOF
   chmod +x $CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh
-  echo "     bash $CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh"
+  echo "     COMMAND='echo hello' bash $CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh    # run a non-interactive command on head node"
+  echo "     bash $CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh    # to attach to head node (i.e., 'worker 0')"
+  echo "     bash $CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh 1  # to attach to worker 1"
+  echo "     bash $CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh 2  # to attach to worker 2, etc."
   sleep infinity
 fi
