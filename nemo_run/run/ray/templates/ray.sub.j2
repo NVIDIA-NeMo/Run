@@ -279,7 +279,7 @@ touch $LOG_DIR/ENDED
 exit 1
 EOF
 )
-srun {{ common_srun_args }} --container-name=ray-head --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/{{ ray_log_prefix }}head.log bash -x -c "$head_cmd" &
+srun {{ common_srun_args }} --container-name=ray-head --exclusive --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/{{ ray_log_prefix }}head.log bash -x -c "$head_cmd" &
 SRUN_PIDS["ray-head"]=$!
 
 # Wait for the head node container to start and for Ray to be ready
@@ -367,7 +367,7 @@ EOF
   if [[ $i -eq 0 ]]; then
     OVERLAP_HEAD_AND_WORKER_ARG="--overlap"
   fi
-  srun {{ common_srun_args }} ${OVERLAP_HEAD_AND_WORKER_ARG:-} --container-name=ray-worker-$i --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * gpus_per_node)) -w "$node_i" -o $LOG_DIR/{{ ray_log_prefix }}worker-$i.log bash -x -c "$worker_cmd" &
+  srun {{ common_srun_args }} ${OVERLAP_HEAD_AND_WORKER_ARG:-} --container-name=ray-worker-$i --exclusive --nodes=1 --ntasks=1 -w "$node_i" -o $LOG_DIR/{{ ray_log_prefix }}worker-$i.log bash -x -c "$worker_cmd" &
   SRUN_PIDS["ray-worker-$i"]=$!
   sleep 3
 done
