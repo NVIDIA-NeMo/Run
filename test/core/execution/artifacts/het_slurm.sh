@@ -80,7 +80,7 @@ while ! $all_done; do
             # Process is no longer running => check its exit status.
             wait "$pid"
             exitcode=$?
-            echo "Process $pid exited with code $exit_code at $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "Process $pid exited with code $exitcode at $(date '+%Y-%m-%d %H:%M:%S')"
             # Wait a bit (to get a clean stack trace in case there is one being generated), then kill the
             # remaining processes if needed.
             sleep 60
