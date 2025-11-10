@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import requests
 from invoke.context import Context
@@ -360,7 +360,14 @@ cd /nemo_run/code
         r_json = response.json()
         return DGXCloudState(r_json["phase"])
 
-    def fetch_logs(self, job_id: str, stream: bool, stderr: bool, stdout: bool) -> str:
+    def fetch_logs(
+        self,
+        job_id: str,
+        stream: bool,
+        stderr: Optional[bool] = None,
+        stdout: Optional[bool] = None,
+    ) -> Iterable[str]:
+        print("Hello world")
         token = self.get_auth_token()
         if not token:
             logger.error("Failed to retrieve auth token for cancellation request.")
@@ -369,13 +376,8 @@ cd /nemo_run/code
         response = requests.get(
             f"{self.base_url}/workloads", headers=self._default_headers(token=token)
         )
-        response_text = response.text.strip()
         workload_name = next(
-            (
-                workload["name"]
-                for workload in json.loads(response_text)
-                if workload["id"] == job_id
-            ),
+            (workload["name"] for workload in response.json() if workload["id"] == job_id),
             None,
         )
 
@@ -384,12 +386,11 @@ cd /nemo_run/code
         if stream:
             url += "&follow=true"
 
-        response = requests.get(url, headers=self._default_headers(), verify=False, stream=stream)
-
-        if stream:
-            yield from response.iter_lines()
-        else:
-            return response.text.strip()
+        with requests.get(
+            url, headers=self._default_headers(), verify=False, stream=stream
+        ) as response:
+            for line in response.iter_lines(decode_unicode=True):
+                yield line
 
     def cancel(self, job_id: str):
         # Retrieve the authentication token for the REST calls
