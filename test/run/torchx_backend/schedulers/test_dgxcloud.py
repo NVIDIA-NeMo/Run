@@ -162,7 +162,7 @@ def test_save_and_get_job_dirs():
         assert isinstance(job_dirs["test_app_id"]["executor"], DGXCloudExecutor)
 
 
-def test_log_iter_str(dgx_cloud_scheduler, dgx_cloud_executor):
+def test_log_iter(dgx_cloud_scheduler, dgx_cloud_executor):
     with mock.patch(
         "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
     ) as mock_get_job_dirs:
