@@ -367,7 +367,6 @@ cd /nemo_run/code
         stderr: Optional[bool] = None,
         stdout: Optional[bool] = None,
     ) -> Iterable[str]:
-        print("Hello world")
         token = self.get_auth_token()
         if not token:
             logger.error("Failed to retrieve auth token for cancellation request.")
