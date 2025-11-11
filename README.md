@@ -102,6 +102,19 @@ You can find the tutorial series below:
 - [Part 2](examples/hello-world/hello_experiments.ipynb).
 - [Part 3](examples/hello-world/hello_scripts.py).
 
+#### Lepton Executor Examples
+
+The Lepton executor examples demonstrate comprehensive distributed training workflows on Lepton clusters:
+
+- **Distributed Training**: Multi-node, multi-GPU setups with automatic scaling
+- **Secure Secret Management**: Use workspace secrets instead of hardcoded tokens  
+- **Storage Integration**: Remote storage mounting and data management
+- **Container Orchestration**: Advanced environment setup and dependency management
+- **Production Workflows**: End-to-end ML training pipelines
+
+You can find the Lepton examples here:
+- [Lepton Distributed Training Examples](examples/lepton/)
+
 ## Contribute to NeMo Run
 Please see the [contribution guide](./CONTRIBUTING.md) to contribute to NeMo Run.
 
