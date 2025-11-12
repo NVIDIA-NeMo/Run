@@ -26,7 +26,7 @@ from typing import Any, Optional, TypeAlias
 
 from leptonai.api.v1.types.affinity import LeptonResourceAffinity
 from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
-from leptonai.api.v1.types.deployment import EnvVar
+from leptonai.api.v1.types.deployment import EnvVar, EnvValue
 
 from nemo_run.core.execution.lepton import LeptonExecutor
 
@@ -194,42 +194,47 @@ class LeptonRayCluster:
         ray_version = self.ray_version or DEFAULT_RAY_IMAGE
 
         envs = [EnvVar(name=key, value=value) for key, value in executor.env_vars.items()]
+        for key, value in executor.secret_vars.items():
+            envs.append(EnvVar(name=key, value_from=EnvValue(secret_name_ref=value)))
+
+        if self.head_resource_shape is None:
+            head_resource_shape = executor.resource_shape
 
         spec = LeptonRayClusterUserSpec(
-            image = executor.container_image,
-            image_pull_secrets = executor.image_pull_secrets,
-            ray_version = ray_version,
-            suspend = False,
+            image=executor.container_image,
+            image_pull_secrets=executor.image_pull_secrets,
+            ray_version=ray_version,
+            suspend=False,
             # Configure the head node
-            head_group_spec = RayHeadGroupSpec(
-                affinity = LeptonResourceAffinity(
-                    allowed_dedicated_node_groups = [node_group_id.metadata.id_],
+            head_group_spec=RayHeadGroupSpec(
+                affinity=LeptonResourceAffinity(
+                    allowed_dedicated_node_groups=[node_group_id.metadata.id_],
                 ),
-                resource_shape = self.head_resource_shape,
-                mounts = executor.mounts,
-                envs = envs,
-                min_replicas = 1,
+                resource_shape=self.head_resource_shape,
+                mounts=executor.mounts,
+                envs=envs,
+                min_replicas=1,
             ),
             # Configure the workers
-            worker_group_specs = [
+            worker_group_specs=[
                 RayWorkerGroupSpec(
-                    affinity = LeptonResourceAffinity(
-                        allowed_dedicated_node_groups = [node_group_id.metadata.id_],
+                    affinity=LeptonResourceAffinity(
+                        allowed_dedicated_node_groups=[node_group_id.metadata.id_],
                     ),
-                    resource_shape = executor.resource_shape,
-                    mounts = executor.mounts,
-                    envs = envs,
-                    min_replicas = executor.nodes,
+                    resource_shape=executor.resource_shape,
+                    mounts=executor.mounts,
+                    envs=envs,
+                    min_replicas=executor.nodes,
                 )
-            ]
+            ],
         )
 
         lepton_ray_cluster = LeptonRayClusterSpec(
-            metadata = Metadata(
-                id = name,
-                name = name,
+            metadata=Metadata(
+                id=name,
+                name=name,
             ),
-            spec = spec,
+            spec=spec,
         )
 
         if dryrun:
@@ -375,7 +380,6 @@ class LeptonRayJob:
 
         return jobs_list[0].submission_id
 
-
     def _ray_cluster_status(self) -> dict[str, Any]:
         name = self.cluster_name or self.name
         client = APIClient()
@@ -432,11 +436,15 @@ class LeptonRayJob:
         except Exception:
             if create_if_not_exists:
                 logger.info(f"RayCluster '{name}' does not exist. Creating new RayCluster...")
-                cluster = LeptonRayCluster(name=name, executor=self.executor, ray_version=self.ray_version)
+                cluster = LeptonRayCluster(
+                    name=name, executor=self.executor, ray_version=self.ray_version
+                )
                 cluster.create()
                 logger.info(f"Waiting for RayCluster '{name}' to be ready...")
             else:
-                raise RuntimeError(f"RayCluster '{name}' does not exist and was not scheduled for creation.")
+                raise RuntimeError(
+                    f"RayCluster '{name}' does not exist and was not scheduled for creation."
+                )
 
         timeout = 1800
 
@@ -502,7 +510,9 @@ class LeptonRayJob:
         submission_client = self._ray_client()
 
         if not submission_client:
-            logger.debug(f"Ray cluster '{self.cluster_name or self.name}' does not exist. No action taken.")
+            logger.debug(
+                f"Ray cluster '{self.cluster_name or self.name}' does not exist. No action taken."
+            )
             return True
 
         job_stopped = submission_client.stop_job(self.submission_id)
@@ -519,10 +529,14 @@ class LeptonRayJob:
                     logger.debug(f"Ray job '{self.name}' stopped successfully")
                     return True
 
-                logger.debug(f"Ray job '{self.name}' is not stopped, waiting for it to be stopped...")
+                logger.debug(
+                    f"Ray job '{self.name}' is not stopped, waiting for it to be stopped..."
+                )
                 time.sleep(poll_interval)
 
-            logger.warning(f"Timed-out waiting for job {self.name} ('{self.submission_id}') to stop")
+            logger.warning(
+                f"Timed-out waiting for job {self.name} ('{self.submission_id}') to stop"
+            )
             return False
 
         logger.debug(f"Ray job '{self.name}' stopped successfully")
@@ -549,6 +563,7 @@ class LeptonRayJob:
                 final_states = [JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.STOPPED]
 
                 while self.status(display=False) not in final_states:
+
                     async def _tail_logs():
                         async for line in submission_client.tail_job_logs(self.submission_id):
                             print(line, end="")
@@ -654,7 +669,9 @@ Useful Commands (to be run in the RayCluster on DGX Cloud Lepton)
             submission_id_returned = submission_client.submit_job(**submit_kwargs)
             self.submission_id = submission_id_returned
         except Exception as e:
-            raise RuntimeError(f"Failed to submit Ray job to '{self.cluster_name or self.name}': {e}")
+            raise RuntimeError(
+                f"Failed to submit Ray job to '{self.cluster_name or self.name}': {e}"
+            )
         return submission_id_returned
 
         # elif self.executor.packager is not None:
