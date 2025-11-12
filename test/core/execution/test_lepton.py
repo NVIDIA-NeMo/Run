@@ -96,7 +96,7 @@ class TestLeptonExecutor:
         )
 
         assert executor.node_reservation == ""
-    
+
     def test_init_with_secret_vars(self):
         """Test initialization with node_reservation parameter."""
         executor = LeptonExecutor(
@@ -105,15 +105,12 @@ class TestLeptonExecutor:
             container_image="test-image",
             nodes=2,
             gpus_per_node=8,
-            secret_vars={
-                "WANDB_API_KEY": "WANDB_API_KEY.zozhang"
-            },
+            secret_vars={"WANDB_API_KEY": "WANDB_API_KEY.zozhang"},
             nemo_run_dir="/workspace/nemo_run",
             mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
         )
 
         assert executor.secret_vars == {"WANDB_API_KEY": "WANDB_API_KEY.zozhang"}
-
 
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_stop_job(self, mock_APIClient):
@@ -402,7 +399,10 @@ class TestLeptonExecutor:
 
         mock_client.job.create.assert_called_once()
         created_job = mock_client.job.create.call_args[0][0]
-        assert created_job.spec.envs == [EnvVar(name="TEST_ENV", value="test-value"), EnvVar(name="TEST_SECRET", value_from=EnvValue(secret_name_ref="test-secret"))]
+        assert created_job.spec.envs == [
+            EnvVar(name="TEST_ENV", value="test-value"),
+            EnvVar(name="TEST_SECRET", value_from=EnvValue(secret_name_ref="test-secret")),
+        ]
 
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_create_lepton_job_with_reservation_config(self, mock_APIClient_class):
