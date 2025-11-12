@@ -24,6 +24,8 @@ from leptonai.api.v1.types.deployment import (
     LeptonContainer,
     LeptonResourceAffinity,
     Mount,
+    EnvVar,
+    EnvValue,
 )
 from leptonai.api.v1.types.job import LeptonJob, LeptonJobUserSpec
 
@@ -94,6 +96,24 @@ class TestLeptonExecutor:
         )
 
         assert executor.node_reservation == ""
+    
+    def test_init_with_secret_vars(self):
+        """Test initialization with node_reservation parameter."""
+        executor = LeptonExecutor(
+            resource_shape="gpu.8xh100-80gb",
+            node_group="my-node-group",
+            container_image="test-image",
+            nodes=2,
+            gpus_per_node=8,
+            secret_vars={
+                "WANDB_API_KEY": "WANDB_API_KEY.zozhang"
+            },
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        assert executor.secret_vars == {"WANDB_API_KEY": "WANDB_API_KEY.zozhang"}
+
 
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_stop_job(self, mock_APIClient):
@@ -371,6 +391,8 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
+            env_vars={"TEST_ENV": "test-value"},
+            secret_vars={"TEST_SECRET": "test-secret"},
             mounts=[{"path": "/test", "mount_path": "/test"}],
         )
         executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
@@ -379,6 +401,8 @@ class TestLeptonExecutor:
         executor.create_lepton_job("my-lepton-job")
 
         mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.envs == [EnvVar(name="TEST_ENV", value="test-value"), EnvVar(name="TEST_SECRET", value_from=EnvValue(secret_name_ref="test-secret"))]
 
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_create_lepton_job_with_reservation_config(self, mock_APIClient_class):
