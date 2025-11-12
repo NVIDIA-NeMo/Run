@@ -53,6 +53,7 @@ class LeptonRayCluster:
     EXECUTOR_CLS = LeptonExecutor
 
     name: str
+    head_resource_shape: str
     executor: LeptonExecutor
     ray_version: Optional[str] = None
 
@@ -204,7 +205,7 @@ class LeptonRayCluster:
                 affinity = LeptonResourceAffinity(
                     allowed_dedicated_node_groups = [node_group_id.metadata.id_],
                 ),
-                resource_shape = executor.resource_shape,
+                resource_shape = self.head_resource_shape,
                 mounts = executor.mounts,
                 envs = envs,
                 min_replicas = 1,
@@ -643,7 +644,8 @@ Useful Commands (to be run in the RayCluster on DGX Cloud Lepton)
             if runtime_env is not None:
                 submit_kwargs["runtime_env"] = runtime_env
             if self.name is not None:
-                submit_kwargs["submission_id"] = self.name
+                time_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+                submit_kwargs["submission_id"] = f"{self.name}-{time_str}"
 
             if dryrun:
                 print(submit_kwargs)
