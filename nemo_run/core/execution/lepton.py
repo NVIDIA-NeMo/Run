@@ -17,6 +17,7 @@ from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
 from leptonai.api.v1.types.deployment import (
     EnvVar,
+    EnvValue,
     LeptonContainer,
     Mount,
 )
@@ -51,6 +52,7 @@ class LeptonExecutor(Executor):
     shared_memory_size: int = 65536
     resource_shape: str = ""
     node_group: str = ""
+    secret_vars: dict[str, str] = field(default_factory=dict)
     mounts: list[dict[str, Any]] = field(default_factory=list)
     lepton_job_dir: str = field(init=False, default="")
     custom_spec: dict[str, Any] = field(default_factory=dict)
@@ -198,6 +200,8 @@ class LeptonExecutor(Executor):
         client = APIClient()
 
         envs = [EnvVar(name=key, value=value) for key, value in self.env_vars.items()]
+        for key, value in self.secret_vars.items():
+            envs.append(EnvVar(name=key, value_from=EnvValue(secret_name_ref=value)))
 
         cmd = ["/bin/bash", "-c", f"bash {self.lepton_job_dir}/launch_script.sh"]
 
