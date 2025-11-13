@@ -54,8 +54,8 @@ class LeptonRayCluster:
     EXECUTOR_CLS = LeptonExecutor
 
     name: str
-    head_resource_shape: str
     executor: LeptonExecutor
+    head_resource_shape: Optional[str] = None
     ray_version: Optional[str] = None
 
     def __post_init__(self):
@@ -441,7 +441,10 @@ class LeptonRayJob:
             if create_if_not_exists:
                 logger.info(f"RayCluster '{name}' does not exist. Creating new RayCluster...")
                 cluster = LeptonRayCluster(
-                    name=name, executor=self.executor, ray_version=self.ray_version
+                    name=name,
+                    executor=self.executor,
+                    ray_version=self.ray_version,
+                    head_resource_shape=self.executor.head_resource_shape
                 )
                 cluster.create()
                 logger.info(f"Waiting for RayCluster '{name}' to be ready...")
