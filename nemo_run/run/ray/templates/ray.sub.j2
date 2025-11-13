@@ -28,7 +28,7 @@ DASHBOARD_AGENT_GRPC_PORT=${DASHBOARD_AGENT_GRPC_PORT:-53007}
 METRICS_EXPORT_PORT=${METRICS_EXPORT_PORT:-53009}
 
 # Ports for the head node
-PORT=${PORT:-54514}
+PORT=${PORT:-6379}
 RAY_CLIENT_SERVER_PORT=${RAY_CLIENT_SERVER_PORT:-10001}
 #REDIT_SHARD_PORTS=${REDIT_SHARD_PORTS:-"random"} ??
 DASHBOARD_PORT=${DASHBOARD_PORT:-8265}  # Also used by debugger
@@ -57,7 +57,7 @@ fi
 # (not including the other ports set by this script). So this range is chosen to be
 # somewhere in the middle
 MIN_WORKER_PORT=${MIN_WORKER_PORT:-54001}
-MAX_WORKER_PORT=${MAX_WORKER_PORT:-54513}
+MAX_WORKER_PORT=${MAX_WORKER_PORT:-54257}
 
 # Ray temp directory (inside container). Used by --temp-dir and log sync sidecar
 RAY_TEMP_DIR=${RAY_TEMP_DIR:-/ray-cluster}
@@ -257,13 +257,12 @@ ray start --head \
     --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
     --dashboard-port=${DASHBOARD_PORT} \
     \
-    --node-manager-port=$((${NODE_MANAGER_PORT} + 1)) \
-    --object-manager-port=$((${OBJECT_MANAGER_PORT} + 1)) \
-    --runtime-env-agent-port=$((${RUNTIME_ENV_AGENT_PORT} + 1)) \
-    --dashboard-agent-grpc-port=$((${DASHBOARD_AGENT_GRPC_PORT} + 1)) \
-    --dashboard-agent-listen-port=$((${DASHBOARD_AGENT_LISTEN_PORT} + 1)) \
-    --metrics-export-port=$((${METRICS_EXPORT_PORT} + 1)) \
-    $RAY_DEBUGGER_ARGS \
+    --node-manager-port=${NODE_MANAGER_PORT} \
+    --object-manager-port=${OBJECT_MANAGER_PORT} \
+    --runtime-env-agent-port=${RUNTIME_ENV_AGENT_PORT} \
+    --dashboard-agent-grpc-port=${DASHBOARD_AGENT_GRPC_PORT} \
+    --dashboard-agent-listen-port=${DASHBOARD_AGENT_LISTEN_PORT} \
+    --metrics-export-port=${METRICS_EXPORT_PORT} \
     \
     --block
 EOFINNER
@@ -337,6 +336,7 @@ monitor-sidecar &
 sed -i 's/context\.py_executable = " "\.join(self\.nsight_cmd) + " python"/context.py_executable = " ".join(self.nsight_cmd) + f" {context.py_executable}"/g' /opt/nemo_rl_venv/lib64/python*/site-packages/ray/_private/runtime_env/nsight.py
 
 cat <<EOFINNER | tee /launch-worker.sh
+sleep 5
 ray start --address "$ip_head" \
           --disable-usage-stats \
           --resources="{\"worker_units\": $gpus_per_node, \"slurm_managed_ray_cluster\": 1}" \
