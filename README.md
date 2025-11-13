@@ -1,7 +1,7 @@
 # NeMo Run
 
 > [!IMPORTANT]
-> NeMo Run is still in active development and this is a pre-release. The API is subject to change without notice while in pre-release. First official release will be 0.1.0 and will be included in NeMo FW 24.09 as well.
+> NeMo Run is still in active development and this is a pre-release. The API is subject to change without notice until the project reaches version 1.0.0
 
 NeMo Run is a powerful tool designed to streamline the configuration, execution, and management of machine learning experiments across various computing environments. NeMo Run has three core responsibilities:
 
