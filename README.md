@@ -27,7 +27,7 @@ To learn more, click on each link. This represents the typical order that NeMo R
 
 
 ## Why Use NeMo Run?
-Please see this [detailed guide](./docs/source/guides/why-use-nemo-run.md) for reasons to use NeMo Run.
+Please see this [detailed guide](./docs/guides/why-use-nemo-run.md) for reasons to use NeMo Run.
 
 ## Install NeMo Run
 To install the project, use the following command:
