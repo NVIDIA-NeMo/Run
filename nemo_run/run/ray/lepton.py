@@ -197,8 +197,7 @@ class LeptonRayCluster:
         for key, value in executor.secret_vars.items():
             envs.append(EnvVar(name=key, value_from=EnvValue(secret_name_ref=value)))
 
-        if self.head_resource_shape is None:
-            head_resource_shape = executor.resource_shape
+        head_resource_shape = self.head_resource_shape or executor.resource_shape
 
         spec = LeptonRayClusterUserSpec(
             image=executor.container_image,
@@ -210,7 +209,7 @@ class LeptonRayCluster:
                 affinity=LeptonResourceAffinity(
                     allowed_dedicated_node_groups=[node_group_id.metadata.id_],
                 ),
-                resource_shape=self.head_resource_shape,
+                resource_shape=head_resource_shape,
                 mounts=executor.mounts,
                 envs=envs,
                 min_replicas=1,
