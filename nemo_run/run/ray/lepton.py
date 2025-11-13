@@ -16,6 +16,7 @@
 import asyncio
 import json
 import logging
+import sys
 import time
 import urllib3
 import warnings
@@ -565,16 +566,12 @@ class LeptonRayJob:
             if follow:
                 final_states = [JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.STOPPED]
 
-                while self.status(display=False) not in final_states:
+                async def _stream_logs() -> None:
+                    async for chunk in submission_client.tail_job_logs(self.submission_id):
+                        sys.stdout.write(chunk)
+                        sys.stdout.flush()
 
-                    async def _tail_logs():
-                        async for line in submission_client.tail_job_logs(self.submission_id):
-                            print(line, end="")
-
-                        # Small sleep to avoid reconnecting on a small dropped connection
-                        await asyncio.sleep(0.5)
-
-                    asyncio.run(_tail_logs())
+                asyncio.run(_stream_logs())
             else:
                 logs = submission_client.get_job_logs(self.submission_id)
                 print(logs)
