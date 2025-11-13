@@ -118,7 +118,7 @@ class LeptonRayCluster:
         *,
         display: bool = False,
     ) -> dict[str, Any]:
-        """Return the current Slurm and Ray status for this cluster.
+        """Return the current status of the RayCluster on Lepton.
 
         Parameters
         ----------
@@ -347,14 +347,18 @@ class LeptonRayCluster:
 
 @dataclass(kw_only=True)
 class LeptonRayJob:
-    """Lightweight helper around a single Ray Slurm job returned by ``schedule_ray_job``.
+    """Launches a single RayJob on a Lepton RayCluster.
 
     Parameters
     ----------
     name : str
-        Logical name of the RayCluster (not necessarily the Slurm job-name).
+        Submission ID of the RayJob. Will be post-pended with a timestamp.
     executor : LeptonExecutor
-        The executor used to submit/run the job. We only need it for its tunnel.
+        The executor used to submit/run the job. Only used if a RayCluster does not yet exist.
+    cluster_name : str, optional
+        Name of an existing RayCluster to use. If not provided, a new RayCluster will be created.
+    ray_version : str, optional
+        Version of the Ray image to use. If not provided, the default from the Lepton API will be used.
     """
 
     name: str
@@ -579,7 +583,7 @@ class LeptonRayJob:
             logger.debug("Stopped tailing logs (Ctrl+C)")
 
     def status(self, display: bool = True) -> dict[str, Any]:
-        """Return and pretty-print current Slurm/Ray status for this job."""
+        """Return and pretty-print current RayCluster/RayJob status for this job."""
         if self.submission_id is None:
             self.submission_id = self._get_last_submission_id()
 
