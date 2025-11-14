@@ -21,7 +21,7 @@ import time
 import urllib3
 import warnings
 from dataclasses import dataclass
-from ray.job_submission import JobStatus, JobSubmissionClient
+from ray.job_submission import JobSubmissionClient
 from rich.pretty import Pretty
 from typing import Any, Optional, TypeAlias
 
@@ -93,7 +93,7 @@ class LeptonRayCluster:
             cluster = client.raycluster.get(name)
         except Exception as e:
             logger.debug(f"Failed to fetch RayCluster '{name}': {e}")
-            logger.debug(f"If creating a new RayCluster, this is expected.")
+            logger.debug("If creating a new RayCluster, this is expected.")
             return None
 
         # Print out the complete RayCluster status for debugging
@@ -393,7 +393,7 @@ class LeptonRayJob:
             cluster = client.raycluster.get(name)
         except Exception as e:
             logger.debug(f"Failed to fetch RayCluster '{name}': {e}")
-            logger.debug(f"If creating a new RayCluster, this is expected.")
+            logger.debug("If creating a new RayCluster, this is expected.")
             return None
 
         # Print out the complete RayCluster status for debugging
