@@ -273,7 +273,7 @@ touch $LOG_DIR/ENDED
 exit 1
 EOF
 )
-srun --container-image=nvcr.io/nvidia/pytorch:24.01-py3 --no-container-mount-home --mpi=pmix -A=test_account -p=gpu --gres=gpu:8 --container-mounts /tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster/logs:/tmp/test_jobs/test-ray-cluster/logs --container-workdir=/workspace --container-name=ray-head --exclusive --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-head.log bash -x -c "$head_cmd" &
+srun --container-image=nvcr.io/nvidia/pytorch:24.01-py3 --no-container-mount-home --mpi=pmix -A=test_account -p=gpu --gres=gpu:8 --container-mounts /tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster/logs:/tmp/test_jobs/test-ray-cluster/logs --container-workdir=/workspace --container-name=ray-head --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-head.log bash -x -c "$head_cmd" &
 SRUN_PIDS["ray-head"]=$!
 
 # Helper function to get container PID using enroot (workaround for --overlap --container-name bug)
@@ -370,7 +370,7 @@ EOF
   if [[ $i -eq 0 ]]; then
     OVERLAP_HEAD_AND_WORKER_ARG="--overlap"
   fi
-  srun --container-image=nvcr.io/nvidia/pytorch:24.01-py3 --no-container-mount-home --mpi=pmix -A=test_account -p=gpu --gres=gpu:8 --container-mounts /tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster/logs:/tmp/test_jobs/test-ray-cluster/logs --container-workdir=/workspace ${OVERLAP_HEAD_AND_WORKER_ARG:-} --container-name=ray-worker-$i --exclusive --nodes=1 --ntasks=1 -w "$node_i" -o $LOG_DIR/ray-worker-$i.log bash -x -c "$worker_cmd" &
+  srun --container-image=nvcr.io/nvidia/pytorch:24.01-py3 --no-container-mount-home --mpi=pmix -A=test_account -p=gpu --gres=gpu:8 --container-mounts /tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster:/tmp/test_jobs/test-ray-cluster,/tmp/test_jobs/test-ray-cluster/logs:/tmp/test_jobs/test-ray-cluster/logs --container-workdir=/workspace ${OVERLAP_HEAD_AND_WORKER_ARG:-} --container-name=ray-worker-$i --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * gpus_per_node)) -w "$node_i" -o $LOG_DIR/ray-worker-$i.log bash -x -c "$worker_cmd" &
   SRUN_PIDS["ray-worker-$i"]=$!
   sleep 3
 done

@@ -28,7 +28,7 @@ DASHBOARD_AGENT_GRPC_PORT=${DASHBOARD_AGENT_GRPC_PORT:-53007}
 METRICS_EXPORT_PORT=${METRICS_EXPORT_PORT:-53009}
 
 # Ports for the head node
-PORT=${PORT:-54514}
+PORT=${PORT:-6379}
 RAY_CLIENT_SERVER_PORT=${RAY_CLIENT_SERVER_PORT:-10001}
 #REDIT_SHARD_PORTS=${REDIT_SHARD_PORTS:-"random"} ??
 DASHBOARD_PORT=${DASHBOARD_PORT:-8265}  # Also used by debugger
@@ -57,7 +57,7 @@ fi
 # (not including the other ports set by this script). So this range is chosen to be
 # somewhere in the middle
 MIN_WORKER_PORT=${MIN_WORKER_PORT:-54001}
-MAX_WORKER_PORT=${MAX_WORKER_PORT:-54513}
+MAX_WORKER_PORT=${MAX_WORKER_PORT:-54257}
 
 # Ray temp directory (inside container). Used by --temp-dir and log sync sidecar
 RAY_TEMP_DIR=${RAY_TEMP_DIR:-/ray-cluster}
@@ -98,6 +98,7 @@ rm -f $LOG_DIR/ENDED
 
 # Number of GPUs per node
 gpus_per_node=8
+CPUS_PER_WORKER=${CPUS_PER_WORKER:-$((gpus_per_node * 16))}
 
 num_retries={{ num_retries }}
 
@@ -256,13 +257,12 @@ ray start --head \
     --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
     --dashboard-port=${DASHBOARD_PORT} \
     \
-    --node-manager-port=$((${NODE_MANAGER_PORT} + 1)) \
-    --object-manager-port=$((${OBJECT_MANAGER_PORT} + 1)) \
-    --runtime-env-agent-port=$((${RUNTIME_ENV_AGENT_PORT} + 1)) \
-    --dashboard-agent-grpc-port=$((${DASHBOARD_AGENT_GRPC_PORT} + 1)) \
-    --dashboard-agent-listen-port=$((${DASHBOARD_AGENT_LISTEN_PORT} + 1)) \
-    --metrics-export-port=$((${METRICS_EXPORT_PORT} + 1)) \
-    $RAY_DEBUGGER_ARGS \
+    --node-manager-port=${NODE_MANAGER_PORT} \
+    --object-manager-port=${OBJECT_MANAGER_PORT} \
+    --runtime-env-agent-port=${RUNTIME_ENV_AGENT_PORT} \
+    --dashboard-agent-grpc-port=${DASHBOARD_AGENT_GRPC_PORT} \
+    --dashboard-agent-listen-port=${DASHBOARD_AGENT_LISTEN_PORT} \
+    --metrics-export-port=${METRICS_EXPORT_PORT} \
     \
     --block
 EOFINNER
@@ -279,7 +279,7 @@ touch $LOG_DIR/ENDED
 exit 1
 EOF
 )
-srun {{ common_srun_args }} --container-name=ray-head --exclusive --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/{{ ray_log_prefix }}head.log bash -x -c "$head_cmd" &
+srun {{ common_srun_args }} --container-name=ray-head --nodes=1 --ntasks=1 --cpus-per-task=$CPUS_PER_WORKER -w "$head_node" -o $LOG_DIR/{{ ray_log_prefix }}head.log bash -x -c "$head_cmd" &
 SRUN_PIDS["ray-head"]=$!
 
 # Wait for the head node container to start and for Ray to be ready
@@ -336,6 +336,7 @@ monitor-sidecar &
 sed -i 's/context\.py_executable = " "\.join(self\.nsight_cmd) + " python"/context.py_executable = " ".join(self.nsight_cmd) + f" {context.py_executable}"/g' /opt/nemo_rl_venv/lib64/python*/site-packages/ray/_private/runtime_env/nsight.py
 
 cat <<EOFINNER | tee /launch-worker.sh
+sleep 5
 ray start --address "$ip_head" \
           --disable-usage-stats \
           --resources="{\"worker_units\": $gpus_per_node, \"slurm_managed_ray_cluster\": 1}" \
@@ -367,7 +368,7 @@ EOF
   if [[ $i -eq 0 ]]; then
     OVERLAP_HEAD_AND_WORKER_ARG="--overlap"
   fi
-  srun {{ common_srun_args }} ${OVERLAP_HEAD_AND_WORKER_ARG:-} --container-name=ray-worker-$i --exclusive --nodes=1 --ntasks=1 -w "$node_i" -o $LOG_DIR/{{ ray_log_prefix }}worker-$i.log bash -x -c "$worker_cmd" &
+  srun {{ common_srun_args }} ${OVERLAP_HEAD_AND_WORKER_ARG:-} --container-name=ray-worker-$i --exact --nodes=1 --ntasks=1 --cpus-per-task=$CPU_PER_WORKER -w "$node_i" -o $LOG_DIR/{{ ray_log_prefix }}worker-$i.log bash -x -c "$worker_cmd" &
   SRUN_PIDS["ray-worker-$i"]=$!
   sleep 3
 done
