@@ -429,7 +429,9 @@ class LeptonRayJob:
             logger.debug(f"Ray cluster '{name}' is not ready, waiting for it to be ready...")
             time.sleep(delay_between_attempts)
 
-        logger.debug(f"Ray cluster '{name}' is not ready after {self.cluster_ready_timeout} seconds")
+        logger.debug(
+            f"Ray cluster '{name}' is not ready after {self.cluster_ready_timeout} seconds"
+        )
         return False
 
     def _ray_client(self, create_if_not_exists: bool = False) -> APIClient:
@@ -445,7 +447,7 @@ class LeptonRayJob:
                     name=name,
                     executor=self.executor,
                     ray_version=self.ray_version,
-                    head_resource_shape=self.executor.head_resource_shape
+                    head_resource_shape=self.executor.head_resource_shape,
                 )
                 cluster.create()
                 logger.info(f"Waiting for RayCluster '{name}' to be ready...")
@@ -455,7 +457,9 @@ class LeptonRayJob:
                 )
 
         if not self._ray_cluster_ready():
-            raise RuntimeError(f"RayCluster '{name}' is not ready after {self.cluster_ready_timeout} seconds.")
+            raise RuntimeError(
+                f"RayCluster '{name}' is not ready after {self.cluster_ready_timeout} seconds."
+            )
 
         self.ray_head_dashboard_url = f"{client.url}/rayclusters/{name}/dashboard"
 
@@ -566,6 +570,7 @@ class LeptonRayJob:
 
         try:
             if follow:
+
                 async def _stream_logs() -> None:
                     async for chunk in submission_client.tail_job_logs(self.submission_id):
                         sys.stdout.write(chunk)
