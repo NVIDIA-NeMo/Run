@@ -20,7 +20,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -29,15 +29,10 @@ from torchx.schedulers.api import (
     DescribeAppResponse,
     ListAppResponse,
     Scheduler,
+    Stream,
+    split_lines,
 )
-from torchx.specs import (
-    AppDef,
-    AppState,
-    ReplicaStatus,
-    Role,
-    RoleStatus,
-    runopts,
-)
+from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runopts
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
@@ -188,6 +183,32 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
             msg="",
             ui_url=f"{executor.base_url}/workloads/distributed/{job_id}",
         )
+
+    def log_iter(
+        self,
+        app_id: str,
+        role_name: str,
+        should_tail: bool = False,
+        streams: Optional[Stream] = None,
+    ) -> Iterable[str]:
+        stored_data = _get_job_dirs()
+        job_info = stored_data.get(app_id)
+        _, _, job_id = app_id.split("___")
+        executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
+        if not executor:
+            return [""]
+
+        logs = executor.fetch_logs(
+            job_id=job_id,
+            stream=should_tail,
+        )  # type: ignore
+        if isinstance(logs, str):
+            if len(logs) == 0:
+                logs = []
+            else:
+                logs = split_lines(logs)
+
+        return logs
 
     def _cancel_existing(self, app_id: str) -> None:
         """

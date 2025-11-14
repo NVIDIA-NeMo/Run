@@ -19,6 +19,7 @@ import tempfile
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+import requests
 
 from nemo_run.config import set_nemorun_home
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
@@ -29,6 +30,7 @@ class TestDGXCloudExecutor:
     def test_init(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -58,6 +60,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -86,6 +89,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -97,6 +101,49 @@ class TestDGXCloudExecutor:
 
         assert token is None
 
+    @patch("nemo_run.core.execution.dgxcloud.requests.get")
+    def test_fetch_logs(self, mock_requests_get):
+        # --- 1. Setup Primitives for the *live* test ---
+        mock_log_response = MagicMock(spec=requests.Response)
+
+        mock_log_response.iter_lines.return_value = iter(
+            ["this is a static log", "this is the last static log"]
+        )
+        mock_log_response.__enter__.return_value = mock_log_response
+
+        # Mock for the '/workloads' call
+        mock_workloads_response = MagicMock(spec=requests.Response)
+        mock_workloads_response.json.return_value = [{"name": "hello-world", "id": "123"}]
+
+        mock_requests_get.side_effect = [mock_workloads_response, mock_log_response]
+
+        # --- 4. Setup Executor (inside the patch) ---
+        with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+            )
+
+            logs_iter = executor.fetch_logs("123", stream=True)
+
+            assert next(logs_iter) == "this is a static log"
+            assert next(logs_iter) == "this is the last static log"
+
+            mock_requests_get.assert_any_call(
+                "https://127.0.0.1:443/api/v1/namespaces/runai-test_project/pods/hello-world-worker-0/log?container=pytorch&follow=true",
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                verify=False,
+                stream=True,
+            )
+
+            with pytest.raises(StopIteration):
+                next(logs_iter)
+
     @patch("requests.get")
     def test_get_project_and_cluster_id_success(self, mock_get):
         mock_response = MagicMock()
@@ -105,6 +152,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -131,6 +179,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -151,6 +200,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -180,6 +230,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -202,6 +253,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -236,6 +288,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -269,6 +322,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -295,6 +349,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -319,6 +374,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -343,6 +399,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -400,6 +457,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -467,6 +525,7 @@ class TestDGXCloudExecutor:
         with tempfile.TemporaryDirectory() as tmp_dir:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -513,6 +572,7 @@ class TestDGXCloudExecutor:
         with tempfile.TemporaryDirectory() as tmp_dir:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -551,6 +611,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -569,6 +630,7 @@ class TestDGXCloudExecutor:
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -596,6 +658,7 @@ class TestDGXCloudExecutor:
         with tempfile.TemporaryDirectory() as tmp_dir:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -610,6 +673,7 @@ class TestDGXCloudExecutor:
     def test_nnodes(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -623,6 +687,7 @@ class TestDGXCloudExecutor:
     def test_nproc_per_node_with_gpus(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -636,6 +701,7 @@ class TestDGXCloudExecutor:
     def test_nproc_per_node_with_nprocs(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -650,6 +716,7 @@ class TestDGXCloudExecutor:
     def test_nproc_per_node_default(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -671,6 +738,7 @@ class TestDGXCloudExecutor:
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -691,6 +759,7 @@ class TestDGXCloudExecutor:
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value=None):
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -712,6 +781,7 @@ class TestDGXCloudExecutor:
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -732,6 +802,7 @@ class TestDGXCloudExecutor:
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -751,6 +822,7 @@ class TestDGXCloudExecutor:
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value=None):
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -762,17 +834,12 @@ class TestDGXCloudExecutor:
 
             mock_get.assert_not_called()
 
-    def test_logs(self):
-        with patch("logging.Logger.warning") as mock_warning:
-            DGXCloudExecutor.logs("app123", "/path/to/fallback")
-            mock_warning.assert_called_once()
-            assert "Logs not available" in mock_warning.call_args[0][0]
-
     def test_assign(self):
         set_nemorun_home("/nemo_home")
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -802,6 +869,7 @@ class TestDGXCloudExecutor:
         with tempfile.TemporaryDirectory() as tmp_dir:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -823,6 +891,7 @@ class TestDGXCloudExecutor:
     def test_package_configs(self, mock_file, mock_makedirs):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -855,6 +924,7 @@ class TestDGXCloudExecutor:
         with tempfile.TemporaryDirectory() as tmp_dir:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
                 app_id="test_app_id",
                 app_secret="test_app_secret",
                 project_name="test_project",
@@ -881,6 +951,7 @@ class TestDGXCloudExecutor:
     def test_macro_values(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -895,6 +966,7 @@ class TestDGXCloudExecutor:
     def test_default_headers_without_token(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",
@@ -911,6 +983,7 @@ class TestDGXCloudExecutor:
     def test_default_headers_with_token(self):
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_app_id",
             app_secret="test_app_secret",
             project_name="test_project",

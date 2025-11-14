@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Type
+from typing import Any, Iterable, Optional
 
 import requests
 from invoke.context import Context
@@ -65,6 +65,7 @@ class DGXCloudExecutor(Executor):
     """
 
     base_url: str
+    kube_apiserver_url: str
     app_id: str
     app_secret: str
     project_name: str
@@ -359,6 +360,37 @@ cd /nemo_run/code
         r_json = response.json()
         return DGXCloudState(r_json["phase"])
 
+    def fetch_logs(
+        self,
+        job_id: str,
+        stream: bool,
+        stderr: Optional[bool] = None,
+        stdout: Optional[bool] = None,
+    ) -> Iterable[str]:
+        token = self.get_auth_token()
+        if not token:
+            logger.error("Failed to retrieve auth token for cancellation request.")
+            return
+
+        response = requests.get(
+            f"{self.base_url}/workloads", headers=self._default_headers(token=token)
+        )
+        workload_name = next(
+            (workload["name"] for workload in response.json() if workload["id"] == job_id),
+            None,
+        )
+
+        url = f"{self.kube_apiserver_url}/api/v1/namespaces/runai-{self.project_name}/pods/{workload_name}-worker-0/log?container=pytorch"
+
+        if stream:
+            url += "&follow=true"
+
+        with requests.get(
+            url, headers=self._default_headers(), verify=False, stream=stream
+        ) as response:
+            for line in response.iter_lines(decode_unicode=True):
+                yield line
+
     def cancel(self, job_id: str):
         # Retrieve the authentication token for the REST calls
         token = self.get_auth_token()
@@ -384,12 +416,6 @@ cd /nemo_run/code
                 response.status_code,
                 response.text,
             )
-
-    @classmethod
-    def logs(cls: Type["DGXCloudExecutor"], app_id: str, fallback_path: Optional[str]):
-        logger.warning(
-            "Logs not available for DGXCloudExecutor based jobs. Please visit the cluster UI to view the logs."
-        )
 
     def cleanup(self, handle: str): ...
 

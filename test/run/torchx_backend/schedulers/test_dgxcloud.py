@@ -15,16 +15,14 @@
 
 import tempfile
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 from torchx.schedulers.api import AppDryRunInfo
 from torchx.specs import AppDef, Role
 
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
-from nemo_run.run.torchx_backend.schedulers.dgxcloud import (
-    DGXCloudScheduler,
-    create_scheduler,
-)
+from nemo_run.run.torchx_backend.schedulers.dgxcloud import DGXCloudScheduler, create_scheduler
 
 
 @pytest.fixture
@@ -38,6 +36,7 @@ def mock_app_def():
 def dgx_cloud_executor():
     return DGXCloudExecutor(
         base_url="https://dgx.example.com",
+        kube_apiserver_url="https://127.0.0.1:443",
         app_id="test_app_id",
         app_secret="test_secret",
         project_name="test_project",
@@ -147,6 +146,7 @@ def test_save_and_get_job_dirs():
 
         executor = DGXCloudExecutor(
             base_url="https://test.com",
+            kube_apiserver_url="https://127.0.0.1:443",
             app_id="test_id",
             app_secret="test_secret",
             project_name="test_project",
@@ -160,3 +160,47 @@ def test_save_and_get_job_dirs():
 
         assert "test_app_id" in job_dirs
         assert isinstance(job_dirs["test_app_id"]["executor"], DGXCloudExecutor)
+
+
+def test_log_iter(dgx_cloud_scheduler, dgx_cloud_executor):
+    with mock.patch(
+        "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+    ) as mock_get_job_dirs:
+        mock_get_job_dirs.return_value = {
+            "test_session___test_role___test_container_id": {
+                "job_status": "RUNNING",
+                "executor": dgx_cloud_executor,
+            }
+        }
+
+        dgx_cloud_executor.fetch_logs = MagicMock()
+        dgx_cloud_executor.fetch_logs.return_value = ["log2", "log3"]
+
+        logs = list(
+            dgx_cloud_scheduler.log_iter(
+                "test_session___test_role___test_container_id", "test_role"
+            )
+        )
+        assert logs == ["log2", "log3"]
+
+
+def test_log_iter_str(dgx_cloud_scheduler, dgx_cloud_executor):
+    with mock.patch(
+        "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+    ) as mock_get_job_dirs:
+        mock_get_job_dirs.return_value = {
+            "test_session___test_role___test_container_id": {
+                "job_status": "RUNNING",
+                "executor": dgx_cloud_executor,
+            }
+        }
+
+        dgx_cloud_executor.fetch_logs = MagicMock()
+        dgx_cloud_executor.fetch_logs.return_value = "log2\nlog3"
+
+        logs = list(
+            dgx_cloud_scheduler.log_iter(
+                "test_session___test_role___test_container_id", "test_role"
+            )
+        )
+        assert logs == ["log2\n", "log3"]
