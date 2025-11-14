@@ -254,7 +254,7 @@ cluster.stop()
 ```
 
 ### Tips for DGX Cloud Lepton users
-* This assumes the [DGX Cloud Lepton CLI](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) is installed and has beeb authenticated.
+* This assumes the [DGX Cloud Lepton CLI](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) is installed and has been authenticated.
 
 ## 5.  API reference cheat-sheet
 
