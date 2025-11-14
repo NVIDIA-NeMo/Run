@@ -55,8 +55,6 @@ class LeptonRayCluster:
 
     name: str
     executor: LeptonExecutor
-    head_resource_shape: Optional[str] = None
-    ray_version: Optional[str] = None
 
     def __post_init__(self):
         self.cluster_map: dict[str, str] = {}
@@ -192,13 +190,13 @@ class LeptonRayCluster:
         node_group_id = self._node_group_id(client)
 
         # If the user doesn't specify a Ray version, use the default from the Lepton API
-        ray_version = self.ray_version or DEFAULT_RAY_IMAGE
+        ray_version = self.executor.ray_version or DEFAULT_RAY_IMAGE
 
         envs = [EnvVar(name=key, value=value) for key, value in executor.env_vars.items()]
         for key, value in executor.secret_vars.items():
             envs.append(EnvVar(name=key, value_from=EnvValue(secret_name_ref=value)))
 
-        head_resource_shape = self.head_resource_shape or executor.resource_shape
+        head_resource_shape = executor.head_resource_shape or executor.resource_shape
 
         spec = LeptonRayClusterUserSpec(
             image=executor.container_image,
@@ -358,14 +356,13 @@ class LeptonRayJob:
         The executor used to submit/run the job. Only used if a RayCluster does not yet exist.
     cluster_name : str, optional
         Name of an existing RayCluster to use. If not provided, a new RayCluster will be created.
-    ray_version : str, optional
-        Version of the Ray image to use. If not provided, the default from the Lepton API will be used.
+    cluster_ready_timeout : int, optional
+        Maximum seconds to wait for the RayCluster to be ready. Defaults to 1800 seconds.
     """
 
     name: str
     executor: LeptonExecutor
     cluster_name: Optional[str] = None
-    ray_version: Optional[str] = None
     cluster_ready_timeout: Optional[int] = 1800
 
     # ---------------------------------------------------------------------
@@ -446,7 +443,7 @@ class LeptonRayJob:
                 cluster = LeptonRayCluster(
                     name=name,
                     executor=self.executor,
-                    ray_version=self.ray_version,
+                    ray_version=self.executor.ray_version,
                     head_resource_shape=self.executor.head_resource_shape,
                 )
                 cluster.create()

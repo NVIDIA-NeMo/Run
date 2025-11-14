@@ -210,6 +210,7 @@ executor = LeptonExecutor(
     container_image="rayproject/ray:2.49.2-gpu",
     nemo_run_dir="/nemo-workspace/nemo-run",
     head_resource_shape="cpu.large",
+    ray_version="2.49.2",
     mounts=mounts,
     node_group="my-node-group",
     nodes=1,
@@ -230,7 +231,6 @@ executor = LeptonExecutor(
 cluster = RayCluster(
     name="lepton-ray-cluster",
     executor=executor,
-    ray_version="2.49.2"
 )
 cluster.start(timeout=1800)
 cluster.status(display=True)
@@ -240,7 +240,6 @@ job = RayJob(
     name="demo-lepton-ray-job",
     executor=executor,
     cluster_name="lepton-ray-cluster",
-    ray_version="2.49.2",
 )
 job.start(
     command="uv run python train.py --config cfgs/train.yaml cluster.num_nodes=2",
