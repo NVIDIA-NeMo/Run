@@ -666,7 +666,7 @@ Useful Commands (to be run in the RayCluster on DGX Cloud Lepton)
 
             if dryrun:
                 print(submit_kwargs)
-                return
+                return None
 
             submission_id_returned = submission_client.submit_job(**submit_kwargs)
             self.submission_id = submission_id_returned
