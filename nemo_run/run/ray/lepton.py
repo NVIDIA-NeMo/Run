@@ -366,6 +366,7 @@ class LeptonRayJob:
     executor: LeptonExecutor
     cluster_name: Optional[str] = None
     ray_version: Optional[str] = None
+    cluster_ready_timeout: Optional[int] = 1800
 
     # ---------------------------------------------------------------------
     # Internals
@@ -410,11 +411,11 @@ class LeptonRayJob:
 
         return {"state": status, "cluster_name": str(name), "ray_ready": ray_ready}
 
-    def _ray_cluster_ready(self, timeout: int = 1800, delay_between_attempts: int = 30) -> bool:
+    def _ray_cluster_ready(self, delay_between_attempts: int = 30) -> bool:
         name = self.name
         start_time = time.time()
 
-        while time.time() - start_time < timeout:
+        while time.time() - start_time < self.cluster_ready_timeout:
             status = self._ray_cluster_status()
 
             if status["ray_ready"]:
@@ -428,7 +429,7 @@ class LeptonRayJob:
             logger.debug(f"Ray cluster '{name}' is not ready, waiting for it to be ready...")
             time.sleep(delay_between_attempts)
 
-        logger.debug(f"Ray cluster '{name}' is not ready after {timeout} seconds")
+        logger.debug(f"Ray cluster '{name}' is not ready after {self.cluster_ready_timeout} seconds")
         return False
 
     def _ray_client(self, create_if_not_exists: bool = False) -> APIClient:
@@ -453,10 +454,8 @@ class LeptonRayJob:
                     f"RayCluster '{name}' does not exist and was not scheduled for creation."
                 )
 
-        timeout = 1800
-
-        if not self._ray_cluster_ready(timeout=timeout):
-            raise RuntimeError(f"RayCluster '{name}' is not ready after {timeout} seconds.")
+        if not self._ray_cluster_ready():
+            raise RuntimeError(f"RayCluster '{name}' is not ready after {self.cluster_ready_timeout} seconds.")
 
         self.ray_head_dashboard_url = f"{client.url}/rayclusters/{name}/dashboard"
 
