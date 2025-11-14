@@ -566,8 +566,6 @@ class LeptonRayJob:
 
         try:
             if follow:
-                final_states = [JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.STOPPED]
-
                 async def _stream_logs() -> None:
                     async for chunk in submission_client.tail_job_logs(self.submission_id):
                         sys.stdout.write(chunk)
