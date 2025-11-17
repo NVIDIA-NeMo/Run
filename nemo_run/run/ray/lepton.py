@@ -22,7 +22,7 @@ import urllib3
 import warnings
 from dataclasses import dataclass
 from ray.job_submission import JobSubmissionClient
-from rich.pretty import Pretty
+from rich.pretty import pretty_repr
 from typing import Any, Optional, TypeAlias
 
 from leptonai.api.v1.types.affinity import LeptonResourceAffinity
@@ -134,7 +134,7 @@ class LeptonRayCluster:
 
         if display and status_dict:
             cluster = client.raycluster.get(self.name)
-            logger.info(Pretty(cluster))
+            logger.info(pretty_repr(vars(cluster), expand_all=True))
 
         return status_dict
 
@@ -176,6 +176,7 @@ class LeptonRayCluster:
         if len(name) > 35:
             logger.warning("length of name exceeds 35 characters. Shortening...")
             name = name[:34]
+            self.name = name
 
         executor = self.executor
         client = APIClient()
@@ -305,7 +306,7 @@ class LeptonRayCluster:
         Returns
         -------
         bool
-            *True* if the job was successfully cancelled (or already gone), *False* otherwise.
+            *True* if the cluster was confirmed deleted (or already gone), *False* otherwise.
         """
         name = self.name
         logger.debug(f"Deleting RayCluster '{name}'")
@@ -313,7 +314,7 @@ class LeptonRayCluster:
         client = APIClient()
         status = self._status(client)
 
-        if status["cluster_name"] is None:
+        if status is None or status["cluster_name"] is None:
             logger.warning(f"RayCluster '{name}' does not exist or is already deleted")
             return True
 
@@ -331,6 +332,10 @@ class LeptonRayCluster:
 
                 if not status or status["cluster_name"] is None:
                     logger.info(f"RayCluster '{name}' successfully deleted")
+
+                    if name in self.cluster_map:
+                        del self.cluster_map[name]
+
                     return True
 
                 logger.debug(f"RayCluster '{name}' is still being deleted, waiting...")
@@ -443,8 +448,6 @@ class LeptonRayJob:
                 cluster = LeptonRayCluster(
                     name=name,
                     executor=self.executor,
-                    ray_version=self.executor.ray_version,
-                    head_resource_shape=self.executor.head_resource_shape,
                 )
                 cluster.create()
                 logger.info(f"Waiting for RayCluster '{name}' to be ready...")

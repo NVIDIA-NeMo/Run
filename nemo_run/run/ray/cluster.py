@@ -40,8 +40,6 @@ class RayCluster:
     name: str
     executor: Executor
     log_level: str = "INFO"
-    ray_version: Optional[str] = None  # Only used for LeptonRayCluster
-    head_resource_shape: str = None  # Only used for LeptonRayCluster
 
     def __post_init__(self):
         configure_logging(level=self.log_level)
@@ -60,10 +58,6 @@ class RayCluster:
         self.backend = backend_cls(name=self.name, executor=self.executor)  # type: ignore[arg-type]
 
         self._port_forward_map = {}
-
-        if isinstance(self.backend, LeptonRayCluster):
-            self.backend.ray_version = self.ray_version
-            self.backend.head_resource_shape = self.head_resource_shape
 
     def start(
         self,

@@ -80,9 +80,9 @@ class LeptonExecutor(Executor):
         default_factory=list
     )  # Image pull secrets for container registry authentication
     custom_spec: dict[str, Any] = field(default_factory=dict)
-    pre_launch_commands: list[str] = field(default_factory=list)
+    pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
     head_resource_shape: Optional[str] = ""  # Only used for LeptonRayCluster
-    ray_version: Optional[str] = None  # Only used for LeptonRayCluster  # Custom commands before launch
+    ray_version: Optional[str] = None  # Only used for LeptonRayCluster
 
     def stop_job(self, job_id: str):
         """

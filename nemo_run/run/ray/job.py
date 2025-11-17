@@ -44,7 +44,6 @@ class RayJob:
     pre_ray_start_commands: Optional[list[str]] = None
     log_level: str = "INFO"
     cluster_name: Optional[str] = None  # Used to connect to existing RayCluster
-    ray_version: Optional[str] = None  # Only used for LeptonRayJob
     cluster_ready_timeout: Optional[int] = 1800  # Only used for LeptonRayJob
 
     def __post_init__(self) -> None:  # noqa: D401 – simple implementation
@@ -65,7 +64,6 @@ class RayJob:
 
         if isinstance(self.executor, LeptonExecutor):
             self.backend.cluster_name = self.cluster_name
-            self.backend.ray_version = self.ray_version
             self.backend.cluster_ready_timeout = self.cluster_ready_timeout
 
     # ------------------------------------------------------------------
