@@ -392,7 +392,7 @@ cd /nemo_run/code
             url += "&follow=true"
 
         with requests.get(
-            url, headers=self._default_headers(), verify=False, stream=stream
+            url, headers=self._default_headers(token=token), verify=False, stream=stream
         ) as response:
             for line in response.iter_lines(decode_unicode=True):
                 yield line
