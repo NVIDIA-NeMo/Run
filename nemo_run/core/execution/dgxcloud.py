@@ -397,7 +397,7 @@ cd /nemo_run/code
             url, headers=self._default_headers(token=token), verify=False, stream=stream
         ) as response:
             for line in response.iter_lines(decode_unicode=True):
-                yield line
+                yield f"{line}\n"
 
     def cancel(self, job_id: str):
         # Retrieve the authentication token for the REST calls
