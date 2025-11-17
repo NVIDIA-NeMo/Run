@@ -25,11 +25,15 @@ from typing import Any, Iterable, Optional
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
-from torchx.schedulers.api import (AppDryRunInfo, DescribeAppResponse,
-                                   ListAppResponse, Scheduler, Stream,
-                                   split_lines)
-from torchx.specs import (AppDef, AppState, ReplicaStatus, Role, RoleStatus,
-                          runopts)
+from torchx.schedulers.api import (
+    AppDryRunInfo,
+    DescribeAppResponse,
+    ListAppResponse,
+    Scheduler,
+    Stream,
+    split_lines,
+)
+from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runopts
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
@@ -195,22 +199,27 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)
         _, _, job_id = app_id.split("___")
-        executor: Optional[DGXCloudExecutor] = job_info.get("executor", None)  # type: ignore
+        executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
         if not executor:
-            yield [""]
+            return [""]
 
-        for fetched_log in executor.fetch_logs(
+        for log in executor.fetch_logs(
             job_id=job_id,
             stream=should_tail,
         ):
-            if isinstance(fetched_log, str):
-                if len(fetched_log) == 0:
-                    yield ""
-                else:
-                    for splitted_line in split_lines(fetched_log):
-                        yield splitted_line
+            yield f"{log}\n"
 
-            yield fetched_log
+        logs = executor.fetch_logs(
+            job_id=job_id,
+            stream=should_tail,
+        )  # type: ignore
+            if isinstance(logs, str):
+                if len(logs) == 0:
+                    logs = []
+                else:
+                    logs = split_lines(logs)
+
+        return logs
 
     def _cancel_existing(self, app_id: str) -> None:
         """
