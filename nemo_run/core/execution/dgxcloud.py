@@ -394,7 +394,6 @@ cd /nemo_run/code
         while self.status(job_id) != DGXCloudState.RUNNING:
             logger.info("Waiting for job to start...")
             time.sleep(15)
-
         with requests.get(
             url, headers=self._default_headers(token=token), verify=False, stream=stream
         ) as response:
