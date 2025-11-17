@@ -391,6 +391,8 @@ cd /nemo_run/code
         if stream:
             url += "&follow=true"
 
+        time.sleep(60)
+
         with requests.get(
             url, headers=self._default_headers(token=token), verify=False, stream=stream
         ) as response:
