@@ -384,7 +384,7 @@ cd /nemo_run/code
             None,
         )
         if workload_name is None:
-            return [""]
+            yield ""
 
         url = f"{self.kube_apiserver_url}/api/v1/namespaces/runai-{self.project_name}/pods/{workload_name}-worker-0/log?container=pytorch"
 

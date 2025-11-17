@@ -205,10 +205,10 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         ):
             if isinstance(fetched_log, str):
                 if len(fetched_log) == 0:
-                    yield []
+                    yield ""
                 else:
-                    for splitted_lines in split_lines(fetched_log):
-                        yield splitted_lines
+                    for splitted_line in split_lines(fetched_log):
+                        yield splitted_line
 
             yield fetched_log
 

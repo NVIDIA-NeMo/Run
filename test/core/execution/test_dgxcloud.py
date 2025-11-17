@@ -120,7 +120,10 @@ class TestDGXCloudExecutor:
         mock_requests_get.side_effect = [mock_workloads_response, mock_log_response]
 
         # --- 4. Setup Executor (inside the patch) ---
-        with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
+        with (
+            patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"),
+            patch.object(DGXCloudExecutor, "status", return_value=DGXCloudState.RUNNING),
+        ):
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
