@@ -19,6 +19,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
@@ -188,6 +189,9 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         self,
         app_id: str,
         role_name: str,
+        regex: Optional[str] = None,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
         should_tail: bool = False,
         streams: Optional[Stream] = None,
     ) -> Iterable[str]:
