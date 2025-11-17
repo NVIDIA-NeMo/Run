@@ -376,9 +376,15 @@ cd /nemo_run/code
             f"{self.base_url}/workloads", headers=self._default_headers(token=token)
         )
         workload_name = next(
-            (workload["name"] for workload in response.json() if workload["id"] == job_id),
+            (
+                workload["name"]
+                for workload in response.json()["workloads"]
+                if workload["id"] == job_id
+            ),
             None,
         )
+        if workload_name is None:
+            return [""]
 
         url = f"{self.kube_apiserver_url}/api/v1/namespaces/runai-{self.project_name}/pods/{workload_name}-worker-0/log?container=pytorch"
 
