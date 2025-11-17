@@ -199,21 +199,21 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)
         _, _, job_id = app_id.split("___")
-        executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
+        executor: Optional[DGXCloudExecutor] = job_info.get("executor", None)  # type: ignore
         if not executor:
-            return [""]
+            yield [""]
 
-        logs = executor.fetch_logs(
+        for fetched_log in executor.fetch_logs(
             job_id=job_id,
             stream=should_tail,
-        )  # type: ignore
-        if isinstance(logs, str):
-            if len(logs) == 0:
-                logs = []
-            else:
-                logs = split_lines(logs)
+        ):
+            if isinstance(fetched_log, str):
+                if len(fetched_log) == 0:
+                    yield []
+                else:
+                    yield split_lines(fetched_log)
 
-        return logs
+            yield fetched_log
 
     def _cancel_existing(self, app_id: str) -> None:
         """

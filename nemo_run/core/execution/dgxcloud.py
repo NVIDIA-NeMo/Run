@@ -391,13 +391,15 @@ cd /nemo_run/code
         if stream:
             url += "&follow=true"
 
-        time.sleep(60)
+        while self.status(job_id) != DGXCloudState.RUNNING:
+            logger.info("Waiting for job to start...")
+            time.sleep(15)
 
         with requests.get(
             url, headers=self._default_headers(token=token), verify=False, stream=stream
         ) as response:
             for line in response.iter_lines(decode_unicode=True):
-                yield f"{line}\n"
+                yield line
 
     def cancel(self, job_id: str):
         # Retrieve the authentication token for the REST calls

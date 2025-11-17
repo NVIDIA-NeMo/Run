@@ -113,7 +113,9 @@ class TestDGXCloudExecutor:
 
         # Mock for the '/workloads' call
         mock_workloads_response = MagicMock(spec=requests.Response)
-        mock_workloads_response.json.return_value = [{"name": "hello-world", "id": "123"}]
+        mock_workloads_response.json.return_value = {
+            "workloads": [{"name": "hello-world", "id": "123"}]
+        }
 
         mock_requests_get.side_effect = [mock_workloads_response, mock_log_response]
 
