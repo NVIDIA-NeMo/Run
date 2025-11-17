@@ -25,15 +25,11 @@ from typing import Any, Iterable, Optional
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
-from torchx.schedulers.api import (
-    AppDryRunInfo,
-    DescribeAppResponse,
-    ListAppResponse,
-    Scheduler,
-    Stream,
-    split_lines,
-)
-from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runopts
+from torchx.schedulers.api import (AppDryRunInfo, DescribeAppResponse,
+                                   ListAppResponse, Scheduler, Stream,
+                                   split_lines)
+from torchx.specs import (AppDef, AppState, ReplicaStatus, Role, RoleStatus,
+                          runopts)
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
@@ -211,7 +207,8 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
                 if len(fetched_log) == 0:
                     yield []
                 else:
-                    yield split_lines(fetched_log)
+                    for splitted_lines in split_lines(fetched_log):
+                        yield splitted_lines
 
             yield fetched_log
 
