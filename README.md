@@ -106,4 +106,4 @@ You can find the tutorial series below:
 Please see the [contribution guide](./CONTRIBUTING.md) to contribute to NeMo Run.
 
 ## FAQs
-Please find a list of frequently asked questions [here](./docs/source/faqs.md).
+Please find a list of frequently asked questions [here](./docs/faqs.md).
