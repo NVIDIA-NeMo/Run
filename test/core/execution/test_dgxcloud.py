@@ -136,8 +136,8 @@ class TestDGXCloudExecutor:
 
             logs_iter = executor.fetch_logs("123", stream=True)
 
-            assert next(logs_iter) == "this is a static log"
-            assert next(logs_iter) == "this is the last static log"
+            assert next(logs_iter) == "this is a static log\n"
+            assert next(logs_iter) == "this is the last static log\n"
 
             mock_requests_get.assert_any_call(
                 "https://127.0.0.1:443/api/v1/namespaces/runai-test_project/pods/hello-world-worker-0/log?container=pytorch&follow=true",
