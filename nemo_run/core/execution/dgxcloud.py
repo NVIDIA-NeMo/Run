@@ -17,8 +17,10 @@ import base64
 import json
 import logging
 import os
+import queue
 import subprocess
 import tempfile
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -360,6 +362,15 @@ cd /nemo_run/code
         r_json = response.json()
         return DGXCloudState(r_json["phase"])
 
+    def _stream_url_sync(self, url: str, queue: queue.Queue):
+        """Stream a single URL using requests and put chunks into the queue"""
+        try:
+            with requests.get(url, stream=True) as response:
+                for line in response.iter_lines():
+                    queue.put(line)
+        except Exception as e:
+            logger.error(f"Error streaming URL {url}: {e}")
+
     def fetch_logs(
         self,
         job_id: str,
@@ -386,19 +397,37 @@ cd /nemo_run/code
         if workload_name is None:
             yield ""
 
-        url = f"{self.kube_apiserver_url}/api/v1/namespaces/runai-{self.project_name}/pods/{workload_name}-worker-0/log?container=pytorch"
+        urls = [
+            f"{self.kube_apiserver_url}/api/v1/namespaces/runai-{self.project_name}/pods/{workload_name}-worker-{i}/log?container=pytorch"
+            for i in range(self.nodes)
+        ]
 
         if stream:
-            url += "&follow=true"
+            urls = [url + "&follow=true" for url in urls]
 
         while self.status(job_id) != DGXCloudState.RUNNING:
             logger.info("Waiting for job to start...")
             time.sleep(15)
-        with requests.get(
-            url, headers=self._default_headers(token=token), verify=False, stream=stream
-        ) as response:
-            for line in response.iter_lines(decode_unicode=True):
-                yield f"{line}\n"
+
+        time.sleep(10)
+
+        q = queue.Queue()
+        active_urls = set(urls)
+
+        # Start threads
+        threads = [
+            threading.Thread(target=self._stream_url_sync, args=(url, queue)) for url in urls
+        ]
+        for t in threads:
+            t.start()
+
+        # Yield chunks as they arrive
+        while active_urls:
+            yield q.get()
+
+        # Wait for threads
+        for t in threads:
+            t.join()
 
     def cancel(self, job_id: str):
         # Retrieve the authentication token for the REST calls
