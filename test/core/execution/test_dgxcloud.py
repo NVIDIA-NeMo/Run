@@ -161,8 +161,7 @@ class TestDGXCloudExecutor:
     @patch("nemo_run.core.execution.dgxcloud.requests.get")
     @patch("nemo_run.core.execution.dgxcloud.time.sleep")
     @patch("nemo_run.core.execution.dgxcloud.threading.Thread")
-    @patch("nemo_run.core.execution.dgxcloud.queue.Queue")
-    def test_fetch_logs(self, mock_queue, mock_threading_Thread, mock_sleep, mock_requests_get):
+    def test_fetch_logs(self, mock_threading_Thread, mock_sleep, mock_requests_get):
         # --- 1. Setup Primitives for the *live* test ---
         mock_log_response = MagicMock(spec=requests.Response)
 
