@@ -367,9 +367,12 @@ cd /nemo_run/code
         try:
             with requests.get(url, stream=True, headers=headers, verify=False) as response:
                 for line in response.iter_lines(decode_unicode=True):
-                    q.put(f"{line}\n")
+                    q.put(url, f"{line}\n")
         except Exception as e:
             logger.error(f"Error streaming URL {url}: {e}")
+
+        finally:
+            q.put(url, None)
 
     def fetch_logs(
         self,
@@ -426,7 +429,11 @@ cd /nemo_run/code
 
         # Yield chunks as they arrive
         while active_urls:
-            yield q.get()
+            url, item = q.get()
+            if item is None:
+                active_urls.discard(url)
+            else:
+                yield item
 
         # Wait for threads
         for t in threads:
