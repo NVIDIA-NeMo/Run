@@ -383,8 +383,8 @@ cd /nemo_run/code
     ) -> Iterable[str]:
         token = self.get_auth_token()
         if not token:
-            logger.error("Failed to retrieve auth token for cancellation request.")
-            return
+            logger.error("Failed to retrieve auth token for fetch logs request.")
+            yield ""
 
         response = requests.get(
             f"{self.base_url}/workloads", headers=self._default_headers(token=token)
@@ -398,6 +398,7 @@ cd /nemo_run/code
             None,
         )
         if workload_name is None:
+            logger.error(f"No workload found with id {job_id}")
             yield ""
 
         urls = [
@@ -430,7 +431,15 @@ cd /nemo_run/code
         # Yield chunks as they arrive
         while active_urls:
             url, item = q.get()
-            if item is None:
+            if item is None or self.status(job_id) in [
+                DGXCloudState.DELETING,
+                DGXCloudState.STOPPED,
+                DGXCloudState.STOPPING,
+                DGXCloudState.DEGRADED,
+                DGXCloudState.FAILED,
+                DGXCloudState.COMPLETED,
+                DGXCloudState.TERMINATING,
+            ]:
                 active_urls.discard(url)
             else:
                 yield item
