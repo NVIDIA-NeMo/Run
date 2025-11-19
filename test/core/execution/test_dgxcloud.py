@@ -237,6 +237,38 @@ class TestDGXCloudExecutor:
             with pytest.raises(StopIteration):
                 next(logs_iter)
 
+    @patch("nemo_run.core.execution.dgxcloud.requests.get")
+    def test__stream_url_sync(self, mock_requests_get):
+        # --- 1. Setup Primitives for the *live* test ---
+        mock_log_response = MagicMock(spec=requests.Response)
+
+        mock_log_response.iter_lines.return_value = iter(
+            ["this is a static log", "this is the last static log"]
+        )
+        mock_log_response.__enter__.return_value = mock_log_response
+
+        mock_requests_get.side_effect = [mock_log_response]
+
+        mock_queue_instance = MagicMock()
+
+        with patch(
+            "nemo_run.core.execution.dgxcloud.queue.Queue", return_value=mock_queue_instance
+        ):
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+                nodes=2,
+            )
+
+            executor._stream_url_sync("123", "some-headers", mock_queue_instance)
+
+            mock_queue_instance.put.assert_any_call(("123", "this is a static log\n"))
+
     @patch("requests.get")
     def test_get_project_and_cluster_id_success(self, mock_get):
         mock_response = MagicMock()
