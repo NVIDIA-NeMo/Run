@@ -365,7 +365,7 @@ cd /nemo_run/code
     def _stream_url_sync(self, url: str, queue: queue.Queue):
         """Stream a single URL using requests and put chunks into the queue"""
         try:
-            with requests.get(url, stream=True, insecure=True) as response:
+            with requests.get(url, stream=True, verify=False) as response:
                 for line in response.iter_lines():
                     queue.put(line)
         except Exception as e:
