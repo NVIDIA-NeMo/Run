@@ -367,7 +367,7 @@ cd /nemo_run/code
         try:
             with requests.get(url, stream=True, headers=headers, verify=False) as response:
                 for line in response.iter_lines(decode_unicode=True):
-                    q.put(line)
+                    q.put(f"{line}\n")
         except Exception as e:
             logger.error(f"Error streaming URL {url}: {e}")
 
