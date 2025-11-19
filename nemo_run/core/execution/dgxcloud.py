@@ -25,7 +25,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Iterable, Optional
 
 import requests
 from invoke.context import Context
@@ -362,7 +362,7 @@ cd /nemo_run/code
         r_json = response.json()
         return DGXCloudState(r_json["phase"])
 
-    def _stream_url_sync(self, url: str, headers: Dict[str, str], q: queue.Queue):
+    def _stream_url_sync(self, url: str, headers: dict, q: queue.Queue):
         """Stream a single URL using requests and put chunks into the queue"""
         try:
             with requests.get(url, stream=True, headers=headers, verify=False) as response:
