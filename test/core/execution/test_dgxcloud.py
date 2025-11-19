@@ -15,7 +15,6 @@
 
 import logging
 import os
-import queue
 import subprocess
 import tempfile
 from unittest.mock import MagicMock, mock_open, patch
