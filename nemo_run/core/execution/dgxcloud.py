@@ -362,12 +362,12 @@ cd /nemo_run/code
         r_json = response.json()
         return DGXCloudState(r_json["phase"])
 
-    def _stream_url_sync(self, url: str, queue: queue.Queue):
+    def _stream_url_sync(self, url: str, q: queue.Queue):
         """Stream a single URL using requests and put chunks into the queue"""
         try:
             with requests.get(url, stream=True, verify=False) as response:
                 for line in response.iter_lines():
-                    queue.put(line)
+                    q.put(line)
         except Exception as e:
             logger.error(f"Error streaming URL {url}: {e}")
 
@@ -415,9 +415,7 @@ cd /nemo_run/code
         active_urls = set(urls)
 
         # Start threads
-        threads = [
-            threading.Thread(target=self._stream_url_sync, args=(url, queue)) for url in urls
-        ]
+        threads = [threading.Thread(target=self._stream_url_sync, args=(url, q)) for url in urls]
         for t in threads:
             t.start()
 
