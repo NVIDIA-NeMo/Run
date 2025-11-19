@@ -366,7 +366,7 @@ cd /nemo_run/code
         """Stream a single URL using requests and put chunks into the queue"""
         try:
             with requests.get(url, stream=True, verify=False) as response:
-                for line in response.iter_lines():
+                for line in response.iter_lines(decode_unicode=True):
                     q.put(line)
         except Exception as e:
             logger.error(f"Error streaming URL {url}: {e}")
