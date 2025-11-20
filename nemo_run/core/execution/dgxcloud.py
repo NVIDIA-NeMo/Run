@@ -90,15 +90,23 @@ class DGXCloudExecutor(Executor):
             "appSecret": self.app_secret,
         }
 
-        response = requests.post(url, json=payload, headers=self._default_headers())
-        response_text = response.text.strip()
-        auth_token = json.loads(response_text).get("accessToken", None)  # [1]
-        if not auth_token:
-            logger.error("Failed to retrieve auth token; response was: %s", response_text)
-            return None
+        n_attempts = 0
+        while n_attempts < 3:
+            try:
+                response = requests.post(url, json=payload, headers=self._default_headers())
+                response_text = response.text.strip()
+                auth_token = json.loads(response_text).get("accessToken", None)  # [1]
+                if auth_token:
+                    return auth_token
 
-        logger.debug("Retrieved auth token from %s", url)
-        return auth_token
+                raise ValueError(f"Failed to retrieve auth token; response was: {response_text}")
+
+            except Exception as e:
+                logger.error("Failed to retrieve auth token; error was: %s", e)
+                time.sleep(10)
+                n_attempts += 1
+
+        raise ValueError("Failed to retrieve auth token after 3 attempts.")
 
     def get_project_and_cluster_id(self, token: str) -> tuple[Optional[str], Optional[str]]:
         url = f"{self.base_url}/org-unit/projects"
