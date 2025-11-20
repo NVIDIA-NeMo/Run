@@ -106,7 +106,8 @@ class DGXCloudExecutor(Executor):
                 time.sleep(10)
                 n_attempts += 1
 
-        raise ValueError("Failed to retrieve auth token after 3 attempts.")
+        logger.error("Failed to retrieve auth token after 3 attempts.")
+        return None
 
     def get_project_and_cluster_id(self, token: str) -> tuple[Optional[str], Optional[str]]:
         url = f"{self.base_url}/org-unit/projects"
