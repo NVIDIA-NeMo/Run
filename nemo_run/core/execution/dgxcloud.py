@@ -408,7 +408,7 @@ mkdir -p {self.pvc_job_dir}/logs
             while True:
                 try:
                     for line in iter(proc.stdout.readline, ""):
-                        if line:
+                        if line and not line.endswith(".log <==\n"):
                             yield f"{line}"
                         if proc.poll() is not None:
                             break
