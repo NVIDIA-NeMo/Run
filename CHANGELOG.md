@@ -1,6 +1,88 @@
 # Changelog
 
 <!-- Next changelog -->
+## NVIDIA Nemo Run 0.7.0
+
+### Detailed Changelogs:
+
+
+#### Executors
+
+
+
+- Add image pull secrets param for lepton [#330](https://github.com/NVIDIA-NeMo/Run/pull/330)
+- Add node reservations for LeptonExecutor [#336](https://github.com/NVIDIA-NeMo/Run/pull/336)
+- [SkyPilot] Fix nodes -> num_nodes for SkyPilotExecutor in docs [#338](https://github.com/NVIDIA-NeMo/Run/pull/338)
+- [SkyPilot] Add retry_until_up as an optional arg to SkyPilot Executor [#340](https://github.com/NVIDIA-NeMo/Run/pull/340)
+- Support SkyPilot Storage configurations in `file_mounts` for automatic cloud sync [#335](https://github.com/NVIDIA-NeMo/Run/pull/335)
+- [SkyPilot] Update YAML dump imports + backward compatibility for SkyPilot <=0.10.3 [#339](https://github.com/NVIDIA-NeMo/Run/pull/339)
+- Create SkypilotJobsExecutor to allow running managed jobs [#343](https://github.com/NVIDIA-NeMo/Run/pull/343)
+- fix: exit code docker runs [#365](https://github.com/NVIDIA-NeMo/Run/pull/365)
+
+
+#### Ray Integration
+
+
+
+- Add ray head start timeout [#324](https://github.com/NVIDIA-NeMo/Run/pull/324)
+- Remove ray deprecated dashboard-grpc-port arg [#325](https://github.com/NVIDIA-NeMo/Run/pull/325)
+
+
+#### Experiment & Job Management
+
+
+
+- add a grace for Jobs that may start in Unknown [#291](https://github.com/NVIDIA-NeMo/Run/pull/291)
+- Create SkypilotJobsExecutor to allow running managed jobs [#343](https://github.com/NVIDIA-NeMo/Run/pull/343)
+
+
+#### Packaging & Deployment
+
+
+
+- Support SkyPilot Storage configurations in `file_mounts` for automatic cloud sync [#335](https://github.com/NVIDIA-NeMo/Run/pull/335)
+- Refactor tar packaging logic to work for submodule and extra repo [#347](https://github.com/NVIDIA-NeMo/Run/pull/347)
+
+
+#### Documentation
+
+
+
+- Add broken links check in docs [#333](https://github.com/NVIDIA-NeMo/Run/pull/333)
+- [SkyPilot] Fix nodes -> num_nodes for SkyPilotExecutor in docs [#338](https://github.com/NVIDIA-NeMo/Run/pull/338)
+- Documentation Restructurting [#350](https://github.com/NVIDIA-NeMo/Run/pull/350)
+- Fix spelling in docstring [#359](https://github.com/NVIDIA-NeMo/Run/pull/359)
+- fix: exit code docker runs [#365](https://github.com/NVIDIA-NeMo/Run/pull/365)
+
+
+#### CI/CD
+
+
+
+- Update cherry-pick workflow to use version 0.63.0 [#344](https://github.com/NVIDIA-NeMo/Run/pull/344)
+- fix: exit code docker runs [#365](https://github.com/NVIDIA-NeMo/Run/pull/365)
+
+
+#### Bug Fixes
+
+
+
+- [SkyPilot] Fix nodes -> num_nodes for SkyPilotExecutor in docs [#338](https://github.com/NVIDIA-NeMo/Run/pull/338)
+- Fix spelling in docstring [#359](https://github.com/NVIDIA-NeMo/Run/pull/359)
+- fix: exit code docker runs [#365](https://github.com/NVIDIA-NeMo/Run/pull/365)
+
+
+#### Others
+
+- chore: Bump to version 0.7.0rc0.dev0 [#322](https://github.com/NVIDIA-NeMo/Run/pull/322)
+- Update community-bot to add community issues to shared project [#321](https://github.com/NVIDIA-NeMo/Run/pull/321)
+- Bump community-bot to 0.54.4 [#332](https://github.com/NVIDIA-NeMo/Run/pull/332)
+- remove custom dir [#351](https://github.com/NVIDIA-NeMo/Run/pull/351)
+- Bumping to 0.5.0 [#352](https://github.com/NVIDIA-NeMo/Run/pull/352)
+- Update release notes header in changelog build [#355](https://github.com/NVIDIA-NeMo/Run/pull/355)
+- add changelog-config [#356](https://github.com/NVIDIA-NeMo/Run/pull/356)
+- Changelog 0.6.0 [#357](https://github.com/NVIDIA-NeMo/Run/pull/357)
+- feat: new changelog-build [#367](https://github.com/NVIDIA-NeMo/Run/pull/367)
 ## NVIDIA Nemo Run 0.6.0
 
 ### Detailed Changelogs:
