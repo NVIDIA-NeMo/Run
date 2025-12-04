@@ -394,7 +394,7 @@ mkdir -p {self.pvc_job_dir}/logs
 
         files = []
         while len(files) < 1:
-            files = list(glob.glob(f"/{RUNDIR_NAME}/log_*.out"))
+            files = list(glob.glob(f"{self.pvc_job_dir}/log_*.out"))
             logger.info(f"Waiting for {1 - len(files)} log files to be created...")
             time.sleep(3)
 
