@@ -323,7 +323,7 @@ class DGXCloudExecutor(Executor):
 ln -s {self.pvc_job_dir}/ /nemo_run
 cd /nemo_run/code
 mkdir -p {self.pvc_job_dir}/logs
-{" ".join(cmd)} 2>&1 | tee -a {self.pvc_job_dir}/output-$HOSTNAME.log
+{" ".join(cmd)} 2>&1 | tee -a {self.pvc_job_dir}/log_$HOSTNAME.log
 """
         with open(os.path.join(self.job_dir, "launch_script.sh"), "w+") as f:
             f.write(launch_script)
