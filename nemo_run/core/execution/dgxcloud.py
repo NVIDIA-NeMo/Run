@@ -323,7 +323,7 @@ class DGXCloudExecutor(Executor):
 ln -s {self.pvc_job_dir}/ /nemo_run
 cd /nemo_run/code
 mkdir -p {self.pvc_job_dir}/logs
-{" ".join(cmd)} 2>&1 | tee -a {self.pvc_job_dir}/log_$HOSTNAME.out
+{" ".join(cmd)} 2>&1 | tee -a {self.pvc_job_dir}/log_$HOSTNAME.out {self.pvc_job_dir}/log_all_ranks.out
 """
         with open(os.path.join(self.job_dir, "launch_script.sh"), "w+") as f:
             f.write(launch_script)
@@ -393,9 +393,9 @@ mkdir -p {self.pvc_job_dir}/logs
         self.pvc_job_dir = os.path.join(self.pvc_nemo_run_dir, job_subdir)
 
         files = []
-        while len(files) < self.nodes:
+        while len(files) < (self.nodes + 1):
             files = list(glob.glob(f"{self.pvc_job_dir}/log_*.out"))
-            logger.info(f"Waiting for {self.nodes - len(files)} log files to be created...")
+            logger.info(f"Waiting for {(self.nodes + 1) - len(files)} log files to be created...")
             time.sleep(3)
 
         cmd.extend(files)
