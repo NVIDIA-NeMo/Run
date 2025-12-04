@@ -29,7 +29,7 @@ from typing import Any, Iterable, Optional
 import requests
 from invoke.context import Context
 
-from nemo_run.config import RUNDIR_NAME, get_nemorun_home
+from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
