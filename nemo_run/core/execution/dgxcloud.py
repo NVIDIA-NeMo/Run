@@ -29,7 +29,7 @@ from typing import Any, Iterable, Optional
 import requests
 from invoke.context import Context
 
-from nemo_run.config import get_nemorun_home
+from nemo_run.config import RUNDIR_NAME, get_nemorun_home
 from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
@@ -323,7 +323,7 @@ class DGXCloudExecutor(Executor):
 ln -s {self.pvc_job_dir}/ /nemo_run
 cd /nemo_run/code
 mkdir -p {self.pvc_job_dir}/logs
-{" ".join(cmd)} 2>&1 | tee -a {self.pvc_job_dir}/logs/output-$HOSTNAME.log
+{" ".join(cmd)} 2>&1 | tee -a /{RUNDIR_NAME}/log_{name}.out
 """
         with open(os.path.join(self.job_dir, "launch_script.sh"), "w+") as f:
             f.write(launch_script)
@@ -393,9 +393,9 @@ mkdir -p {self.pvc_job_dir}/logs
         self.pvc_job_dir = os.path.join(self.pvc_nemo_run_dir, job_subdir)
 
         files = []
-        while len(files) < self.nodes:
-            files = list(glob.glob(f"{self.pvc_job_dir}/logs/output-*.log"))
-            logger.info(f"Waiting for {self.nodes - len(files)} log files to be created...")
+        while len(files) < 1:
+            files = list(glob.glob(f"/{RUNDIR_NAME}/log_*.out"))
+            logger.info(f"Waiting for {1 - len(files)} log files to be created...")
             time.sleep(3)
 
         cmd.extend(files)
