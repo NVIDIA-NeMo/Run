@@ -410,7 +410,7 @@ mkdir -p {self.pvc_job_dir}/logs
                     for line in iter(proc.stdout.readline, ""):
                         if (
                             line
-                            and not line.rstrip("\n").endswith(".log <==")
+                            and not line.rstrip("\n").endswith(".out <==")
                             and line.rstrip("\n") != ""
                         ):
                             yield f"{line}"
