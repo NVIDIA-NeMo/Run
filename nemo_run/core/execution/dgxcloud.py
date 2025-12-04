@@ -393,9 +393,12 @@ mkdir -p {self.pvc_job_dir}/logs
         self.pvc_job_dir = os.path.join(self.pvc_nemo_run_dir, job_subdir)
 
         files = []
-        while len(files) < (self.nodes + 1):
+        while len(files) < self.nodes:
             files = list(glob.glob(f"{self.pvc_job_dir}/log_*.out"))
-            logger.info(f"Waiting for {(self.nodes + 1) - len(files)} log files to be created...")
+            files = [f for f in files if "log_all_ranks" not in f]
+            logger.info(
+                f"Waiting for {self.nodes + 1 - len(files)} log files to be created in {self.pvc_job_dir}..."
+            )
             time.sleep(3)
 
         cmd.extend(files)
