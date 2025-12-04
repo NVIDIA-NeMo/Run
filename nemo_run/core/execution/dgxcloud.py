@@ -394,7 +394,7 @@ mkdir -p {self.pvc_job_dir}/logs
 
         files = []
         while len(files) < self.nodes:
-            files = list(glob.glob(f"{self.pvc_job_dir}/log_*.out"))
+            files = list(glob.glob(f"{self.pvc_job_dir}/log_*.log"))
             logger.info(f"Waiting for {self.nodes - len(files)} log files to be created...")
             time.sleep(3)
 
