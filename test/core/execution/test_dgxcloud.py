@@ -110,8 +110,8 @@ class TestDGXCloudExecutor:
 
         # Mock log files
         mock_glob.return_value = [
-            "/workspace/nemo_run/experiments/exp1/task1/logs/output-worker-0.log",
-            "/workspace/nemo_run/experiments/exp1/task1/logs/output-worker-1.log",
+            "/workspace/nemo_run/experiments/exp1/task1/log_worker-0.out",
+            "/workspace/nemo_run/experiments/exp1/task1/log_worker-1.out",
         ]
 
         # Mock process that yields log lines
@@ -162,7 +162,7 @@ class TestDGXCloudExecutor:
 
         # Mock log files
         mock_glob.return_value = [
-            "/workspace/nemo_run/experiments/exp1/task1/logs/output-worker-0.log",
+            "/workspace/nemo_run/experiments/exp1/task1/log_worker-0.out",
         ]
 
         # Mock process that yields log lines
@@ -232,7 +232,7 @@ class TestDGXCloudExecutor:
 
         with patch.object(executor, "status", side_effect=status_values):
             # Mock glob to prevent it from blocking
-            mock_glob.return_value = ["/workspace/nemo_run/logs/output.log"]
+            mock_glob.return_value = ["/workspace/nemo_run/logs/outputlog_"]
 
             with patch("subprocess.Popen") as mock_popen:
                 mock_process = MagicMock()
@@ -257,10 +257,10 @@ class TestDGXCloudExecutor:
         # Mock glob to return incomplete files first, then all files
         mock_glob.side_effect = [
             [],  # No files yet
-            ["/workspace/nemo_run/experiments/exp1/task1/logs/output-worker-0.log"],  # 1 of 2
+            ["/workspace/nemo_run/experiments/exp1/task1/log_worker-0.out"],  # 1 of 2
             [  # All 2 files
-                "/workspace/nemo_run/experiments/exp1/task1/logs/output-worker-0.log",
-                "/workspace/nemo_run/experiments/exp1/task1/logs/output-worker-1.log",
+                "/workspace/nemo_run/experiments/exp1/task1/log_worker-0.out",
+                "/workspace/nemo_run/experiments/exp1/task1/log_worker-1.out",
             ],
         ]
 
