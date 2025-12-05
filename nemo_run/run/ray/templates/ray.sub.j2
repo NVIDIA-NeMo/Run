@@ -97,7 +97,7 @@ rm -f $LOG_DIR/ENDED
 ########################################################
 
 # Number of GPUs per node
-gpus_per_node=8
+gpus_per_node=4
 CPUS_PER_WORKER=${CPUS_PER_WORKER:-$((gpus_per_node * 16))}
 
 num_retries={{ num_retries }}
