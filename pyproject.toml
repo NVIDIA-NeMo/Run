@@ -30,7 +30,7 @@ dependencies = [
     "cryptography",
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
-    "leptonai>=0.25.0",
+    "leptonai>=0.26.6",
     "packaging",
     "toml",
 ]
@@ -58,7 +58,8 @@ skypilot-all = [
     "skypilot[all]>=0.10.0",
 ]
 ray = [
-    "kubernetes"
+    "kubernetes",
+    "ray[default]>=2.49.2",
 ]
 
 [dependency-groups]

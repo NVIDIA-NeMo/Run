@@ -13,14 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import os
 import subprocess
 import tempfile
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-import requests
 
 from nemo_run.config import set_nemorun_home
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
@@ -83,11 +81,12 @@ class TestDGXCloudExecutor:
         )
 
     @patch("requests.post")
-    def test_get_auth_token_failure(self, mock_post):
+    @patch("time.sleep")
+    def test_get_auth_token_failure(self, mock_sleep, mock_post):
         mock_response = MagicMock()
         mock_response.text = '{"error": "Invalid credentials"}'
         mock_post.return_value = mock_response
-
+        mock_sleep.return_value = None
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
@@ -102,171 +101,193 @@ class TestDGXCloudExecutor:
 
         assert token is None
 
-    def test_fetch_no_token(self, caplog):
-        with (
-            patch.object(DGXCloudExecutor, "get_auth_token", return_value=None),
-            caplog.at_level(logging.ERROR),
-        ):
-            executor = DGXCloudExecutor(
-                base_url="https://dgxapi.example.com",
-                kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
-                project_name="test_project",
-                container_image="nvcr.io/nvidia/test:latest",
-                pvc_nemo_run_dir="/workspace/nemo_run",
-            )
+    @patch("glob.glob")
+    @patch("subprocess.Popen")
+    @patch("time.sleep")
+    def test_fetch_logs_streaming(self, mock_sleep, mock_popen, mock_glob):
+        """Test fetch_logs in streaming mode."""
+        set_nemorun_home("/nemo_home")
 
-            logs_iter = executor.fetch_logs("123", stream=True)
-            assert next(logs_iter) == ""
-            assert (
-                caplog.records[-1].message
-                == "Failed to retrieve auth token for fetch logs request."
-            )
-            assert caplog.records[-1].levelname == "ERROR"
-            caplog.clear()
-
-    @patch("nemo_run.core.execution.dgxcloud.requests.get")
-    def test_fetch_no_workload_with_name(self, mock_requests_get, caplog):
-        mock_workloads_response = MagicMock(spec=requests.Response)
-        mock_workloads_response.json.return_value = {
-            "workloads": [{"name": "hello-world", "id": "123"}]
-        }
-
-        mock_requests_get.side_effect = [mock_workloads_response]
-
-        with (
-            patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"),
-            caplog.at_level(logging.ERROR),
-        ):
-            executor = DGXCloudExecutor(
-                base_url="https://dgxapi.example.com",
-                kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
-                project_name="test_project",
-                container_image="nvcr.io/nvidia/test:latest",
-                pvc_nemo_run_dir="/workspace/nemo_run",
-            )
-
-            logs_iter = executor.fetch_logs("this-workload-does-not-exist", stream=True)
-            assert next(logs_iter) == ""
-            assert (
-                caplog.records[-1].message
-                == "No workload found with id this-workload-does-not-exist"
-            )
-            assert caplog.records[-1].levelname == "ERROR"
-            caplog.clear()
-
-    @patch("nemo_run.core.execution.dgxcloud.requests.get")
-    @patch("nemo_run.core.execution.dgxcloud.time.sleep")
-    @patch("nemo_run.core.execution.dgxcloud.threading.Thread")
-    def test_fetch_logs(self, mock_threading_Thread, mock_sleep, mock_requests_get):
-        # --- 1. Setup Primitives for the *live* test ---
-        mock_log_response = MagicMock(spec=requests.Response)
-
-        mock_log_response.iter_lines.return_value = iter(
-            ["this is a static log", "this is the last static log"]
-        )
-        mock_log_response.__enter__.return_value = mock_log_response
-
-        # Mock for the '/workloads' call
-        mock_workloads_response = MagicMock(spec=requests.Response)
-        mock_workloads_response.json.return_value = {
-            "workloads": [{"name": "hello-world", "id": "123"}]
-        }
-
-        mock_queue_instance = MagicMock()
-        mock_queue_instance.get.side_effect = [
-            (
-                "https://127.0.0.1:443/api/v1/namespaces/runai-test_project/pods/hello-world-worker-0/log?container=pytorch&follow=true",
-                "this is a static log\n",
-            ),
-            (
-                "https://127.0.0.1:443/api/v1/namespaces/runai-test_project/pods/hello-world-worker-0/log?container=pytorch&follow=true",
-                None,
-            ),
-            (
-                "https://127.0.0.1:443/api/v1/namespaces/runai-test_project/pods/hello-world-worker-1/log?container=pytorch&follow=true",
-                None,
-            ),
+        # Mock log files
+        mock_glob.return_value = [
+            "/workspace/nemo_run/experiments/exp1/task1/log_worker-0.out",
+            "/workspace/nemo_run/experiments/exp1/task1/log_worker-1.out",
         ]
 
-        mock_requests_get.side_effect = [mock_workloads_response, mock_log_response]
+        # Mock process that yields log lines
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = [
+            "Log line 1\n",
+            "Log line 2\n",
+            "",  # End of stream
+        ]
+        mock_process.poll.return_value = None
+        mock_popen.return_value = mock_process
+        mock_sleep.return_value = None
 
-        # --- 4. Setup Executor (inside the patch) ---
-        with (
-            patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"),
-            patch.object(DGXCloudExecutor, "status", return_value=DGXCloudState.RUNNING),
-            patch("nemo_run.core.execution.dgxcloud.queue.Queue", return_value=mock_queue_instance),
-        ):
-            executor = DGXCloudExecutor(
-                base_url="https://dgxapi.example.com",
-                kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
-                project_name="test_project",
-                container_image="nvcr.io/nvidia/test:latest",
-                pvc_nemo_run_dir="/workspace/nemo_run",
-                nodes=2,
-            )
-
-            logs_iter = executor.fetch_logs("123", stream=True)
-
-            assert next(logs_iter) == "this is a static log\n"
-
-            mock_sleep.assert_called_once_with(10)
-
-            mock_threading_Thread.assert_any_call(
-                target=executor._stream_url_sync,
-                args=(
-                    "https://127.0.0.1:443/api/v1/namespaces/runai-test_project/pods/hello-world-worker-0/log?container=pytorch&follow=true",
-                    executor._default_headers(token="test_token"),
-                    mock_queue_instance,
-                ),
-            )
-            mock_threading_Thread.assert_any_call(
-                target=executor._stream_url_sync,
-                args=(
-                    "https://127.0.0.1:443/api/v1/namespaces/runai-test_project/pods/hello-world-worker-1/log?container=pytorch&follow=true",
-                    executor._default_headers(token="test_token"),
-                    mock_queue_instance,
-                ),
-            )
-            with pytest.raises(StopIteration):
-                next(logs_iter)
-
-    @patch("nemo_run.core.execution.dgxcloud.requests.get")
-    def test__stream_url_sync(self, mock_requests_get):
-        # --- 1. Setup Primitives for the *live* test ---
-        mock_log_response = MagicMock(spec=requests.Response)
-
-        mock_log_response.iter_lines.return_value = iter(
-            ["this is a static log", "this is the last static log"]
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            nodes=2,
         )
-        mock_log_response.__enter__.return_value = mock_log_response
+        executor.job_dir = "/nemo_home/experiments/exp1/task1"
 
-        mock_requests_get.side_effect = [mock_log_response]
+        with patch.object(executor, "status", return_value=DGXCloudState.RUNNING):
+            logs_iter = executor.fetch_logs("job123", stream=True)
 
-        mock_queue_instance = MagicMock()
+            # Consume first two log lines
+            log1 = next(logs_iter)
+            log2 = next(logs_iter)
 
-        with patch(
-            "nemo_run.core.execution.dgxcloud.queue.Queue", return_value=mock_queue_instance
-        ):
-            executor = DGXCloudExecutor(
-                base_url="https://dgxapi.example.com",
-                kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
-                project_name="test_project",
-                container_image="nvcr.io/nvidia/test:latest",
-                pvc_nemo_run_dir="/workspace/nemo_run",
-                nodes=2,
-            )
+            assert "Log line 1" in log1
+            assert "Log line 2" in log2
 
-            executor._stream_url_sync("123", "some-headers", mock_queue_instance)
+        # Verify subprocess was called with tail -f
+        mock_popen.assert_called_once()
+        call_args = mock_popen.call_args[0][0]
+        assert "tail" in call_args
+        assert "-f" in call_args
 
-            mock_queue_instance.put.assert_any_call(("123", "this is a static log\n"))
+    @patch("glob.glob")
+    @patch("subprocess.Popen")
+    @patch("time.sleep")
+    def test_fetch_logs_non_streaming(self, mock_sleep, mock_popen, mock_glob):
+        """Test fetch_logs in non-streaming mode."""
+        set_nemorun_home("/nemo_home")
+
+        # Mock log files
+        mock_glob.return_value = [
+            "/workspace/nemo_run/experiments/exp1/task1/log_worker-0.out",
+        ]
+
+        # Mock process that yields log lines
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = [
+            "Log line 1\n",
+            "Log line 2\n",
+            "",  # End of stream
+        ]
+        mock_process.poll.return_value = None
+        mock_popen.return_value = mock_process
+        mock_sleep.return_value = None
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            nodes=1,
+        )
+        executor.job_dir = "/nemo_home/experiments/exp1/task1"
+
+        with patch.object(executor, "status", return_value=DGXCloudState.RUNNING):
+            logs_iter = executor.fetch_logs("job123", stream=False)
+
+            # Consume log lines
+            logs = list(logs_iter)
+
+            assert len(logs) == 2
+            assert logs[0] == "Log line 1"
+            assert logs[1] == "Log line 2"
+
+        # Verify subprocess was called with tail (no -f)
+        mock_popen.assert_called_once()
+        call_args = mock_popen.call_args[0][0]
+        assert "tail" in call_args
+        assert "-f" not in call_args
+
+        # Verify process was terminated
+        mock_process.terminate.assert_called_once()
+        mock_process.wait.assert_called_once()
+
+    @patch("time.sleep")
+    @patch("glob.glob")
+    def test_fetch_logs_waits_for_running_status(self, mock_glob, mock_sleep):
+        """Test that fetch_logs waits for job to be RUNNING."""
+        set_nemorun_home("/nemo_home")
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            nodes=1,
+        )
+        executor.job_dir = "/nemo_home/experiments/exp1/task1"
+
+        # Mock status to return PENDING then RUNNING
+        status_values = [DGXCloudState.PENDING, DGXCloudState.PENDING, DGXCloudState.RUNNING]
+        mock_sleep.return_value = None
+
+        with patch.object(executor, "status", side_effect=status_values):
+            # Mock glob to prevent it from blocking
+            mock_glob.return_value = ["/workspace/nemo_run/logs/outputlog_"]
+
+            with patch("subprocess.Popen") as mock_popen:
+                mock_process = MagicMock()
+                mock_process.stdout.readline.return_value = ""
+                mock_process.poll.return_value = 0
+                mock_popen.return_value = mock_process
+
+                logs_iter = executor.fetch_logs("job123", stream=False)
+                # Consume the iterator to trigger the logic
+                list(logs_iter)
+
+        # Should have slept while waiting for RUNNING status
+        assert mock_sleep.call_count >= 2
+
+    @patch("time.sleep")
+    @patch("glob.glob")
+    @patch("subprocess.Popen")
+    def test_fetch_logs_waits_for_log_files(self, mock_popen, mock_glob, mock_sleep):
+        """Test that fetch_logs waits for all log files to be created."""
+        set_nemorun_home("/nemo_home")
+
+        # Mock glob to return incomplete files first, then all files
+        mock_glob.side_effect = [
+            [],  # No files yet
+            ["/workspace/nemo_run/experiments/exp1/task1/log_worker-0.out"],  # 1 of 2
+            [  # All 2 files
+                "/workspace/nemo_run/experiments/exp1/task1/log_worker-0.out",
+                "/workspace/nemo_run/experiments/exp1/task1/log_worker-1.out",
+            ],
+        ]
+
+        mock_process = MagicMock()
+        mock_process.stdout.readline.return_value = ""
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
+        mock_sleep.return_value = None
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            nodes=2,  # Expecting 2 log files
+        )
+        executor.job_dir = "/nemo_home/experiments/exp1/task1"
+
+        with patch.object(executor, "status", return_value=DGXCloudState.RUNNING):
+            logs_iter = executor.fetch_logs("job123", stream=False)
+            list(logs_iter)  # Consume the iterator
+
+        # Should have called glob multiple times waiting for files
+        assert mock_glob.call_count == 3
 
     @patch("requests.get")
     def test_get_project_and_cluster_id_success(self, mock_get):

@@ -10,13 +10,17 @@ resolution-markers = [
     "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version >= '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 conflicts = [[
     { package = "nemo-run", extra = "skypilot" },
@@ -100,7 +104,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohappyeyeballs" },
     { name = "aiosignal" },
-    { name = "async-timeout", marker = "python_full_version < '3.11'" },
+    { name = "async-timeout", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "attrs" },
     { name = "frozenlist" },
     { name = "multidict" },
@@ -2222,13 +2226,17 @@ name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version >= '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
 wheels = [
@@ -2240,7 +2248,8 @@ name = "colorful"
 version = "0.6.0a1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "colorama", version = "0.4.6", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot') or (sys_platform == 'win32' and extra != 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b5/50/8c88030d9d52787116ca3061a076f47492bb436128516e6c25f35743a565/colorful-0.6.0a1.tar.gz", hash = "sha256:b6a425600416213b852407bdac719830f8862e0ce377a75d78eb0de4966a0ccb", size = 204794, upload-time = "2019-09-04T18:47:17.405Z" }
 wheels = [
@@ -2516,7 +2525,8 @@ name = "docutils"
 version = "0.21.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
+    "python_full_version >= '3.13'",
+    "python_full_version == '3.12.*'",
     "python_full_version == '3.11.*'",
     "python_full_version < '3.11'",
 ]
@@ -3808,7 +3818,7 @@ wheels = [
 
 [[package]]
 name = "leptonai"
-version = "0.25.9"
+version = "0.26.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -3826,13 +3836,14 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-multipart" },
     { name = "pyyaml" },
+    { name = "ray" },
     { name = "requests" },
     { name = "rich" },
     { name = "typing-extensions" },
     { name = "uvicorn" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6d/e4/1c07984bb3cefcf9dc0d74df6c81cddf4f31b433033bc9588e599f755395/leptonai-0.25.9-py3-none-any.whl", hash = "sha256:2370602a781e6d85f3d87217fb02760403068af2d51278b769fae6f887096213", size = 2415467, upload-time = "2025-07-17T06:46:03.61Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/4d/2b5ab13294b23326ba1d8ef6ad703b1d9535bf72a0617030ddd6238eb925/leptonai-0.26.7-py3-none-any.whl", hash = "sha256:74996da36bf177d2b148887dd349627ab8cd78b94623d543bc91ed9ad65ba0e2", size = 2452890, upload-time = "2025-11-07T20:07:14.99Z" },
 ]
 
 [[package]]
@@ -4228,7 +4239,7 @@ name = "multidict"
 version = "6.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d6/be/504b89a5e9ca731cd47487e91c469064f8ae5af93b7259758dcfc2b9c848/multidict-6.1.0.tar.gz", hash = "sha256:22ae2ebf9b0c69d206c003e2f6a914ea33f0a932d4aa16f236afc049d9958f4a", size = 64002, upload-time = "2024-09-09T23:49:38.163Z" }
 wheels = [
@@ -4420,6 +4431,7 @@ dependencies = [
 [package.optional-dependencies]
 ray = [
     { name = "kubernetes" },
+    { name = "ray", extra = ["default"] },
 ]
 skypilot = [
     { name = "skypilot", extra = ["kubernetes"], marker = "extra == 'extra-8-nemo-run-skypilot' or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
@@ -4466,10 +4478,11 @@ requires-dist = [
     { name = "inquirerpy", specifier = ">=0.3.4" },
     { name = "jinja2", specifier = ">=3.1.4" },
     { name = "kubernetes", marker = "extra == 'ray'" },
-    { name = "leptonai", specifier = ">=0.25.0" },
+    { name = "leptonai", specifier = ">=0.26.6" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "omegaconf", specifier = ">=2.3.0" },
     { name = "packaging" },
+    { name = "ray", extras = ["default"], marker = "extra == 'ray'", specifier = ">=2.49.2" },
     { name = "rich", specifier = ">=13.7.1" },
     { name = "skypilot", extras = ["all"], marker = "extra == 'skypilot-all'", specifier = ">=0.10.0" },
     { name = "skypilot", extras = ["kubernetes"], marker = "extra == 'skypilot'", specifier = ">=0.10.0" },
@@ -4624,7 +4637,7 @@ wheels = [
 
 [[package]]
 name = "nvidia-sphinx-theme"
-version = "0.0.8"
+version = "0.0.9.post1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydata-sphinx-theme" },
@@ -4632,7 +4645,7 @@ dependencies = [
     { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/74/996dbc314da8ed670cd5e040d0b4b5be79ff1fc3db3fe25e63134deebe9a/nvidia_sphinx_theme-0.0.8-py3-none-any.whl", hash = "sha256:18f117aa154a3a156251a75647279c541464f3e75f7df2ae283e720cc7d0bc2c", size = 140678, upload-time = "2025-03-24T21:56:25.621Z" },
+    { url = "https://files.pythonhosted.org/packages/8c/79/017fab2f7167a9a9795665f894d04f77aafceca80821b51589bb4b23ff5c/nvidia_sphinx_theme-0.0.9.post1-py3-none-any.whl", hash = "sha256:21ca60206dff2f380d7783d64bbaf71a5b9cacae53c7d0686f089c16b5a3d45a", size = 143816, upload-time = "2025-11-09T23:16:55.719Z" },
 ]
 
 [[package]]
@@ -4694,6 +4707,72 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f5/3e/676c048bc92b27937d497e82374d3bbd6fe5c9df5a6d2d97674103c6ef36/opencensus-context-0.2.dev0.tar.gz", hash = "sha256:10ab2bc631a72257018e49e3e4b81e6c117c0cfb2f28d4b52b3c7da722d3042c", size = 3892, upload-time = "2020-06-29T20:27:29.69Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/d8/92ec4bd2c362618035f4011e2cd37dcea69c0e90c751d88263e7fa3804d7/opencensus_context-0.2.dev0-py2.py3-none-any.whl", hash = "sha256:01d09c98c1be6f99364bc8571f74665bae216538f2e9f85084740e1649c867b0", size = 4481, upload-time = "2020-06-29T20:27:28.501Z" },
+]
+
+[[package]]
+name = "opentelemetry-api"
+version = "1.38.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "importlib-metadata" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/08/d8/0f354c375628e048bd0570645b310797299754730079853095bf000fba69/opentelemetry_api-1.38.0.tar.gz", hash = "sha256:f4c193b5e8acb0912b06ac5b16321908dd0843d75049c091487322284a3eea12", size = 65242, upload-time = "2025-10-16T08:35:50.25Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/a2/d86e01c28300bd41bab8f18afd613676e2bd63515417b77636fc1add426f/opentelemetry_api-1.38.0-py3-none-any.whl", hash = "sha256:2891b0197f47124454ab9f0cf58f3be33faca394457ac3e09daba13ff50aa582", size = 65947, upload-time = "2025-10-16T08:35:30.23Z" },
+]
+
+[[package]]
+name = "opentelemetry-exporter-prometheus"
+version = "0.59b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+    { name = "prometheus-client" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1b/07/39370ec7eacfca10462121a0e036b66ccea3a616bf6ae6ea5fdb72e5009d/opentelemetry_exporter_prometheus-0.59b0.tar.gz", hash = "sha256:d64f23c49abb5a54e271c2fbc8feacea0c394a30ec29876ab5ef7379f08cf3d7", size = 14972, upload-time = "2025-10-16T08:35:55.973Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/ea/3005a732002242fd86203989520bdd5a752e1fd30dc225d5d45751ea19fb/opentelemetry_exporter_prometheus-0.59b0-py3-none-any.whl", hash = "sha256:71ced23207abd15b30d1fe4e7e910dcaa7c2ff1f24a6ffccbd4fdded676f541b", size = 13017, upload-time = "2025-10-16T08:35:37.253Z" },
+]
+
+[[package]]
+name = "opentelemetry-proto"
+version = "1.38.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/51/14/f0c4f0f6371b9cb7f9fa9ee8918bfd59ac7040c7791f1e6da32a1839780d/opentelemetry_proto-1.38.0.tar.gz", hash = "sha256:88b161e89d9d372ce723da289b7da74c3a8354a8e5359992be813942969ed468", size = 46152, upload-time = "2025-10-16T08:36:01.612Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/6a/82b68b14efca5150b2632f3692d627afa76b77378c4999f2648979409528/opentelemetry_proto-1.38.0-py3-none-any.whl", hash = "sha256:b6ebe54d3217c42e45462e2a1ae28c3e2bf2ec5a5645236a490f55f45f1a0a18", size = 72535, upload-time = "2025-10-16T08:35:45.749Z" },
+]
+
+[[package]]
+name = "opentelemetry-sdk"
+version = "1.38.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/85/cb/f0eee1445161faf4c9af3ba7b848cc22a50a3d3e2515051ad8628c35ff80/opentelemetry_sdk-1.38.0.tar.gz", hash = "sha256:93df5d4d871ed09cb4272305be4d996236eedb232253e3ab864c8620f051cebe", size = 171942, upload-time = "2025-10-16T08:36:02.257Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/2e/e93777a95d7d9c40d270a371392b6d6f1ff170c2a3cb32d6176741b5b723/opentelemetry_sdk-1.38.0-py3-none-any.whl", hash = "sha256:1c66af6564ecc1553d72d811a01df063ff097cdc82ce188da9951f93b8d10f6b", size = 132349, upload-time = "2025-10-16T08:35:46.995Z" },
+]
+
+[[package]]
+name = "opentelemetry-semantic-conventions"
+version = "0.59b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/40/bc/8b9ad3802cd8ac6583a4eb7de7e5d7db004e89cb7efe7008f9c8a537ee75/opentelemetry_semantic_conventions-0.59b0.tar.gz", hash = "sha256:7a6db3f30d70202d5bf9fa4b69bc866ca6a30437287de6c510fb594878aed6b0", size = 129861, upload-time = "2025-10-16T08:36:03.346Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/7d/c88d7b15ba8fe5c6b8f93be50fc11795e9fc05386c44afaf6b76fe191f9b/opentelemetry_semantic_conventions-0.59b0-py3-none-any.whl", hash = "sha256:35d3b8833ef97d614136e253c1da9342b4c3c083bbaf29ce31d572a1c3825eed", size = 207954, upload-time = "2025-10-16T08:35:48.054Z" },
 ]
 
 [[package]]
@@ -6050,13 +6129,11 @@ pil = [
 
 [[package]]
 name = "ray"
-version = "2.43.0"
+version = "2.51.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "aiosignal" },
     { name = "click" },
     { name = "filelock" },
-    { name = "frozenlist" },
     { name = "jsonschema" },
     { name = "msgpack" },
     { name = "packaging" },
@@ -6065,21 +6142,21 @@ dependencies = [
     { name = "requests" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/c8/85b54ce60d4bd7e328dfa38e8e6130ed252df7fc8f0017731d04b893e202/ray-2.43.0-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:18626fff368451a37a76b33d52a70f05b20a211eb0867d860721c8e86cb6955a", size = 67904379, upload-time = "2025-02-27T19:06:27.728Z" },
-    { url = "https://files.pythonhosted.org/packages/4e/f0/8d8a91cad7f5d59313e0a7d3585c172632233564a15bbac1bf2606fb2b18/ray-2.43.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:b7c4fdec59a14d6b2939d91fee6efc84b614a6722c3be0b27fa371e3f563255f", size = 65203621, upload-time = "2025-02-27T19:06:41.079Z" },
-    { url = "https://files.pythonhosted.org/packages/eb/73/5c72af1a2bcd791d50f8c2ec58b148cefdbdcd37155b887b89365131c4af/ray-2.43.0-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:57381c54f200e6c0203d5f70ac6f882b13cc1a80faf336518787a39a6d6f65d0", size = 66703785, upload-time = "2025-02-27T19:06:51.406Z" },
-    { url = "https://files.pythonhosted.org/packages/c8/d2/3a50444ab2177910c90c7a0888f1648e02c9744a3164341e4b4d5b2456a9/ray-2.43.0-cp310-cp310-manylinux2014_x86_64.whl", hash = "sha256:1872983a285a85b776bf311c809d559f8482909a2d39ead5f2ac69cfe3aa8544", size = 67600331, upload-time = "2025-02-27T19:07:03.239Z" },
-    { url = "https://files.pythonhosted.org/packages/04/73/81127dadebbcd3f85560648239a80c09c834321b66fb720012a58e763051/ray-2.43.0-cp310-cp310-win_amd64.whl", hash = "sha256:f61b9a644197f7049cb8688e2ea9db49d486f0cbef433f7a7b7349bfbf8dec19", size = 25627171, upload-time = "2025-02-27T19:07:12.586Z" },
-    { url = "https://files.pythonhosted.org/packages/97/52/51f670975933895384e5cec9fcfa69d1f048f3209160425355cafd6e6d44/ray-2.43.0-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:fde8a81280f07af983bc3769c9941db5db273ce10e92abb3348e41bed023d735", size = 67866600, upload-time = "2025-02-27T19:07:21.027Z" },
-    { url = "https://files.pythonhosted.org/packages/ff/e6/e060000ba23875863bb58e98377c4eba5de47b55ccdb9cb6bb9b5111afd6/ray-2.43.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:e93c32ad0cb67f1f7da76fac409d87d5cd5ea3eb03b836830e9ef5cc810bc2c0", size = 65165568, upload-time = "2025-02-27T19:07:33.114Z" },
-    { url = "https://files.pythonhosted.org/packages/e5/30/0491c32fc3b469fd01220e8d7511fe4b69f92001834600d43b676c7d1925/ray-2.43.0-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:476ec3e1fa2464ddd5f049c0f2758ff9dfecc21fb8df4266f1df01b2780c6653", size = 66849378, upload-time = "2025-02-27T19:07:49.426Z" },
-    { url = "https://files.pythonhosted.org/packages/14/e8/7a5b626e5f4e8c493c0be5095654e35d4c7f068b5a01dc264368a10a47a4/ray-2.43.0-cp311-cp311-manylinux2014_x86_64.whl", hash = "sha256:78c3bdbf182b4d019fa9a8aabd55c39bf705bb630aea064f768f305fc472d1eb", size = 67726734, upload-time = "2025-02-27T19:08:02.066Z" },
-    { url = "https://files.pythonhosted.org/packages/e3/fb/3144d4d7c36ab15db5b42608baa6a17c791f3d18b47b19016f2c93eed3d9/ray-2.43.0-cp311-cp311-win_amd64.whl", hash = "sha256:e2b0fa0272ade67bad2e83d7de996795bfb4f10f4b895476b95fbfda6d3c3ed6", size = 25584299, upload-time = "2025-02-27T19:08:30.493Z" },
-    { url = "https://files.pythonhosted.org/packages/ed/f2/bafb73554f33bb9a84a3c02e7dee89c94bb06044a06db9d99e44cb2b2d2b/ray-2.43.0-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:5121fdf4bcbcb0fda3b9b71164dd6c8fcc79a2e258022a2a3957e401018913fb", size = 67858078, upload-time = "2025-02-27T19:08:39.168Z" },
-    { url = "https://files.pythonhosted.org/packages/3a/02/9ba73313664a26072d92cf797cd1d17514b47444d6ffea32aa1d41707b54/ray-2.43.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:7f26f7b72da04c3c4422269c31b067abd15cb38424b7012d812ddfb2c77462ea", size = 65155290, upload-time = "2025-02-27T19:08:50.67Z" },
-    { url = "https://files.pythonhosted.org/packages/84/f5/e567c655facc09df9a7cbe79eda8dc84465b83ca86b7092cd6c45461ce89/ray-2.43.0-cp312-cp312-manylinux2014_aarch64.whl", hash = "sha256:73770d4c8a989730985ff2b4292129249e28c1e29e84589470c9ba1ae91ca832", size = 66871584, upload-time = "2025-02-27T19:09:01.454Z" },
-    { url = "https://files.pythonhosted.org/packages/a1/52/99604614000eb5c12e46a3c423c3078494ce032451ac12d8a573cbffb710/ray-2.43.0-cp312-cp312-manylinux2014_x86_64.whl", hash = "sha256:b45f478d29ce5df3fc19861df64fef9ed5c25f1e83fa10028d33fadefdeca095", size = 67783962, upload-time = "2025-02-27T19:09:15.226Z" },
-    { url = "https://files.pythonhosted.org/packages/df/49/5663b8bf55dc85512783cb36fa8696bed552ed52e552c1ab8f410f5f1599/ray-2.43.0-cp312-cp312-win_amd64.whl", hash = "sha256:1c3a9880112a8d561280a34e8ef9471070f81ca467e08b669e5e77a85e173c9c", size = 25565643, upload-time = "2025-02-27T19:09:24.144Z" },
+    { url = "https://files.pythonhosted.org/packages/72/4b/8ded0ecb0ed08b75af47340fac4b14b15196a76a6d733f3945cc5cb77354/ray-2.51.1-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:e8ce218c85e9f4043c37136fc90b41343bdb844fcdc9520f21c000d1d8d49f89", size = 68039113, upload-time = "2025-11-01T03:23:30.619Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/a7/aba274bd1e1014cb232ee04548cc3d7aab9b84eb13c44d71b72d189421f9/ray-2.51.1-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:36feb519f31c52d3b4dbcd68ffb2baf93195ceec06ea711e21559096bab95fed", size = 70340511, upload-time = "2025-11-01T03:23:38.217Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/42/a5712f4f8c911ea5b8b3cb406ceef18a1c1bc98490c66fa902cb72391af3/ray-2.51.1-cp310-cp310-manylinux2014_x86_64.whl", hash = "sha256:8a21f5914baa3deefcb4fa5f3878e03b589c190b864fe1b80e6dc0cbfba26004", size = 71166513, upload-time = "2025-11-01T03:23:44.123Z" },
+    { url = "https://files.pythonhosted.org/packages/91/1e/eeae1da4ffac6eeeeafce2d11c0b6133fd4df1b3e53bc44d61c30c05b6d9/ray-2.51.1-cp310-cp310-win_amd64.whl", hash = "sha256:a82417b89260ed751a76e9cfaef6d11392ab0da464cde1a9d07a0bb7dc272a7b", size = 26695587, upload-time = "2025-11-01T03:23:49.739Z" },
+    { url = "https://files.pythonhosted.org/packages/43/66/f1e11291d9fdf0634ea763cfb167cf449773d13918bb04390e6263b7129b/ray-2.51.1-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:bd8211fc033be1bce9c039e474e97a9077be593020978fdcfba1d770bdc40ba5", size = 68043927, upload-time = "2025-11-01T03:23:59.655Z" },
+    { url = "https://files.pythonhosted.org/packages/be/89/9a11d0addbba6143f5a34929ed1fdef51159328b9b76a877c0c7f98b2848/ray-2.51.1-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:d2d7c8af45441ff50bc002352d31e0afec5c85dd5075bf527027178931497bce", size = 70460551, upload-time = "2025-11-01T03:24:05.77Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/67/40a8d63e4cb3ff1a1a5a12db77ca655e21cb13f10e024a9513f24ed11d98/ray-2.51.1-cp311-cp311-manylinux2014_x86_64.whl", hash = "sha256:dd353010d2548bc345e46c45795f70291bb460c236aa6a3393b51a9cd861b56f", size = 71280610, upload-time = "2025-11-01T03:24:11.981Z" },
+    { url = "https://files.pythonhosted.org/packages/62/97/90bcfed6b8c986f9ea24def19bbb81480575dd5fa87630eeaa4c92652507/ray-2.51.1-cp311-cp311-win_amd64.whl", hash = "sha256:606c6e0733eb18fc307c9645ea84ccbd1aad8a5ba8bad764bed54b94e926d33c", size = 26691238, upload-time = "2025-11-01T03:24:16.978Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/95/51e44ce79e42f02ca1c4d4c5501e6dd49f3a384c5f6324aceb4e0015988a/ray-2.51.1-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:ef847b025ca758baee4571a1ca001d973897cad772f8e95d7f303d24c38b649e", size = 68029226, upload-time = "2025-11-01T03:24:21.928Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/b5/a93e39e131067edb7cba3385a609f61aaaf7aa54728cd3a7474bfbf3b0fc/ray-2.51.1-cp312-cp312-manylinux2014_aarch64.whl", hash = "sha256:0bed9408712bad1511e65683a455302f88d94e5e5cb6a58cc4a154b61d8a0b4a", size = 70502423, upload-time = "2025-11-01T03:24:27.398Z" },
+    { url = "https://files.pythonhosted.org/packages/ee/59/69b7a653ed8176fc7fd894d462ed34bb1477e7fa71700324de99179b5b7e/ray-2.51.1-cp312-cp312-manylinux2014_x86_64.whl", hash = "sha256:4e786da7862cf73664977d0212a505d6d5a585beadf63e7dc1e1c129259bee20", size = 71353730, upload-time = "2025-11-01T03:24:33.495Z" },
+    { url = "https://files.pythonhosted.org/packages/38/91/0c4fe7aed34baa14d9c050c88f39ff16083d555bd6dcd6c4ffb4332a6f8a/ray-2.51.1-cp312-cp312-win_amd64.whl", hash = "sha256:198fda93074a6863555f4003e9013bb2ba0cd50b59b18c02affdc294b28a2eef", size = 26674921, upload-time = "2025-11-01T03:24:38.394Z" },
+    { url = "https://files.pythonhosted.org/packages/65/1c/3ebf7277d8ae5f99150a5890bff4bdc627021e3a1be7caacd075d2996c7a/ray-2.51.1-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:d81547886435142dbd79bff1d4e4edf578a5f20e3b11bbd4ced49cfafbd37d27", size = 67974221, upload-time = "2025-11-01T03:24:44.118Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/47/13ba6c4d0e97aff94dcf8537f2832d1101c2080a0aea5c973a4de1d4d8bd/ray-2.51.1-cp313-cp313-manylinux2014_aarch64.whl", hash = "sha256:3f2bd2acf9b7f4738c17d08592caaad26eafb7a4fc380ad9ab42d5f0a78f73ad", size = 70410610, upload-time = "2025-11-01T03:24:50.075Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/87/3cdf6d0504659d8192baa6576dd7a17ea395a4d969010274f7cc0e894281/ray-2.51.1-cp313-cp313-manylinux2014_x86_64.whl", hash = "sha256:265ecd6fd6d4a695b09c686e17d58fca0c09e7198c073628ae7bf4974b03e9ca", size = 71269225, upload-time = "2025-11-01T03:24:55.929Z" },
 ]
 
 [package.optional-dependencies]
@@ -6089,6 +6166,9 @@ default = [
     { name = "colorful" },
     { name = "grpcio" },
     { name = "opencensus" },
+    { name = "opentelemetry-exporter-prometheus" },
+    { name = "opentelemetry-proto" },
+    { name = "opentelemetry-sdk" },
     { name = "prometheus-client" },
     { name = "py-spy" },
     { name = "pydantic" },
@@ -6725,7 +6805,8 @@ name = "sphinx"
 version = "8.2.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
+    "python_full_version >= '3.13'",
+    "python_full_version == '3.12.*'",
     "python_full_version == '3.11.*'",
 ]
 dependencies = [

@@ -25,17 +25,19 @@
 
 | Object      | What it abstracts | Back-ends supported |
 |-------------|-------------------|---------------------|
-| `run.ray.cluster.RayCluster` | Lifecycle of a Ray **cluster** (create ⇒ wait ⇢ status ⇢ port-forward ⇢ delete). | `KubeRayExecutor`, `SlurmExecutor` |
+| `run.ray.cluster.RayCluster` | Lifecycle of a Ray **cluster** (create ⇒ wait ⇢ status ⇢ port-forward ⇢ delete). | `KubeRayExecutor`, `SlurmExecutor`, `LeptonExecutor` |
 | `run.ray.job.RayJob`         | Lifecycle of a Ray **job**   (submit ⇒ monitor ⇢ logs ⇢ cancel). | same |
 
-The two helpers share a uniform API; the chosen *Executor* decides whether we talk to the **KubeRay** operator (K8s) or a **Slurm** job under the hood.
+The two helpers share a uniform API; the chosen *Executor* decides whether we talk to the **KubeRay** operator (K8s), **DGX Cloud Lepton's RayCluster**, or a **Slurm** job under the hood.
 
 ```mermaid
 classDiagram
     RayCluster <|-- KubeRayCluster
     RayCluster <|-- SlurmRayCluster
+    RayCluster <|-- LeptonRayCluster
     RayJob     <|-- KubeRayJob
     RayJob     <|-- SlurmRayJob
+    RayJob     <|-- LeptonRayJob
 ```
 
 ## 2.  KubeRay quick-start
@@ -183,7 +185,77 @@ cluster.stop()
 * `executor.packager = run.GitArchivePackager()` if you prefer packaging a git tree instead of rsync.
 * `cluster.port_forward()` opens an SSH tunnel from *your laptop* to the Ray dashboard running on the head node.
 
-## 4.  API reference cheat-sheet
+## 4.  DGX Cloud Lepton RayCluster quick-start
+
+```python
+import os
+from pathlib import Path
+
+import nemo_run as run
+from nemo_run.core.execution.lepton import LeptonExecutor
+from nemo_run.run.ray.cluster import RayCluster
+from nemo_run.run.ray.job import RayJob
+
+# 1) Create a LeptonExecutor and tweak defaults
+mounts = [
+    {
+        "path": "/",
+        "mount_path": "/nemo-workspace",
+        "from": "node-nfs:lepton-shared-fs",
+    }
+]
+
+executor = LeptonExecutor(
+    resource_shape="gpu.8xh100",
+    container_image="rayproject/ray:2.49.2-gpu",
+    nemo_run_dir="/nemo-workspace/nemo-run",
+    head_resource_shape="cpu.large",
+    ray_version="2.49.2",
+    mounts=mounts,
+    node_group="my-node-group",
+    nodes=1,
+    nprocs_per_node=8,
+    env_vars={
+        "TORCH_HOME": "/nemo-workspace/.cache",
+    },
+    secret_vars=[
+        {"WANDB_API_KEY": "WANDB_API_KEY"},
+        {"HF_TOKEN": "HUGGING_FACE_HUB_TOKEN"},
+    ],
+    launcher="torchrun",
+    image_pull_secrets=[],
+    pre_launch_commands=[],
+)
+
+# 2) Bring up the RayCluster on DGX Cloud Lepton and show the status
+cluster = RayCluster(
+    name="lepton-ray-cluster",
+    executor=executor,
+)
+cluster.start(timeout=1800)
+cluster.status(display=True)
+
+# 3) Submit a RayJob that runs inside the created RayCluster
+job = RayJob(
+    name="demo-lepton-ray-job",
+    executor=executor,
+    cluster_name="lepton-ray-cluster",
+)
+job.start(
+    command="uv run python train.py --config cfgs/train.yaml cluster.num_nodes=2",
+    workdir="/path/to/project/",  # rsync'ed from local to the RayCluster
+)
+job.status(display=True)  # Display the RayJob status
+job.logs(follow=True)  # Tail the job logs as it runs
+
+# 4) Tear down the RayCluster and free up resources
+cluster.stop()
+```
+
+### Tips for DGX Cloud Lepton users
+* This assumes the [DGX Cloud Lepton CLI](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) is installed and has been authenticated.
+
+## 5.  API reference cheat-sheet
 
 ```python
 cluster = RayCluster(name, executor)
@@ -201,7 +273,7 @@ job.stop()
 
 All methods are synchronous and **return immediately** when their work is done; the helpers hide the messy details (kubectl, squeue, ssh, …).
 
-## 5.  Rolling your own CLI
+## 6.  Rolling your own CLI
 
 Because `RayCluster` and `RayJob` are plain Python, you can compose them inside **argparse**, **Typer**, **Click** – anything. Here is a minimal **argparse** script:
 
