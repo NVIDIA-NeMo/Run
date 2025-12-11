@@ -16,7 +16,6 @@
 import base64
 import glob
 import json
-import logging
 import os
 import subprocess
 import tempfile
@@ -30,13 +29,13 @@ import requests
 from invoke.context import Context
 
 from nemo_run.config import get_nemorun_home
+from nemo_run.core.console import CONSOLE
+from nemo_run.core.constants import RUNDIR_NAME
 from nemo_run.core.execution.base import Executor, ExecutorMacros
-from nemo_run.core.execution.launcher import FaultTolerance, Launcher
+from nemo_run.core.execution.launcher import FaultTolerance, Launcher, Torchrun
 from nemo_run.core.execution.utils import fill_template
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
-
-logger = logging.getLogger(__name__)
 
 
 class DGXCloudState(Enum):
@@ -462,6 +461,24 @@ mkdir -p {self.pvc_job_dir}/logs
                 response.status_code,
                 response.text,
             )
+
+    def _setup_launcher(self):
+        super()._setup_launcher()
+        launcher = self.launcher
+        if launcher and isinstance(launcher, (FaultTolerance, Torchrun)):
+            self.torchrun_nproc_per_node = self.nprocs_per_node
+            self.ntasks_per_node = 1
+            CONSOLE.log(
+                f"Detected {launcher.__class__.__name__} launcher, setting ntasks_per_node=1 and torchrun_nproc_per_node={self.torchrun_nproc_per_node}"
+            )
+
+        if launcher and isinstance(launcher, FaultTolerance):
+            base_dir = os.path.join(self.job_dir, Path(self.job_dir).name)
+            launcher.cfg_path = os.path.join(base_dir, f"{self.job_name}_ft_cfg.yml")
+            launcher.finished_flag_file = os.path.join(
+                "/", RUNDIR_NAME, f"{self.job_name}_finished_flag"
+            )
+            launcher.job_results_file = os.path.join(base_dir, f"{self.job_name}_job_results")
 
     def cleanup(self, handle: str): ...
 
