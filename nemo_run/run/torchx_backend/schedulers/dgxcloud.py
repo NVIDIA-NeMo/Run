@@ -37,7 +37,7 @@ from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runo
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
-from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
+from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudRequest, DGXCloudState
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
@@ -109,6 +109,23 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
             role = values.apply(role)
 
         cmd = [role.entrypoint] + role.args
+
+        req = DGXCloudRequest(
+            launch_cmd=cmd,
+            jobs=[role.name],
+            executor=executor,
+            max_retries=role.max_retries,
+            extra_env=role.env,
+            launcher=executor.get_launcher(),
+        )
+
+        # Write and copy sbatch script
+        path = os.path.join(executor.experiment_dir, f"{executor.job_name}_job.sh")
+        script = req.materialize()
+
+        with open(path, "w") as f:
+            f.write(script)
+
         return AppDryRunInfo(
             DGXRequest(app=app, executor=executor, cmd=cmd, name=role.name),
             # Minimal function to show the config, if any
@@ -128,7 +145,9 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
 
         # The DGXExecutor's launch call typically returns (job_id, handle).
         # We'll call it without additional parameters here.
-        job_id, status = executor.launch(name=req.name, cmd=req.cmd)
+        cmd = os.path.join(executor.experiment_dir, f"{executor.job_name}_job.sh")
+        req.launch_cmd = ["bash", cmd]
+        job_id, status = executor.launch(name=req.name, cmd=req.launch_cmd)
         if not job_id:
             raise RuntimeError("Failed scheduling run on DGX: no job_id returned")
 
