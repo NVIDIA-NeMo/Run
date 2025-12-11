@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable, Optional
-
+import logging
 import requests
 from invoke.context import Context
 
@@ -35,6 +35,9 @@ from nemo_run.core.execution.utils import fill_template
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
+
+
+logger = logging.getLogger(__name__)
 
 
 class DGXCloudState(Enum):
@@ -625,4 +628,5 @@ class DGXCloudRequest:
 # Jobs: {self.jobs}
 # ---------------------------------------------------
 {self.materialize()}
+"""
 """
