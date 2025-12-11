@@ -66,4 +66,19 @@ if [ "$exitcode" -eq "0" ]; then
         echo "[FT-Teardown] Job finished successfully and flag file exists."
         exit 0
     else
-        # Edge Case: The python script exited 0, but didn't write the flag
+        # Edge Case: The python script exited 0, but didn't write the flag file.
+        # This usually means a silent crash or partial run. We must force a retry.
+        echo "[FT-Teardown] WARNING: Process exited 0 but finished flag is MISSING."
+        echo "[FT-Teardown] Forcing exit 1 to trigger Kubernetes restart."
+        exit 1
+    fi
+else
+    # Case B: Script crashed (exitcode != 0).
+    echo "[FT-Teardown] Job failed with exit code $exitcode."
+
+    # We exit with the error code.
+    # The K8s 'backoffLimit' (in PyTorchJob spec) will determine if we restart.
+    # We do NOT calculate retry counts manually here.
+    exit $exitcode
+fi
+{%- endmacro %}
