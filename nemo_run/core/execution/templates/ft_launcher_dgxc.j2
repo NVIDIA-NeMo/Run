@@ -55,6 +55,8 @@ if [ -n "$FAULT_TOL_JOB_RESULTS_FILE" ]; then
     # We update the specific entry for this host from X to S or F
     # Note: 'sed -i' on a shared PVC can be risky with concurrency.
     # Appending a new status line is safer in K8s.
+    mkdir -p "$(dirname "$FAULT_TOL_JOB_RESULTS_FILE")"
+
     echo "$(hostname) $(date +%s) $RESULT_STATUS" >> "$FAULT_TOL_JOB_RESULTS_FILE"
 fi
 
