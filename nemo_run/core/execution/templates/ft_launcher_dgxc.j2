@@ -1,36 +1,20 @@
 {% macro ft_launcher_setup(fault_tol_cfg_path, fault_tol_finished_flag_file, fault_tol_job_results_file) -%}
-# -------------------------------------------------------------------------
-# K8s Fault Tolerance Setup (The "Check-In" Desk)
-# -------------------------------------------------------------------------
 
-# 1. Export Paths
-# IMPORTANT: These paths must reside on a ReadWriteMany (RWX) Persistent Volume
-# mounted to all Pods so state is preserved across pod restarts/rescheduling.
 export FAULT_TOL_CFG_PATH="{{fault_tol_cfg_path}}"
 export FAULT_TOL_FINISHED_FLAG_FILE="{{fault_tol_finished_flag_file}}"
 export FAULT_TOL_JOB_RESULTS_FILE="{{fault_tol_job_results_file}}"
 
-# 2. Define Helper Functions
 is_training_finished() {
     test -f "$FAULT_TOL_FINISHED_FLAG_FILE"
 }
 
-# 3. Check for Previous Success
-# In K8s, a Pod might be restarted due to node maintenance even if the job
-# logic was done. If the flag file exists, we exit immediately with 0.
 if is_training_finished ; then
     echo "[FT-Setup] Found finished flag at $FAULT_TOL_FINISHED_FLAG_FILE."
     echo "[FT-Setup] Training is already complete. Exiting successfully."
     exit 0
 fi
 
-# 4. Logging Start
-# We use HOSTNAME (usually pod-name) as the identifier since SLURM_JOB_ID is gone.
-# We append 'X' (Running/Unknown) to the log.
 echo "[FT-Setup] Starting training on $(hostname)..."
-# Optional: Log attempt to shared file (Using X for Running)
-# Note: In high-scale K8s, writing to a single file from 1000 pods can cause lock contention.
-# If scale is small, this is fine.
 if [ -n "$FAULT_TOL_JOB_RESULTS_FILE" ]; then
     mkdir -p "$(dirname "$FAULT_TOL_JOB_RESULTS_FILE")"
     echo "$(hostname) $(date +%s) X" >> "$FAULT_TOL_JOB_RESULTS_FILE"
@@ -39,49 +23,28 @@ fi
 {%- endmacro %}
 
 {% macro ft_launcher_teardown() -%}
-# -------------------------------------------------------------------------
-# K8s Fault Tolerance Teardown (The "Check-Out" Desk)
-# -------------------------------------------------------------------------
-
-# 1. Analyze Exit Code from the Main Command
-# 'exitcode' is captured in the main script before calling this macro.
 if [ "$exitcode" -eq "0" ]; then
     RESULT_STATUS="S" # Success
 else
     RESULT_STATUS="F" # Failure
 fi
 
-# 2. Update Log (Optional but helpful for debugging)
 if [ -n "$FAULT_TOL_JOB_RESULTS_FILE" ]; then
-    # We update the specific entry for this host from X to S or F
-    # Note: 'sed -i' on a shared PVC can be risky with concurrency.
-    # Appending a new status line is safer in K8s.
     mkdir -p "$(dirname "$FAULT_TOL_JOB_RESULTS_FILE")"
-
     echo "$(hostname) $(date +%s) $RESULT_STATUS" >> "$FAULT_TOL_JOB_RESULTS_FILE"
 fi
 
-# 3. The Requeue Decision Logic
 if [ "$exitcode" -eq "0" ]; then
-    # Case A: Script exited successfully.
-    # Verification: Did it actually finish (create the flag file)?
     if is_training_finished; then
         echo "[FT-Teardown] Job finished successfully and flag file exists."
         exit 0
     else
-        # Edge Case: The python script exited 0, but didn't write the flag file.
-        # This usually means a silent crash or partial run. We must force a retry.
         echo "[FT-Teardown] WARNING: Process exited 0 but finished flag is MISSING."
         echo "[FT-Teardown] Forcing exit 1 to trigger Kubernetes restart."
         exit 1
     fi
 else
-    # Case B: Script crashed (exitcode != 0).
     echo "[FT-Teardown] Job failed with exit code $exitcode."
-
-    # We exit with the error code.
-    # The K8s 'backoffLimit' (in PyTorchJob spec) will determine if we restart.
-    # We do NOT calculate retry counts manually here.
     exit $exitcode
 fi
 {%- endmacro %}
