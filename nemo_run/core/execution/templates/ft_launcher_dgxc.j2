@@ -32,6 +32,7 @@ echo "[FT-Setup] Starting training on $(hostname)..."
 # Note: In high-scale K8s, writing to a single file from 1000 pods can cause lock contention.
 # If scale is small, this is fine.
 if [ -n "$FAULT_TOL_JOB_RESULTS_FILE" ]; then
+    mkdir -p "$(dirname "$FAULT_TOL_JOB_RESULTS_FILE")"
     echo "$(hostname) $(date +%s) X" >> "$FAULT_TOL_JOB_RESULTS_FILE"
 fi
 
