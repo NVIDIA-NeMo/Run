@@ -205,3 +205,7 @@ LAUNCHER_MAP: dict[str, Type[Launcher]] = {
     "slurm_ray": SlurmRay,
     "slurm_template": SlurmTemplate,
 }
+
+def test_push():
+    pass
+
