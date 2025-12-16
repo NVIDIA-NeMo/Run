@@ -13,15 +13,19 @@ RETRY_COUNT=${RETRY_COUNT:-0}
 JOB_ID=${HOSTNAME:-${TORCHX_REPLICA_ID:-unknown}}
 
 is_job_failures_limit_reached() {
-    if [ ! -f "$JOB_RESULTS_FILE" ]; then
-        return 1  # File doesn't exist, limit not reached
-    fi
+    # If TORCHX_MAX_RETRIES is 0 or unset, never reach the limit (infinite retries)
     if [ "${TORCHX_MAX_RETRIES:-0}" -eq 0 ]; then
-       return 0  # 0 retries means limit is always reached
-    else
-        tail -n "${TORCHX_MAX_RETRIES}" "$JOB_RESULTS_FILE" 2>/dev/null | \
-            awk "/^[[:alnum:]_-]+[[:space:]]+[[:alnum:]]+[[:space:]]+[XF]$/{f++} END{exit !(f>=${TORCHX_MAX_RETRIES})}"
+       return 1  # Limit not reached, allow retries
     fi
+
+    # If job results file doesn't exist yet, limit not reached
+    if [ ! -f "$JOB_RESULTS_FILE" ]; then
+        return 1
+    fi
+
+    # Check if we have TORCHX_MAX_RETRIES failures in the log
+    tail -n "${TORCHX_MAX_RETRIES}" "$JOB_RESULTS_FILE" 2>/dev/null | \
+        awk "/^[[:alnum:]_-]+[[:space:]]+[[:alnum:]]+[[:space:]]+[XF]$/{f++} END{exit !(f>=${TORCHX_MAX_RETRIES})}"
 }
 
 is_training_finished() {
