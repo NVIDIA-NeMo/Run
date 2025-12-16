@@ -19,12 +19,8 @@ is_training_finished() {
     test -f "$(dirname $JOB_RESULTS_FILE)/$(basename $FAULT_TOL_FINISHED_FLAG_FILE)"
 }
 # Exit immediately if finished flag file exists and this job is a continuation
-if [ -v RETRY_COUNT ] && [ "$RETRY_COUNT" -gt 0 ] ; then
-    if is_training_finished ; then echo "Training is finished" ; exit 0 ; fi
-    if is_job_failures_limit_reached ; then echo "Job failures limit reached ($TORCHX_MAX_RETRIES)" ; exit 1 ; fi
-else
-    rm -f "$FAULT_TOL_FINISHED_FLAG_FILE" "$JOB_RESULTS_FILE"
-fi
+if is_training_finished ; then echo "Training is finished" ; exit 0 ; fi
+if is_job_failures_limit_reached ; then echo "Job failures limit reached ($TORCHX_MAX_RETRIES)" ; exit 1 ; fi
 
 # Write unknown job status to the job log, we will fix it at the end
 echo "$TORCHX_REPLICA_ID ${RETRY_COUNT:-0} X" >> "$JOB_RESULTS_FILE"
