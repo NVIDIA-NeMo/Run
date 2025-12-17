@@ -3,84 +3,8 @@
 # Fault tolerance related items
 export FAULT_TOL_CFG_PATH="{{fault_tol_cfg_path}}"
 export FAULT_TOL_FINISHED_FLAG_FILE="{{fault_tol_finished_flag_file}}"
-ANY_JOB_STEP_FAILED=0
-export TORCHX_MAX_RETRIES=3
-
-# Automatic job resubmission related items
-JOB_RESULTS_FILE="{{fault_tol_job_results_file}}"
-# For k8s, we use pod restart count or a custom retry counter
-RETRY_COUNT=${RETRY_COUNT:-0}
-# Use a unique identifier for this job/pod
-JOB_ID=${HOSTNAME:-${TORCHX_REPLICA_ID:-unknown}}
-
-is_job_failures_limit_reached() {
-    # If TORCHX_MAX_RETRIES is 0 or unset, never reach the limit (infinite retries)
-    if [ "${TORCHX_MAX_RETRIES:-0}" -eq 0 ]; then
-       return 1  # Limit not reached, allow retries
-    fi
-
-    # If job results file doesn't exist yet, limit not reached
-    if [ ! -f "$JOB_RESULTS_FILE" ]; then
-        return 1
-    fi
-
-    # Check if we have TORCHX_MAX_RETRIES failures in the log
-    tail -n "${TORCHX_MAX_RETRIES}" "$JOB_RESULTS_FILE" 2>/dev/null | \
-        awk "/^[[:alnum:]_-]+[[:space:]]+[[:alnum:]]+[[:space:]]+[XF]$/{f++} END{exit !(f>=${TORCHX_MAX_RETRIES})}"
-}
-
-is_training_finished() {
-    test -f "$(dirname "$JOB_RESULTS_FILE")/$(basename "$FAULT_TOL_FINISHED_FLAG_FILE")"
-}
-
-# Check if training is already finished
-if is_training_finished ; then
-    echo "Training is finished"
-    exit 0
-fi
-
-# Check if we've hit the failure limit
-if is_job_failures_limit_reached ; then
-    echo "Job failures limit reached (${TORCHX_MAX_RETRIES:-0})"
-    exit 1
-fi
-
-# Only clean up job results on the very first run
-if [ "$RETRY_COUNT" -eq 0 ] ; then
-    rm -f "$FAULT_TOL_FINISHED_FLAG_FILE" "$JOB_RESULTS_FILE"
-fi
-
-# Ensure directory exists
-mkdir -p "$(dirname "$JOB_RESULTS_FILE")"
-
-# Write unknown job status to the job log, we will fix it at the end
-echo "$JOB_ID $RETRY_COUNT X" >> "$JOB_RESULTS_FILE"
 {%- endmacro %}
 
 {% macro ft_launcher_teardown() -%}
-if [ $exitcode -ne 0 ]; then ANY_JOB_STEP_FAILED=1 ; fi
-
-# Fix the job log entry ("JOB_ID X" -> "JOB_ID S/F"), depending on the job result
-JOB_ID=${HOSTNAME:-${TORCHX_REPLICA_ID:-unknown}}
-RETRY_COUNT=${RETRY_COUNT:-0}
-
-if [ "$ANY_JOB_STEP_FAILED" = "0" ] ; then
-   sed -i "s/$JOB_ID $RETRY_COUNT X/$JOB_ID $RETRY_COUNT S/" "$JOB_RESULTS_FILE"
-else
-   sed -i "s/$JOB_ID $RETRY_COUNT X/$JOB_ID $RETRY_COUNT F/" "$JOB_RESULTS_FILE"
-fi
-
-# Check final state
-if is_training_finished ; then
-    echo "Training completed successfully"
-    exit 0
-elif is_job_failures_limit_reached ; then
-    echo "Job failures limit reached, giving up"
-    exit 1
-else
-    # Training not finished and we haven't hit retry limit
-    # Exit with failure code to trigger pod restart
-    echo "Training incomplete, exiting with code $exitcode to trigger retry"
-    exit $exitcode
-fi
+exit $exitcode
 {%- endmacro %}
