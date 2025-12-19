@@ -278,7 +278,7 @@ class JobGroup(ConfigurableMixin):
             if len(executors) == 1:
                 self.executors = executors * len(self.tasks)
 
-        self._dryrun_info: Optional[AppDryRunInfo] = None
+        self._dryrun_infos: list[AppDryRunInfo] = []
 
     @property
     def state(self) -> AppState:
@@ -371,7 +371,7 @@ class JobGroup(ConfigurableMixin):
 
         assert hasattr(self, "_executables") and self._executables
 
-        for executable, executor in self._executables:
+        for idx, (executable, executor) in enumerate(self._executables):
             executor_str = get_executor_str(executor)
 
             if dryrun:
@@ -385,8 +385,9 @@ class JobGroup(ConfigurableMixin):
                     log=self.tail_logs,
                     runner=runner,
                 )
-                self._dryrun_info = dryrun_info
+                self._dryrun_infos.append(dryrun_info)
             else:
+                dryrun_info = self._dryrun_infos[idx] if idx < len(self._dryrun_infos) else None
                 handle, status = launch(
                     executable=executable,
                     executor_name=executor_str,
@@ -395,7 +396,7 @@ class JobGroup(ConfigurableMixin):
                     wait=wait,
                     log=self.tail_logs,
                     runner=runner,
-                    dryrun_info=self._dryrun_info,
+                    dryrun_info=dryrun_info,
                 )
                 self.handles.append(handle)
                 self.states.append(status.state if status else AppState.UNKNOWN)
