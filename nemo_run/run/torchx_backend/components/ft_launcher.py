@@ -118,7 +118,7 @@ def ft_launcher(
             ft_args += ["--max-restarts", str(max_restarts)]
 
         if dgxc is True:
-            ft_args = +["--ft-use-infra-group-rank", "False"]
+            ft_args += ["--ft-use-infra-group-rank", "False"]
 
     else:
         ft_args = ["--ignore-missing-fault-tol-cfg"]
