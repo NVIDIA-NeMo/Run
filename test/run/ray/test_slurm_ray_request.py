@@ -372,22 +372,162 @@ class TestSlurmRayRequest:
         with pytest.warns(UserWarning, match="cpus_per_gpu.*requires.*gpus_per_task"):
             request.materialize()
 
-    def test_heterogeneous_assertion(self):
-        """Test materialize raises assertion for heterogeneous jobs."""
-        executor = SlurmExecutor(account="test_account", heterogeneous=True)
+    def test_heterogeneous_basic(self):
+        """Test materialize generates correct SBATCH blocks for heterogeneous jobs."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            heterogeneous=True,
+        )
+        executor.run_as_group = True
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=2,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="gpu_image",
+                container_mounts=["/data:/data"],
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="cpu_image",
+                container_mounts=["/data:/data"],
+            ),
+        ]
         executor.tunnel = Mock(spec=SSHTunnel)
         executor.tunnel.job_dir = "/tmp/test_jobs"
 
         request = SlurmRayRequest(
-            name="test-ray-cluster",
-            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
             template_name="ray.sub.j2",
             executor=executor,
             launch_cmd=["sbatch", "--parsable"],
         )
 
-        with pytest.raises(AssertionError, match="heterogeneous is not supported"):
+        script = request.materialize()
+
+        # Assert het job structure
+        assert "#SBATCH hetjob" in script
+        assert "het_group_host_0" in script
+        assert "het_group_host_1" in script
+
+        # Assert different GPU specs per group
+        lines = script.split("\n")
+        het_job_idx = None
+        for i, line in enumerate(lines):
+            if "#SBATCH hetjob" in line:
+                het_job_idx = i
+                break
+
+        assert het_job_idx is not None
+
+        # Before hetjob separator should have gpus-per-node=8
+        before_hetjob = "\n".join(lines[:het_job_idx])
+        assert "#SBATCH --gpus-per-node=8" in before_hetjob
+        assert "#SBATCH --nodes=2" in before_hetjob
+
+        # After hetjob separator should have gpus-per-node=0
+        after_hetjob = "\n".join(lines[het_job_idx:])
+        assert "#SBATCH --gpus-per-node=0" in after_hetjob
+        assert "#SBATCH --nodes=1" in after_hetjob
+
+    def test_heterogeneous_with_command_groups(self):
+        """Test command groups with het jobs use correct het-group flags."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            heterogeneous=True,
+        )
+        executor.run_as_group = True
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="image1",
+                container_mounts=["/data:/data"],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="image2",
+                container_mounts=["/data:/data"],
+                het_group_index=1,
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[["cmd0"], ["cmd1"]],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Should have het-group flags in srun commands
+        assert "--het-group=1" in script  # command_groups[1] uses het-group=1
+
+    def test_heterogeneous_validation_errors(self):
+        """Test validation errors for invalid het job configs."""
+        from unittest.mock import Mock
+
+        # Test: missing resource_group
+        executor = SlurmExecutor(account="test_account", heterogeneous=True)
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-cluster",
+            cluster_dir="/tmp/test_jobs/test-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            launch_cmd=["sbatch"],
+        )
+
+        with pytest.raises(AssertionError, match="resource_group"):
             request.materialize()
+
+        # Test: het-group-0 with 0 nodes
+        executor2 = SlurmExecutor(account="test_account", heterogeneous=True)
+        executor2.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=0,  # Invalid!
+                ntasks_per_node=1,
+                container_image="image",
+                container_mounts=[],
+            )
+        ]
+        executor2.tunnel = Mock(spec=SSHTunnel)
+        executor2.tunnel.job_dir = "/tmp/test_jobs"
+
+        request2 = SlurmRayRequest(
+            name="test-cluster",
+            cluster_dir="/tmp/test_jobs/test-cluster",
+            template_name="ray.sub.j2",
+            executor=executor2,
+            launch_cmd=["sbatch"],
+        )
+
+        with pytest.raises(AssertionError, match="het-group-0 must have at least 1 node"):
+            request2.materialize()
 
     def test_array_assertion(self):
         """Test materialize raises assertion for array jobs."""
@@ -738,6 +878,88 @@ class TestSlurmRayRequest:
         generated_script = ray_request.materialize()
 
         # Read expected artifact for reference
+        with open(artifact_path, "r") as f:
+            expected_script = f.read()
+
+        assert generated_script.strip() == expected_script.strip()
+
+    @pytest.fixture
+    def het_ray_request_with_artifact(self) -> tuple[SlurmRayRequest, str]:
+        """Create a het Ray cluster request matching expected artifact."""
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            time="01:00:00",
+            heterogeneous=True,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[
+                "/tmp/test_jobs/test-ray-het-cluster:/tmp/test_jobs/test-ray-het-cluster"
+            ],
+            gres="gpu:8",
+        )
+        executor.run_as_group = True
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=2,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+                container_mounts=[
+                    "/tmp/test_jobs/test-ray-het-cluster:/tmp/test_jobs/test-ray-het-cluster"
+                ],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+                container_mounts=[
+                    "/tmp/test_jobs/test-ray-het-cluster:/tmp/test_jobs/test-ray-het-cluster"
+                ],
+                het_group_index=1,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=2,
+                gpus_per_node=0,
+                container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+                container_mounts=[
+                    "/tmp/test_jobs/test-ray-het-cluster:/tmp/test_jobs/test-ray-het-cluster"
+                ],
+                het_group_index=2,
+                env_vars={"TASK_TYPE": "monitoring"},
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+        executor.tunnel.key = "test-cluster"
+
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[
+                ["echo 'Ray cluster on het-group-0'"],  # Skipped (index 0 = Ray cluster)
+                ["python /scripts/auxiliary_task.py"],  # Runs on het-group-1
+                ["python /scripts/monitoring.py"],  # Runs on het-group-2
+            ],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        return request, os.path.join(ARTIFACTS_DIR, "expected_ray_het_cluster.sub")
+
+    def test_heterogeneous_artifact(
+        self, het_ray_request_with_artifact: tuple[SlurmRayRequest, str]
+    ):
+        """Test that het Ray cluster script matches artifact."""
+        ray_request, artifact_path = het_ray_request_with_artifact
+        generated_script = ray_request.materialize()
+
         with open(artifact_path, "r") as f:
             expected_script = f.read()
 
