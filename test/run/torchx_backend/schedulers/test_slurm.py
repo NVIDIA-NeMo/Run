@@ -403,3 +403,200 @@ def test_ray_template_env_var(slurm_scheduler, slurm_executor):
             dryrun_info = slurm_scheduler._submit_dryrun(app_def, slurm_executor)
             assert isinstance(dryrun_info.request, SlurmRayRequest)
             assert dryrun_info.request.template_name == "ray_enroot.sub.j2"
+
+
+def test_heterogeneous_ray_cluster_run_as_group(slurm_scheduler, temp_dir):
+    """Test that run_as_group is automatically set for heterogeneous Ray clusters."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+    from nemo_run.run.ray.slurm import SlurmRayRequest
+
+    # Create executor with heterogeneous job configuration
+    executor = SlurmExecutor(
+        account="test_account",
+        job_dir=temp_dir,
+        heterogeneous=True,
+        tunnel=LocalTunnel(job_dir=temp_dir),
+    )
+    executor.resource_group = [
+        SlurmExecutor.ResourceRequest(
+            packager=mock.MagicMock(),
+            nodes=2,
+            ntasks_per_node=8,
+            gpus_per_node=8,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[],
+            het_group_index=0,
+        ),
+        SlurmExecutor.ResourceRequest(
+            packager=mock.MagicMock(),
+            nodes=1,
+            ntasks_per_node=1,
+            gpus_per_node=0,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[],
+            het_group_index=1,
+        ),
+    ]
+
+    # Create a Ray-enabled app with 2 roles (matching resource groups)
+    app_def = AppDef(
+        name="test_ray_het_app",
+        roles=[
+            Role(name="ray_cluster", image="", entrypoint="python", args=["train.py"]),
+            Role(name="auxiliary", image="", entrypoint="python", args=["monitor.py"]),
+        ],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+        mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+        mock_fill.return_value = "#!/bin/bash\n# Mock script"
+
+        # Initially run_as_group should not be set
+        assert not hasattr(executor, "run_as_group") or not executor.run_as_group
+
+        dryrun_info = slurm_scheduler._submit_dryrun(app_def, executor)
+
+        # Verify run_as_group was automatically set
+        assert executor.run_as_group is True
+        assert isinstance(dryrun_info.request, SlurmRayRequest)
+        assert dryrun_info.request.executor.heterogeneous is True
+        assert len(dryrun_info.request.command_groups) == 2
+
+
+def test_heterogeneous_ray_cluster_mismatched_groups_warning(slurm_scheduler, temp_dir, caplog):
+    """Test that a warning is logged when roles don't match resource groups."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+    from nemo_run.run.ray.slurm import SlurmRayRequest
+
+    # Create executor with 2 resource groups
+    executor = SlurmExecutor(
+        account="test_account",
+        job_dir=temp_dir,
+        heterogeneous=True,
+        tunnel=LocalTunnel(job_dir=temp_dir),
+    )
+    executor.resource_group = [
+        SlurmExecutor.ResourceRequest(
+            packager=mock.MagicMock(),
+            nodes=2,
+            ntasks_per_node=8,
+            gpus_per_node=8,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[],
+            het_group_index=0,
+        ),
+        SlurmExecutor.ResourceRequest(
+            packager=mock.MagicMock(),
+            nodes=1,
+            ntasks_per_node=1,
+            gpus_per_node=0,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[],
+            het_group_index=1,
+        ),
+    ]
+
+    # Create a Ray-enabled app with 3 roles (mismatched with 2 resource groups)
+    app_def = AppDef(
+        name="test_ray_het_app",
+        roles=[
+            Role(name="ray_cluster", image="", entrypoint="python", args=["train.py"]),
+            Role(name="auxiliary", image="", entrypoint="python", args=["monitor.py"]),
+            Role(name="extra", image="", entrypoint="python", args=["extra.py"]),
+        ],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+        mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+        mock_fill.return_value = "#!/bin/bash\n# Mock script"
+
+        with caplog.at_level(logging.WARNING):
+            dryrun_info = slurm_scheduler._submit_dryrun(app_def, executor)
+
+        # Verify warning was logged
+        assert any("resource groups" in record.message for record in caplog.records)
+        assert any("3 roles" in record.message for record in caplog.records)
+        assert any("2 resource groups" in record.message for record in caplog.records)
+
+        # Verify request was still created
+        assert isinstance(dryrun_info.request, SlurmRayRequest)
+        assert executor.run_as_group is True
+
+
+def test_heterogeneous_ray_cluster_no_resource_group(slurm_scheduler, temp_dir):
+    """Test that heterogeneous jobs without resource_group raise an AssertionError."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+
+    # Create executor with heterogeneous=True but no resource_group
+    executor = SlurmExecutor(
+        account="test_account",
+        job_dir=temp_dir,
+        heterogeneous=True,
+        tunnel=LocalTunnel(job_dir=temp_dir),
+    )
+    # Don't set resource_group
+
+    # Create a Ray-enabled app
+    app_def = AppDef(
+        name="test_ray_het_app",
+        roles=[Role(name="ray_cluster", image="", entrypoint="python", args=["train.py"])],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+
+        # Should raise AssertionError because resource_group is required for het jobs
+        with pytest.raises(AssertionError, match="heterogeneous requires resource_group to be set"):
+            slurm_scheduler._submit_dryrun(app_def, executor)
+
+
+def test_non_heterogeneous_ray_cluster(slurm_scheduler, temp_dir):
+    """Test that run_as_group is NOT set for non-heterogeneous clusters."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+    from nemo_run.run.ray.slurm import SlurmRayRequest
+
+    # Create executor without heterogeneous
+    executor = SlurmExecutor(
+        account="test_account",
+        job_dir=temp_dir,
+        tunnel=LocalTunnel(job_dir=temp_dir),
+    )
+
+    # Create a Ray-enabled app
+    app_def = AppDef(
+        name="test_ray_app",
+        roles=[Role(name="ray_cluster", image="", entrypoint="python", args=["train.py"])],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+        mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+        mock_fill.return_value = "#!/bin/bash\n# Mock script"
+
+        dryrun_info = slurm_scheduler._submit_dryrun(app_def, executor)
+
+        # Verify run_as_group was NOT set
+        assert not hasattr(executor, "run_as_group") or not executor.run_as_group
+        assert isinstance(dryrun_info.request, SlurmRayRequest)

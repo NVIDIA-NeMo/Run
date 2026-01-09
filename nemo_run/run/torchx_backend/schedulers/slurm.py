@@ -113,6 +113,17 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
                 srun_cmd = [role.entrypoint] + role.args
                 srun_cmds.append([" ".join(srun_cmd)])
 
+            # For heterogeneous jobs, ensure run_as_group is set for command group mapping
+            if executor.heterogeneous and executor.resource_group:
+                executor.run_as_group = True
+                # Validate that command groups align with resource groups
+                if len(srun_cmds) != len(executor.resource_group):
+                    log.warning(
+                        f"Heterogeneous job has {len(executor.resource_group)} resource groups "
+                        f"but {len(srun_cmds)} roles. Command groups should match resource groups "
+                        f"for proper het-group mapping."
+                    )
+
             command = [app.roles[0].entrypoint] + app.roles[0].args
             # Allow selecting Ray template via environment variable
             ray_template_name = os.environ.get("NEMO_RUN_SLURM_RAY_TEMPLATE", "ray.sub.j2")
