@@ -203,6 +203,7 @@ def package(
             log_level=launcher.log_level,
             max_retries=executor.retries,
             max_restarts=launcher.max_restarts,
+            dgxc=isinstance(executor, DGXCloudExecutor),
             use_env=use_env,
         )
     else:
