@@ -203,15 +203,13 @@ class SlurmRayRequest:
             if gres_specification:
                 _srun_flags.append(gres_specification)
 
+            new_mounts = copy.deepcopy(mounts)
             if self.nemo_run_dir:
-                new_mounts = copy.deepcopy(mounts)
                 for i, mount in enumerate(new_mounts):
                     if mount.startswith(RUNDIR_SPECIAL_NAME):
                         new_mounts[i] = mount.replace(RUNDIR_SPECIAL_NAME, self.nemo_run_dir, 1)
 
                 new_mounts.append(f"{self.nemo_run_dir}:/{RUNDIR_NAME}")
-            else:
-                new_mounts = mounts
 
             new_mounts.append(f"{self.cluster_dir}:{self.cluster_dir}")
             new_mounts.append(f"{logs_dir}:{logs_dir}")
