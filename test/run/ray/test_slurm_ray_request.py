@@ -964,3 +964,367 @@ class TestSlurmRayRequest:
             expected_script = f.read()
 
         assert generated_script.strip() == expected_script.strip()
+
+    def test_heterogeneous_with_het_group_indices(self):
+        """Test het job with explicit het_group_indices for final_group_index calculation."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            heterogeneous=True,
+        )
+        executor.run_as_group = True
+        # Create resource groups with explicit het_group_indices
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=2,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="gpu_image",
+                container_mounts=["/data:/data"],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="cpu_image",
+                container_mounts=["/data:/data"],
+                het_group_index=2,  # Non-sequential index
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Should have het job structure
+        assert "#SBATCH hetjob" in script
+        # Should have both het group hostnames
+        assert "het_group_host_0" in script
+        assert "het_group_host_1" in script
+
+    def test_heterogeneous_duplicate_het_group_index_skipped(self):
+        """Test that duplicate het_group_index ResourceRequests are skipped."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            heterogeneous=True,
+        )
+        executor.run_as_group = True
+        # Create resource groups where two share the same het_group_index
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=2,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="gpu_image",
+                container_mounts=["/data:/data"],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=2,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="gpu_image2",
+                container_mounts=["/data:/data"],
+                het_group_index=0,  # Same as previous - should be skipped
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="cpu_image",
+                container_mounts=["/data:/data"],
+                het_group_index=1,
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Should only have one #SBATCH hetjob separator (2 het groups, not 3)
+        assert script.count("#SBATCH hetjob") == 1
+        # Should have het group hostnames for each unique het group
+        assert "het_group_host_0" in script
+        assert "het_group_host_1" in script
+
+    def test_heterogeneous_with_gpus_per_task(self):
+        """Test het job with gpus_per_task set in ResourceRequest."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            heterogeneous=True,
+        )
+        executor.run_as_group = True
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                gpus_per_task=1,  # Explicit gpus_per_task
+                container_image="gpu_image",
+                container_mounts=["/data:/data"],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="cpu_image",
+                container_mounts=["/data:/data"],
+                het_group_index=1,
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # First het group should have gpus-per-task
+        lines = script.split("\n")
+        het_job_idx = None
+        for i, line in enumerate(lines):
+            if "#SBATCH hetjob" in line:
+                het_job_idx = i
+                break
+
+        before_hetjob = "\n".join(lines[:het_job_idx])
+        assert "#SBATCH --gpus-per-task=1" in before_hetjob
+
+    def test_heterogeneous_with_separate_stderr(self):
+        """Test het job with stderr_to_stdout=False generates error paths."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            heterogeneous=True,
+        )
+        executor.stderr_to_stdout = False  # Separate stderr
+        executor.run_as_group = True
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=2,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="gpu_image",
+                container_mounts=["/data:/data"],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="cpu_image",
+                container_mounts=["/data:/data"],
+                het_group_index=1,
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Should have separate error output paths for each het group
+        assert "#SBATCH --error=" in script
+
+    def test_heterogeneous_command_groups_without_het_group_index(self):
+        """Test het command groups fallback to idx when het_group_index is None."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            heterogeneous=True,
+        )
+        executor.run_as_group = True
+        # Resource groups WITHOUT het_group_index set
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="image1",
+                container_mounts=["/data:/data"],
+                # het_group_index not set - should fall back to idx
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="image2",
+                container_mounts=["/data:/data"],
+                # het_group_index not set - should fall back to idx
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[["cmd0"], ["cmd1"]],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Should have het-group flags using idx fallback
+        assert "--het-group=1" in script  # command_groups[1] uses het-group=1 (idx fallback)
+
+    def test_heterogeneous_without_run_as_group(self):
+        """Test het job without run_as_group does not add het-group flags to commands."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            heterogeneous=True,
+        )
+        # run_as_group NOT set
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="image1",
+                container_mounts=["/data:/data"],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="image2",
+                container_mounts=["/data:/data"],
+                het_group_index=1,
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[["cmd0"], ["cmd1"]],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # SBATCH het job structure should still exist
+        assert "#SBATCH hetjob" in script
+        # But command groups should NOT have --het-group flags (run_as_group not set)
+        # The overlap srun commands should not have --het-group=1
+        # Find the overlap srun command
+        lines = script.split("\n")
+        overlap_srun_lines = [line for line in lines if "overlap" in line and "srun" in line]
+        for line in overlap_srun_lines:
+            # These should NOT have --het-group since run_as_group is not set
+            if "cmd1" in line:
+                assert "--het-group=1" not in line
+
+    def test_heterogeneous_mismatched_command_groups_length(self):
+        """Test het job when command_groups length doesn't match resource_group length."""
+        from unittest.mock import Mock
+
+        executor = SlurmExecutor(
+            account="test_account",
+            heterogeneous=True,
+        )
+        executor.run_as_group = True
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=8,
+                gpus_per_node=8,
+                container_image="image1",
+                container_mounts=["/data:/data"],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                gpus_per_node=0,
+                container_image="image2",
+                container_mounts=["/data:/data"],
+                het_group_index=1,
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        # 3 command groups but only 2 resource groups - mismatched
+        request = SlurmRayRequest(
+            name="test-ray-het-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-het-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[["cmd0"], ["cmd1"], ["cmd2"]],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Should still generate script but WITHOUT het-group flags
+        # (because lengths don't match)
+        assert "#SBATCH hetjob" in script
+        # Overlap commands should NOT have --het-group flags
+        assert "--het-group=1" not in script
+        assert "--het-group=2" not in script
