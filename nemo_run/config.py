@@ -468,13 +468,33 @@ class Script(ConfigurableMixin):
             return os.path.basename(self.path)
 
     def to_command(
-        self, with_entrypoint: bool = False, filename: Optional[str] = None, is_local: bool = False
+        self,
+        with_entrypoint: bool = False,
+        filename: Optional[str] = None,
+        is_local: bool = False,
+        substitute_rundir_path: Optional[str] = None,
     ) -> list[str]:
+        """Convert the script to a command.
+
+        Args:
+            with_entrypoint: If True, prepend the entrypoint to the command.
+            filename: If provided, write the inline script to this file.
+            is_local: If True, use the local filename in the command.
+            substitute_rundir_path: If provided, substitute /{RUNDIR_NAME} paths
+                with this path in the inline script content. Used for non-container
+                mode where container paths need to be replaced with actual cluster paths.
+        """
         if self.inline:
             if filename:
                 os.makedirs(os.path.dirname(filename), exist_ok=True)
+                inline_content = self.inline
+                # Substitute /{RUNDIR_NAME} paths if specified (non-container mode)
+                if substitute_rundir_path is not None:
+                    inline_content = inline_content.replace(
+                        f"/{RUNDIR_NAME}", substitute_rundir_path
+                    )
                 with open(filename, "w") as f:
-                    f.write("#!/usr/bin/bash\n" + self.inline)
+                    f.write("#!/usr/bin/bash\n" + inline_content)
 
                 if is_local:
                     cmd = [filename]

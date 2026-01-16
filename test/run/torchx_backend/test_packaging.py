@@ -14,16 +14,22 @@
 # limitations under the License.
 
 from dataclasses import dataclass
+from unittest.mock import MagicMock
 
 import pytest
 from torchx import specs
 
-from nemo_run.config import Partial, Script
+from nemo_run.config import RUNDIR_NAME, Partial, Script
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
+from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.packaging.base import Packager
-from nemo_run.run.torchx_backend.packaging import merge_executables, package
+from nemo_run.core.tunnel.client import LocalTunnel
+from nemo_run.run.torchx_backend.packaging import (
+    merge_executables,
+    package,
+)
 
 
 @dataclass(kw_only=True)
@@ -301,3 +307,132 @@ def test_merge_executables():
     assert len(merged_app_def.roles) == 2
     assert merged_app_def.roles[0].name == "role1"
     assert merged_app_def.roles[1].name == "role2"
+
+
+class TestPackagingNonContainerMode:
+    """Tests for non-container mode path substitution in packaging."""
+
+    def test_package_script_inline_with_slurm_non_container_mode(self, tmp_path):
+        """Test that inline scripts have /nemo_run paths substituted in non-container mode."""
+        # Create a SlurmExecutor without container
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            nodes=1,
+            ntasks_per_node=8,
+            container_image=None,  # Non-container mode
+        )
+        executor.job_dir = str(tmp_path / "test-job")
+        executor.experiment_id = "exp-123"
+
+        # Mock tunnel
+        tunnel = MagicMock(spec=LocalTunnel)
+        tunnel.job_dir = "/remote/experiments/exp-123"
+        executor.tunnel = tunnel
+
+        # Create an inline script with /nemo_run paths
+        fn_or_script = Script(
+            inline=f"cd /{RUNDIR_NAME}/code && python /{RUNDIR_NAME}/scripts/run.py"
+        )
+
+        app_def = package(
+            name="test",
+            fn_or_script=fn_or_script,
+            executor=executor,
+        )
+
+        assert app_def.name == "test"
+        assert len(app_def.roles) == 1
+
+        # Read the generated script file and verify paths were substituted
+        script_file = tmp_path / "test-job" / "scripts" / "test.sh"
+        assert script_file.exists()
+
+        content = script_file.read_text()
+        actual_job_dir = "/remote/experiments/exp-123/test-job"
+
+        # Should NOT contain /nemo_run paths
+        assert f"/{RUNDIR_NAME}" not in content
+        # Should contain the actual job directory path
+        assert f"{actual_job_dir}/code" in content
+        assert f"{actual_job_dir}/scripts/run.py" in content
+
+    def test_package_script_inline_with_slurm_container_mode(self, tmp_path):
+        """Test that inline scripts preserve /nemo_run paths in container mode."""
+        # Create a SlurmExecutor with container
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            nodes=1,
+            ntasks_per_node=8,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+        )
+        executor.job_dir = str(tmp_path / "test-job")
+        executor.experiment_id = "exp-123"
+
+        # Mock tunnel
+        tunnel = MagicMock(spec=LocalTunnel)
+        tunnel.job_dir = "/remote/experiments/exp-123"
+        executor.tunnel = tunnel
+
+        # Create an inline script with /nemo_run paths
+        fn_or_script = Script(
+            inline=f"cd /{RUNDIR_NAME}/code && python /{RUNDIR_NAME}/scripts/run.py"
+        )
+
+        app_def = package(
+            name="test",
+            fn_or_script=fn_or_script,
+            executor=executor,
+        )
+
+        assert app_def.name == "test"
+        assert len(app_def.roles) == 1
+
+        # Read the generated script file and verify paths were NOT substituted
+        script_file = tmp_path / "test-job" / "scripts" / "test.sh"
+        assert script_file.exists()
+
+        content = script_file.read_text()
+
+        # Should contain /nemo_run paths (not substituted)
+        assert f"/{RUNDIR_NAME}/code" in content
+        assert f"/{RUNDIR_NAME}/scripts/run.py" in content
+
+    def test_package_script_path_not_affected_by_non_container_mode(self, tmp_path):
+        """Test that path-based scripts are not affected by non-container mode substitution."""
+        # Create a SlurmExecutor without container
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            nodes=1,
+            ntasks_per_node=8,
+            container_image=None,  # Non-container mode
+        )
+        executor.job_dir = str(tmp_path / "test-job")
+        executor.experiment_id = "exp-123"
+
+        # Mock tunnel
+        tunnel = MagicMock(spec=LocalTunnel)
+        tunnel.job_dir = "/remote/experiments/exp-123"
+        executor.tunnel = tunnel
+
+        # Create a path-based script (not inline)
+        fn_or_script = Script(
+            path="test.py",
+            args=["--config", f"/{RUNDIR_NAME}/configs/config.yaml"],
+        )
+
+        app_def = package(
+            name="test",
+            fn_or_script=fn_or_script,
+            executor=executor,
+        )
+
+        assert app_def.name == "test"
+        assert len(app_def.roles) == 1
+        role = app_def.roles[0]
+
+        # Path-based scripts don't write files, so args should remain unchanged
+        # (the substitution only affects inline script file content)
+        assert role.args == ["test.py", "--config", f"/{RUNDIR_NAME}/configs/config.yaml"]

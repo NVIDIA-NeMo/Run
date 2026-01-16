@@ -15,6 +15,7 @@
 
 import logging
 import os
+from pathlib import Path
 from typing import Iterator, Optional, Type, Union
 
 import fiddle as fdl
@@ -120,9 +121,23 @@ def package(
                 log.warning(f"Failed saving yaml configs due to: {e}")
 
         args = fn_or_script.args
+
+        # For SlurmExecutor without container, substitute /{RUNDIR_NAME} paths
+        # with actual cluster paths in inline scripts
+        substitute_rundir_path = None
+        if (
+            isinstance(executor, SlurmExecutor)
+            and executor.container_image is None
+            and executor.tunnel is not None
+        ):
+            substitute_rundir_path = os.path.join(
+                executor.tunnel.job_dir, Path(executor.job_dir).name
+            )
+
         role_args = fn_or_script.to_command(
             filename=os.path.join(executor.job_dir, SCRIPTS_DIR, f"{name}.sh"),
             is_local=True if isinstance(executor, LocalExecutor) else False,
+            substitute_rundir_path=substitute_rundir_path,
         )
         m = fn_or_script.path if fn_or_script.m else None
         no_python = fn_or_script.entrypoint != "python"
