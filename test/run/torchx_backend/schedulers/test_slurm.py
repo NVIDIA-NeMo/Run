@@ -368,8 +368,8 @@ def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
         mock_tunnel.run.assert_called_once()
 
 
-def test_ray_template_env_var(slurm_scheduler, slurm_executor):
-    """Test that NEMO_RUN_SLURM_RAY_TEMPLATE environment variable selects the correct template."""
+def test_ray_template_executor(slurm_scheduler, slurm_executor, temp_dir):
+    """Test that executor.ray_template selects the correct template."""
     from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
     from nemo_run.run.ray.slurm import SlurmRayRequest
 
@@ -387,20 +387,26 @@ def test_ray_template_env_var(slurm_scheduler, slurm_executor):
     ):
         slurm_scheduler.tunnel = mock.MagicMock()
 
-        # Test default template name
+        # Test default template name (ray.sub.j2)
+        assert slurm_executor.ray_template == "ray.sub.j2"
         with mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill:
             mock_fill.return_value = "#!/bin/bash\n# Mock script"
             dryrun_info = slurm_scheduler._submit_dryrun(app_def, slurm_executor)
             assert isinstance(dryrun_info.request, SlurmRayRequest)
             assert dryrun_info.request.template_name == "ray.sub.j2"
 
-        # Test custom template name via environment variable
-        with (
-            mock.patch.dict(os.environ, {"NEMO_RUN_SLURM_RAY_TEMPLATE": "ray_enroot.sub.j2"}),
-            mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
-        ):
+        # Test custom template name via executor
+        custom_executor = SlurmExecutor(
+            account="test_account",
+            job_dir=temp_dir,
+            nodes=1,
+            ntasks_per_node=1,
+            tunnel=LocalTunnel(job_dir=temp_dir),
+            ray_template="ray_enroot.sub.j2",
+        )
+        with mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill:
             mock_fill.return_value = "#!/bin/bash\n# Mock script"
-            dryrun_info = slurm_scheduler._submit_dryrun(app_def, slurm_executor)
+            dryrun_info = slurm_scheduler._submit_dryrun(app_def, custom_executor)
             assert isinstance(dryrun_info.request, SlurmRayRequest)
             assert dryrun_info.request.template_name == "ray_enroot.sub.j2"
 

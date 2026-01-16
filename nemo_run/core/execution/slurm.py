@@ -344,6 +344,8 @@ class SlurmExecutor(Executor):
     het_group_indices: Optional[list[int]] = None
     segment: Optional[int] = None
     network: Optional[str] = None
+    #: Template name to use for Ray jobs (e.g., "ray.sub.j2" or "ray_enroot.sub.j2")
+    ray_template: str = "ray.sub.j2"
 
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")
