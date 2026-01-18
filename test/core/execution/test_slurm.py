@@ -18,8 +18,10 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from nemo_run.config import RUNDIR_NAME
 from nemo_run.core.execution.launcher import SlurmTemplate, Torchrun
 from nemo_run.core.execution.slurm import (
+    SlurmBatchRequest,
     SlurmExecutor,
     SlurmJobDetails,
     SlurmTunnelCallback,
@@ -403,3 +405,148 @@ class TestSlurmExecutor:
                 [SlurmExecutor(account="account1"), SlurmExecutor(account="account2")],
                 num_tasks=3,
             )
+
+
+class TestSlurmBatchRequestNonContainerMode:
+    """Tests for non-container mode support (container_image=None)."""
+
+    @pytest.fixture
+    def executor_with_container(self):
+        """Create an executor with container image."""
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            nodes=2,
+            ntasks_per_node=8,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=["/data:/data"],
+        )
+        executor.job_name = "test-job"
+        executor.experiment_dir = "/local/experiments"
+        executor.job_dir = "/local/experiments/test-job"
+        executor.experiment_id = "exp-123"
+
+        # Mock tunnel
+        tunnel = MagicMock(spec=LocalTunnel)
+        tunnel.job_dir = "/remote/experiments/exp-123"
+        executor.tunnel = tunnel
+
+        return executor
+
+    @pytest.fixture
+    def executor_without_container(self):
+        """Create an executor without container image (non-container mode)."""
+        executor = SlurmExecutor(
+            account="test_account",
+            partition="gpu",
+            nodes=2,
+            ntasks_per_node=8,
+            container_image=None,  # Non-container mode
+        )
+        executor.job_name = "test-job"
+        executor.experiment_dir = "/local/experiments"
+        executor.job_dir = "/local/experiments/test-job"
+        executor.experiment_id = "exp-123"
+
+        # Mock tunnel
+        tunnel = MagicMock(spec=LocalTunnel)
+        tunnel.job_dir = "/remote/experiments/exp-123"
+        executor.tunnel = tunnel
+
+        return executor
+
+    def test_materialize_with_container_uses_container_flags(self, executor_with_container):
+        """Test that materialize uses container flags when container_image is set."""
+        request = SlurmBatchRequest(
+            launch_cmd=["sbatch", "--parsable"],
+            jobs=["test-job"],
+            command_groups=[["python train.py"]],
+            executor=executor_with_container,
+            max_retries=0,
+            extra_env={},
+        )
+
+        script = request.materialize()
+
+        # Should contain container flags
+        assert "--container-image" in script
+        assert "--container-mounts" in script
+        assert "--container-workdir" in script
+        # Should NOT contain --chdir (used for non-container mode)
+        assert "--chdir" not in script
+        # Should contain /nemo_run paths (not substituted)
+        assert f"/{RUNDIR_NAME}" in script
+
+    def test_materialize_without_container_uses_chdir(self, executor_without_container):
+        """Test that materialize uses --chdir when container_image is None."""
+        request = SlurmBatchRequest(
+            launch_cmd=["sbatch", "--parsable"],
+            jobs=["test-job"],
+            command_groups=[["python train.py"]],
+            executor=executor_without_container,
+            max_retries=0,
+            extra_env={},
+        )
+
+        script = request.materialize()
+
+        # Should contain --chdir flag for working directory
+        assert "--chdir" in script
+        # Should NOT contain container flags
+        assert "--container-image" not in script
+        assert "--container-mounts" not in script
+        assert "--container-workdir" not in script
+
+    def test_materialize_without_container_substitutes_rundir_paths(
+        self, executor_without_container
+    ):
+        """Test that /{RUNDIR_NAME} paths are substituted with actual paths in non-container mode."""
+        request = SlurmBatchRequest(
+            launch_cmd=["sbatch", "--parsable"],
+            jobs=["test-job"],
+            command_groups=[["python train.py"]],
+            executor=executor_without_container,
+            max_retries=0,
+            extra_env={},
+        )
+
+        script = request.materialize()
+
+        # Should NOT contain /nemo_run paths (should be substituted)
+        assert f"/{RUNDIR_NAME}/code" not in script
+        # Should contain the actual job directory path
+        actual_job_dir = "/remote/experiments/exp-123/test-job"
+        assert f"{actual_job_dir}/code" in script
+
+    def test_materialize_with_container_preserves_rundir_paths(self, executor_with_container):
+        """Test that /{RUNDIR_NAME} paths are NOT substituted when using container."""
+        request = SlurmBatchRequest(
+            launch_cmd=["sbatch", "--parsable"],
+            jobs=["test-job"],
+            command_groups=[["python train.py"]],
+            executor=executor_with_container,
+            max_retries=0,
+            extra_env={},
+        )
+
+        script = request.materialize()
+
+        # Should contain /nemo_run paths (not substituted for container mode)
+        assert f"/{RUNDIR_NAME}" in script
+
+    def test_non_container_mode_chdir_points_to_code_directory(self, executor_without_container):
+        """Test that --chdir in non-container mode points to the code directory."""
+        request = SlurmBatchRequest(
+            launch_cmd=["sbatch", "--parsable"],
+            jobs=["test-job"],
+            command_groups=[["python train.py"]],
+            executor=executor_without_container,
+            max_retries=0,
+            extra_env={},
+        )
+
+        script = request.materialize()
+
+        # The --chdir should point to {job_dir}/code
+        expected_chdir = "--chdir /remote/experiments/exp-123/test-job/code"
+        assert expected_chdir in script

@@ -936,7 +936,18 @@ class SlurmBatchRequest:
             container_image: Optional[str],
             container_env: Optional[list[str]] = None,
         ) -> list[str]:
-            _container_flags = ["--container-image", container_image] if container_image else []
+            """Get srun flags for container or non-container mode.
+
+            For non-container mode, returns --chdir flag to set working directory.
+            For container mode, returns container-related flags (image, mounts, workdir, env).
+            """
+            if container_image is None:
+                # Non-container mode: use --chdir to set working directory
+                workdir = os.path.join(src_job_dir, "code")
+                return ["--chdir", workdir]
+
+            # Container mode: set up container mounts and workdir
+            _container_flags = ["--container-image", container_image]
 
             new_mounts = copy.deepcopy(base_mounts)
             for i, mount in enumerate(new_mounts):
@@ -1077,6 +1088,18 @@ class SlurmBatchRequest:
             vars_to_fill["fault_tol_job_results_file"] = self.launcher.job_results_file
 
         sbatch_script = fill_template("slurm.sh.j2", vars_to_fill)
+
+        # For non-container mode, substitute /{RUNDIR_NAME} paths with actual job directory
+        # Check both top-level container_image and resource_group container images
+        has_container = self.executor.container_image is not None
+        if self.executor.run_as_group and self.executor.resource_group:
+            has_container = has_container or any(
+                rg.container_image is not None for rg in self.executor.resource_group
+            )
+        if not has_container:
+            actual_job_dir = os.path.join(slurm_job_dir, job_directory_name)
+            sbatch_script = sbatch_script.replace(f"/{RUNDIR_NAME}", actual_job_dir)
+
         return sbatch_script
 
     def __repr__(self) -> str:

@@ -391,6 +391,45 @@ class TestScript:
             "\"echo 'test'\"",
         ]
 
+    def test_to_command_substitute_rundir_path(self, tmp_path):
+        """Test that substitute_rundir_path substitutes /nemo_run paths in inline scripts."""
+        from nemo_run.config import RUNDIR_NAME
+
+        script = Script(inline=f"cd /{RUNDIR_NAME}/code && python /{RUNDIR_NAME}/scripts/run.py")
+        filename = str(tmp_path / "test_script.sh")
+
+        script.to_command(
+            filename=filename,
+            substitute_rundir_path="/remote/experiments/exp-123/test-job",
+        )
+
+        # Read the file and verify paths were substituted
+        with open(filename) as f:
+            content = f.read()
+
+        assert f"/{RUNDIR_NAME}" not in content
+        assert "/remote/experiments/exp-123/test-job/code" in content
+        assert "/remote/experiments/exp-123/test-job/scripts/run.py" in content
+
+    def test_to_command_without_substitute_rundir_path(self, tmp_path):
+        """Test that paths are NOT substituted when substitute_rundir_path is None."""
+        from nemo_run.config import RUNDIR_NAME
+
+        script = Script(inline=f"cd /{RUNDIR_NAME}/code && python /{RUNDIR_NAME}/scripts/run.py")
+        filename = str(tmp_path / "test_script.sh")
+
+        script.to_command(
+            filename=filename,
+            substitute_rundir_path=None,  # Default, no substitution
+        )
+
+        # Read the file and verify paths were NOT substituted
+        with open(filename) as f:
+            content = f.read()
+
+        assert f"/{RUNDIR_NAME}/code" in content
+        assert f"/{RUNDIR_NAME}/scripts/run.py" in content
+
 
 class TestGetUnderlyingTypes:
     def test_simple_type(self):
