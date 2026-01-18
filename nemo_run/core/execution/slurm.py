@@ -1092,7 +1092,13 @@ class SlurmBatchRequest:
         sbatch_script = fill_template("slurm.sh.j2", vars_to_fill)
 
         # For non-container mode, substitute /{RUNDIR_NAME} paths with actual job directory
-        if self.executor.container_image is None:
+        # Check both top-level container_image and resource_group container images
+        has_container = self.executor.container_image is not None
+        if self.executor.run_as_group and self.executor.resource_group:
+            has_container = has_container or any(
+                rg.container_image is not None for rg in self.executor.resource_group
+            )
+        if not has_container:
             actual_job_dir = os.path.join(slurm_job_dir, job_directory_name)
             sbatch_script = sbatch_script.replace(f"/{RUNDIR_NAME}", actual_job_dir)
 
