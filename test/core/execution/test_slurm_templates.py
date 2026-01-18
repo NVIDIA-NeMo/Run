@@ -54,6 +54,7 @@ class TestSlurmBatchRequest:
             account="account",
             job_dir="/root/sample_job",
             tunnel=LocalTunnel(job_dir="/root"),
+            container_image="test_image",
         )
         slurm_config.job_name = "sample_job"
         max_retries = 3
@@ -79,6 +80,7 @@ class TestSlurmBatchRequest:
             account="account",
             job_dir="/root/sample_job",
             tunnel=LocalTunnel(job_dir="/root/"),
+            container_image="test_image",
         )
         slurm_config.job_name = "sample_job"
         slurm_config.launcher = FaultTolerance(
