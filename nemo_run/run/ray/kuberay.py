@@ -745,7 +745,20 @@ class KubeRayJob:
     executor: KubeRayExecutor
 
     def __post_init__(self):
-        config.load_kube_config()
+        try:
+            config.load_kube_config()
+        except Exception as kube_config_error:
+            logger.error(
+                "Error loading kube-config: %s, trying with incluster config", kube_config_error
+            )
+            try:
+                config.load_incluster_config()
+            except Exception as incluster_config_error:
+                logger.error(
+                    "Error loading incluster config: %s, raising original error",
+                    incluster_config_error,
+                )
+                raise kube_config_error from incluster_config_error
 
         # Lazily create K8s API clients if not supplied
         self.api = client.CustomObjectsApi()
