@@ -94,7 +94,10 @@ class RayJob:
         )
 
     def stop(self, wait: bool = False) -> None:
-        self.backend.stop(wait=wait)  # type: ignore[attr-defined]
+        if isinstance(self.backend, KubeRayJob):
+            self.backend.stop()  # type: ignore[attr-defined]
+        else:
+            self.backend.stop(wait=wait)  # type: ignore[attr-defined]
 
     def status(self, display: bool = True):
         return self.backend.status(display=display)  # type: ignore[attr-defined]
