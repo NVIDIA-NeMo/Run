@@ -60,7 +60,20 @@ class KubeRayCluster:
     def __post_init__(self) -> None:  # noqa: D401 – simple verb is fine
         """Initialise Kubernetes API clients once the instance is created."""
         # Load local kube-config once; the function returns *None* so we don't store it.
-        config.load_kube_config()
+        try:
+            config.load_kube_config()
+        except Exception as kube_config_error:
+            logger.error(
+                "Error loading kube-config: %s, trying with incluster config", kube_config_error
+            )
+            try:
+                config.load_incluster_config()
+            except Exception as incluster_config_error:
+                logger.error(
+                    "Error loading incluster config: %s, raising original error",
+                    incluster_config_error,
+                )
+                raise kube_config_error from incluster_config_error
 
         # The dedicated clients are what we interact with throughout the class
         # – separating CoreV1 for pods/services from CustomObjects for CRDs.
