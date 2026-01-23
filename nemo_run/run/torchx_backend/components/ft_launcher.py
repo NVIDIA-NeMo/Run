@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import shlex
 from typing import Optional
 
@@ -21,6 +22,8 @@ import torchx.specs as specs
 from torchx.components import dist as torchx_dist
 
 from nemo_run.run.torchx_backend.components import torchrun
+
+logger = logging.getLogger(__name__)
 
 
 # Adapted from torchrun component
@@ -115,7 +118,10 @@ def ft_launcher(
             ft_args += ["--ft-log_level", log_level]
 
         if max_restarts:
-            ft_args += ["--max-restarts", str(max_restarts)]
+            if dgxc is True:
+                logger.warning("max_restarts is ignored for DGXCloudExecutor")
+            else:
+                ft_args += ["--max-restarts", str(max_restarts)]
 
         if dgxc is True:
             ft_args += ["--ft-use-infra-group-rank", "False"]
