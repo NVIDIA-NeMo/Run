@@ -29,8 +29,11 @@ from typing import Any, Iterable, Optional
 import requests
 from invoke.context import Context
 
-from nemo_run.config import get_nemorun_home
+from nemo_run.config import RUNDIR_NAME, get_nemorun_home
 from nemo_run.core.execution.base import Executor, ExecutorMacros
+from nemo_run.core.execution.launcher import FaultTolerance, Launcher, Torchrun
+from nemo_run.core.execution.utils import fill_template
+from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
@@ -461,6 +464,24 @@ mkdir -p {self.pvc_job_dir}/logs
                 response.text,
             )
 
+    def _setup_launcher(self):
+        super()._setup_launcher()
+        launcher = self.launcher
+        if launcher and isinstance(launcher, (FaultTolerance, Torchrun)):
+            self.torchrun_nproc_per_node = self.nprocs_per_node
+            self.ntasks_per_node = 1
+            CONSOLE.log(
+                f"Detected {launcher.__class__.__name__} launcher, setting ntasks_per_node=1 and torchrun_nproc_per_node={self.torchrun_nproc_per_node}"
+            )
+
+        if launcher and isinstance(launcher, FaultTolerance):
+            base_dir = os.path.join(self.job_dir, Path(self.job_dir).name)
+            launcher.cfg_path = os.path.join(base_dir, f"{self.job_name}_ft_cfg.yml")
+            launcher.finished_flag_file = os.path.join(
+                "/", RUNDIR_NAME, f"{self.job_name}_finished_flag"
+            )
+            launcher.job_results_file = os.path.join(base_dir, f"{self.job_name}_job_results")
+
     def cleanup(self, handle: str): ...
 
     def assign(
@@ -556,3 +577,55 @@ mkdir -p {self.pvc_job_dir}/logs
         if token:
             headers["Authorization"] = f"Bearer {token}"
         return headers
+
+
+@dataclass(kw_only=True)
+class DGXCloudRequest:
+    launch_cmd: list[str]
+    jobs: list[str]
+    executor: DGXCloudExecutor
+    max_retries: int
+    extra_env: dict[str, str]
+    launcher: Optional[Launcher] = None
+
+    def materialize(self) -> str:
+        """Creates the content of a DGXC entrypoint script."""
+
+        # 1. Environment Variables
+        # Combine executor defaults with extra envs
+        env_vars = []
+        full_env_vars = self.executor.env_vars | self.extra_env
+        for key, value in full_env_vars.items():
+            env_vars.append(f"export {key.upper()}={value}")
+
+        # 3. Prepare Template Variables
+        vars_to_fill = {
+            "max_retries": self.max_retries,
+            "env_vars": env_vars,
+            "training_command": " ".join(self.launch_cmd),
+            "ft_enabled": self.launcher and isinstance(self.launcher, FaultTolerance),
+        }
+
+        # 4. Fault Tolerance Injection
+        if self.launcher and isinstance(self.launcher, FaultTolerance):
+            assert (
+                self.launcher.cfg_path
+                and self.launcher.finished_flag_file
+                and self.launcher.job_results_file
+            ), "Fault Tolerance requires cfg_path, finished_flag_file, and job_results_file"
+
+            vars_to_fill["fault_tol_cfg_path"] = self.launcher.cfg_path
+            vars_to_fill["fault_tol_finished_flag_file"] = self.launcher.finished_flag_file
+            vars_to_fill["fault_tol_job_results_file"] = self.launcher.job_results_file
+
+        # Render the template
+        entrypoint_script = fill_template("dgxc.sh.j2", vars_to_fill)
+        return entrypoint_script
+
+    def __repr__(self) -> str:
+        return f"""# DGXC Entrypoint Script Request
+# Executor: {self.executor.__class__.__name__}
+# Jobs: {self.jobs}
+# ---------------------------------------------------
+{self.materialize()}
+"""
