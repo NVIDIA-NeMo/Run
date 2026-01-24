@@ -23,10 +23,7 @@ from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.packaging.base import Packager
-from nemo_run.run.torchx_backend.packaging import (
-    merge_executables,
-    package,
-)
+from nemo_run.run.torchx_backend.packaging import merge_executables, package
 
 
 @dataclass(kw_only=True)
@@ -265,15 +262,15 @@ def test_package_fault_tolerance(mock_executor):
 
     assert role.entrypoint == "ft_launcher"
     assert role.args == [
-        "--ft-param-workload_check_interval",
+        "--ft-workload_check_interval",
         "10",
-        "--ft-param-initial_rank_heartbeat_timeout",
+        "--ft-initial_rank_heartbeat_timeout",
         "5",
-        "--ft-param-rank_heartbeat_timeout",
+        "--ft-rank_heartbeat_timeout",
         "5",
-        "--ft-param-rank_termination_signal",
+        "--ft-rank_termination_signal",
         "SIGINT",
-        "--ft-param-log_level",
+        "--ft-log_level",
         "INFO",
         "--rdzv-backend",
         "etcd",
