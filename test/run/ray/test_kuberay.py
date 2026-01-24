@@ -2102,9 +2102,7 @@ class TestKubeConfigLoadingFallback:
         with patch(
             "nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error
         ) as mock_load_kube:
-            with patch(
-                "nemo_run.run.ray.kuberay.config.load_incluster_config"
-            ) as mock_incluster:
+            with patch("nemo_run.run.ray.kuberay.config.load_incluster_config") as mock_incluster:
                 with patch("nemo_run.run.ray.kuberay.client.CustomObjectsApi"):
                     with patch("nemo_run.run.ray.kuberay.client.CoreV1Api"):
                         with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
@@ -2121,9 +2119,7 @@ class TestKubeConfigLoadingFallback:
         kube_error = Exception("Kube config file not found")
         incluster_error = Exception("Not running inside a cluster")
 
-        with patch(
-            "nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error
-        ):
+        with patch("nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error):
             with patch(
                 "nemo_run.run.ray.kuberay.config.load_incluster_config",
                 side_effect=incluster_error,
@@ -2160,9 +2156,7 @@ class TestKubeConfigLoadingFallback:
         with patch(
             "nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error
         ) as mock_load_kube:
-            with patch(
-                "nemo_run.run.ray.kuberay.config.load_incluster_config"
-            ) as mock_incluster:
+            with patch("nemo_run.run.ray.kuberay.config.load_incluster_config") as mock_incluster:
                 with patch("nemo_run.run.ray.kuberay.client.CustomObjectsApi"):
                     with patch("nemo_run.run.ray.kuberay.client.CoreV1Api"):
                         with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
@@ -2179,9 +2173,7 @@ class TestKubeConfigLoadingFallback:
         kube_error = Exception("Kube config file not found")
         incluster_error = Exception("Not running inside a cluster")
 
-        with patch(
-            "nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error
-        ):
+        with patch("nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error):
             with patch(
                 "nemo_run.run.ray.kuberay.config.load_incluster_config",
                 side_effect=incluster_error,
@@ -2200,9 +2192,7 @@ class TestKubeConfigLoadingFallback:
         kube_error = Exception("Kube config file not found")
         incluster_error = Exception("Not running inside a cluster")
 
-        with patch(
-            "nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error
-        ):
+        with patch("nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error):
             with patch(
                 "nemo_run.run.ray.kuberay.config.load_incluster_config",
                 side_effect=incluster_error,
