@@ -1164,8 +1164,8 @@ class TestDGXCloudExecutor:
         with patch("nemo_run.core.execution.dgxcloud.CONSOLE"):
             executor._setup_launcher()
 
-        # When no launcher, ntasks_per_node should remain as nprocs_per_node
-        assert executor.ntasks_per_node == 8
+        # When no launcher, torchrun_nproc_per_node and ntasks_per_node should not be modified
+        # ntasks_per_node is only set when launcher is Torchrun or FaultTolerance
         assert (
             not hasattr(executor, "torchrun_nproc_per_node")
             or executor.torchrun_nproc_per_node is None
@@ -1259,7 +1259,7 @@ class TestDGXCloudExecutor:
         executor.job_dir = "/mnt/workspace/test_training"
 
         with patch("nemo_run.core.execution.dgxcloud.CONSOLE"):
-            with patch("nemo_run.config.RUNDIR_NAME", "custom_rundir"):
+            with patch("nemo_run.core.execution.dgxcloud.RUNDIR_NAME", "custom_rundir"):
                 executor._setup_launcher()
 
         # Check path construction
