@@ -1144,6 +1144,183 @@ class TestDGXCloudExecutor:
         assert "Authorization" in headers
         assert headers["Authorization"] == "Bearer test_token"
 
+    def test_setup_launcher_no_launcher(self):
+        """Test _setup_launcher when no launcher is set."""
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            nprocs_per_node=8,
+        )
+
+        # Set up job details required by _setup_launcher
+        executor.job_name = "test_job"
+        executor.job_dir = "/workspace/test_job"
+
+        with patch("nemo_run.core.execution.dgxcloud.CONSOLE"):
+            executor._setup_launcher()
+
+        # When no launcher, ntasks_per_node should remain as nprocs_per_node
+        assert executor.ntasks_per_node == 8
+        assert (
+            not hasattr(executor, "torchrun_nproc_per_node")
+            or executor.torchrun_nproc_per_node is None
+        )
+
+    def test_setup_launcher_with_torchrun(self):
+        """Test _setup_launcher with Torchrun launcher."""
+        from nemo_run.core.execution.launcher import Torchrun
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            nprocs_per_node=8,
+            launcher=Torchrun(),
+        )
+
+        executor.job_name = "test_job"
+        executor.job_dir = "/workspace/test_job"
+
+        with patch("nemo_run.core.execution.dgxcloud.CONSOLE") as mock_console:
+            executor._setup_launcher()
+
+        # With Torchrun, ntasks_per_node should be 1 and torchrun_nproc_per_node should be nprocs_per_node
+        assert executor.ntasks_per_node == 1
+        assert executor.torchrun_nproc_per_node == 8
+        mock_console.log.assert_called_once()
+        assert "Torchrun" in mock_console.log.call_args[0][0]
+
+    def test_setup_launcher_with_fault_tolerance(self):
+        """Test _setup_launcher with FaultTolerance launcher."""
+        from nemo_run.core.execution.launcher import FaultTolerance
+
+        ft_launcher = FaultTolerance()
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            nprocs_per_node=4,
+            launcher=ft_launcher,
+        )
+
+        executor.job_name = "my_ft_job"
+        executor.job_dir = "/workspace/jobs/my_ft_job"
+
+        with patch("nemo_run.core.execution.dgxcloud.CONSOLE") as mock_console:
+            with patch("nemo_run.config.RUNDIR_NAME", "nemo_run"):
+                executor._setup_launcher()
+
+        # Verify Torchrun settings
+        assert executor.ntasks_per_node == 1
+        assert executor.torchrun_nproc_per_node == 4
+
+        # Verify FaultTolerance paths are set
+        assert ft_launcher.cfg_path == "/workspace/jobs/my_ft_job/my_ft_job/my_ft_job_ft_cfg.yml"
+        assert ft_launcher.finished_flag_file == "/nemo_run/my_ft_job_finished_flag"
+        assert (
+            ft_launcher.job_results_file
+            == "/workspace/jobs/my_ft_job/my_ft_job/my_ft_job_job_results"
+        )
+
+        # Verify console log was called
+        mock_console.log.assert_called_once()
+        assert "FaultTolerance" in mock_console.log.call_args[0][0]
+
+    def test_setup_launcher_fault_tolerance_paths(self):
+        """Test that FaultTolerance paths are correctly constructed."""
+        from nemo_run.core.execution.launcher import FaultTolerance
+
+        ft_launcher = FaultTolerance()
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            launcher=ft_launcher,
+        )
+
+        executor.job_name = "test_training"
+        executor.job_dir = "/mnt/workspace/test_training"
+
+        with patch("nemo_run.core.execution.dgxcloud.CONSOLE"):
+            with patch("nemo_run.config.RUNDIR_NAME", "custom_rundir"):
+                executor._setup_launcher()
+
+        # Check path construction
+        base_dir = "/mnt/workspace/test_training/test_training"
+        assert ft_launcher.cfg_path == f"{base_dir}/test_training_ft_cfg.yml"
+        assert ft_launcher.finished_flag_file == "/custom_rundir/test_training_finished_flag"
+        assert ft_launcher.job_results_file == f"{base_dir}/test_training_job_results"
+
+    def test_setup_launcher_with_different_nprocs(self):
+        """Test _setup_launcher with different nprocs_per_node values."""
+        from nemo_run.core.execution.launcher import Torchrun
+
+        for nprocs in [1, 2, 4, 8, 16]:
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+                nprocs_per_node=nprocs,
+                launcher=Torchrun(),
+            )
+
+            executor.job_name = "test_job"
+            executor.job_dir = "/workspace/test_job"
+
+            with patch("nemo_run.core.execution.dgxcloud.CONSOLE"):
+                executor._setup_launcher()
+
+            assert executor.torchrun_nproc_per_node == nprocs
+            assert executor.ntasks_per_node == 1
+
+    def test_setup_launcher_super_called(self):
+        """Test that _setup_launcher calls super()._setup_launcher()."""
+        from nemo_run.core.execution.launcher import Torchrun
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            kube_apiserver_url="https://127.0.0.1:443",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            launcher=Torchrun(),
+        )
+
+        executor.job_name = "test_job"
+        executor.job_dir = "/workspace/test_job"
+
+        with patch("nemo_run.core.execution.dgxcloud.CONSOLE"):
+            with patch.object(
+                executor.__class__.__bases__[0], "_setup_launcher"
+            ) as mock_super_setup:
+                executor._setup_launcher()
+
+                # Verify super() was called
+                mock_super_setup.assert_called_once()
+
 
 class TestDGXCloudRequest:
     """Test DGXCloudRequest dataclass and its methods."""
