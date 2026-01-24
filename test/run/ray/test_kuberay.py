@@ -2195,75 +2195,22 @@ class TestKubeConfigLoadingFallback:
                 assert exc_info.value == kube_error
                 assert "Kube config file not found" in str(exc_info.value)
 
-    def test_executor_kube_config_success(self):
-        """Test KubeRayExecutor when kube config loads successfully."""
-        with patch(
-            "nemo_run.core.execution.kuberay.config.load_kube_config"
-        ) as mock_load_kube:
-            with patch(
-                "nemo_run.core.execution.kuberay.config.load_incluster_config"
-            ) as mock_incluster:
-                with patch("nemo_run.core.execution.kuberay.client.CustomObjectsApi"):
-                    with patch("nemo_run.core.execution.kuberay.client.CoreV1Api"):
-                        # Create executor to trigger __post_init__ which loads config
-                        _ = KubeRayExecutor(namespace="test-namespace")
-
-                        # Verify kube config was loaded and incluster was NOT called
-                        mock_load_kube.assert_called_once()
-                        mock_incluster.assert_not_called()
-
-    def test_executor_fallback_to_incluster(self):
-        """Test KubeRayExecutor falls back to incluster config when kube config fails."""
-        kube_error = Exception("Kube config file not found")
-
-        with patch(
-            "nemo_run.core.execution.kuberay.config.load_kube_config", side_effect=kube_error
-        ) as mock_load_kube:
-            with patch(
-                "nemo_run.core.execution.kuberay.config.load_incluster_config"
-            ) as mock_incluster:
-                with patch("nemo_run.core.execution.kuberay.client.CustomObjectsApi"):
-                    with patch("nemo_run.core.execution.kuberay.client.CoreV1Api"):
-                        # Create executor to trigger __post_init__ which loads config
-                        _ = KubeRayExecutor(namespace="test-namespace")
-
-                        # Verify fallback occurred
-                        mock_load_kube.assert_called_once()
-                        mock_incluster.assert_called_once()
-
-    def test_executor_both_configs_fail(self):
-        """Test KubeRayExecutor raises original error when both configs fail."""
-        kube_error = Exception("Kube config file not found")
-        incluster_error = Exception("Not running inside a cluster")
-
-        with patch(
-            "nemo_run.core.execution.kuberay.config.load_kube_config", side_effect=kube_error
-        ):
-            with patch(
-                "nemo_run.core.execution.kuberay.config.load_incluster_config",
-                side_effect=incluster_error,
-            ):
-                with pytest.raises(Exception) as exc_info:
-                    KubeRayExecutor(namespace="test-namespace")
-
-                # Should raise the original kube config error (not the incluster error)
-                assert exc_info.value == kube_error
-                assert "Kube config file not found" in str(exc_info.value)
-
     def test_error_chaining_preserved(self):
         """Test that error chaining is preserved (raise X from Y)."""
         kube_error = Exception("Kube config file not found")
         incluster_error = Exception("Not running inside a cluster")
 
         with patch(
-            "nemo_run.core.execution.kuberay.config.load_kube_config", side_effect=kube_error
+            "nemo_run.run.ray.kuberay.config.load_kube_config", side_effect=kube_error
         ):
             with patch(
-                "nemo_run.core.execution.kuberay.config.load_incluster_config",
+                "nemo_run.run.ray.kuberay.config.load_incluster_config",
                 side_effect=incluster_error,
             ):
                 with pytest.raises(Exception) as exc_info:
-                    KubeRayExecutor(namespace="test-namespace")
+                    with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
+                        executor = KubeRayExecutor(namespace="test-namespace")
+                        KubeRayJob(name="test-job", executor=executor)
 
                 # Verify error chaining (raise kube_error from incluster_error)
                 assert exc_info.value == kube_error
