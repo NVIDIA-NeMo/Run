@@ -603,7 +603,7 @@ class DGXCloudRequest:
             "max_retries": self.max_retries,
             "env_vars": env_vars,
             "training_command": " ".join(self.launch_cmd),
-            "ft_enabled": self.launcher and isinstance(self.launcher, FaultTolerance),
+            "ft_enabled": bool(self.launcher and isinstance(self.launcher, FaultTolerance)),
         }
 
         # 4. Fault Tolerance Injection
