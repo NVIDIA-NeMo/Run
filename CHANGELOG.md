@@ -87,6 +87,11 @@
 
 ### Detailed Changelogs:
 
+- No changes in this release
+## NVIDIA Nemo Run 0.6.0
+
+### Detailed Changelogs:
+
 ## Executors
 
 - Added Pre-Launch Commands Support to LeptonExecutor [#312](https://github.com/NVIDIA-NeMo/Run/pull/312)
