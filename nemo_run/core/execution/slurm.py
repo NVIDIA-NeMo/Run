@@ -985,6 +985,10 @@ class SlurmBatchRequest:
 
                 group_env_vars.append(current_env_vars)
 
+                _container_env = set(resource_req.container_env or [])
+                _container_env.update(full_env_vars.keys())
+                _container_env.update(resource_req.env_vars.keys())
+
                 _container_flags = get_container_flags(
                     base_mounts=resource_req.container_mounts,
                     src_job_dir=os.path.join(
@@ -992,7 +996,7 @@ class SlurmBatchRequest:
                         job_directory_name,
                     ),
                     container_image=resource_req.container_image,
-                    container_env=resource_req.container_env,
+                    container_env=sorted(_container_env),
                 )
                 _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
                 _srun_args.extend(resource_req.srun_args or [])
@@ -1001,6 +1005,10 @@ class SlurmBatchRequest:
                 cmd_stderr = stderr_flags.copy()
                 if cmd_stderr:
                     cmd_stderr[-1] = cmd_stderr[-1].replace(original_job_name, self.jobs[group_ind])
+
+                _container_env = set(self.executor.container_env or [])
+                _container_env.update(full_env_vars.keys())
+
                 _container_flags = get_container_flags(
                     base_mounts=self.executor.container_mounts,
                     src_job_dir=os.path.join(
@@ -1008,7 +1016,7 @@ class SlurmBatchRequest:
                         job_directory_name,
                     ),
                     container_image=self.executor.container_image,
-                    container_env=self.executor.container_env,
+                    container_env=sorted(_container_env),
                 )
                 _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
                 _srun_args.extend(self.executor.srun_args or [])
