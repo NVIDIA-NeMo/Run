@@ -101,9 +101,9 @@ managed = true
 prerelease = "allow"
 conflicts = [
     [
-        { group = "docs", name = "colorama" },
-        { extra = "skypilot", name = "colorama" },
-        { extra = "skypilot-all", name = "colorama" }
+        { group = "docs" },
+        { extra = "skypilot" },
+        { extra = "skypilot-all" }
     ]
 ]
 
