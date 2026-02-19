@@ -1,7 +1,15 @@
 [
     {
         "preferred": true,
+        "version": "latest",
+        "url": "http://docs.nvidia.com/nemo/run/latest"
+    },
+    {
         "version": "0.8.0",
         "url": "http://docs.nvidia.com/nemo/run/0.8.0"
+    },
+    {
+        "version": "0.5.0",
+        "url": "http://docs.nvidia.com/nemo/run/0.5.0"
     }
 ]
