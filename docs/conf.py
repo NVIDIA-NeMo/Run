@@ -27,9 +27,9 @@ from pathlib import Path
 sys.path.append(str(Path("../../examples").resolve()))
 
 project = "NeMo-Run"
-copyright = "2025, NVIDIA"
+copyright = "2026, NVIDIA"
 author = "NVIDIA"
-release = "0.5.0"
+release = "0.8.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
