@@ -32,7 +32,10 @@ conflicts = [[
 prerelease-mode = "allow"
 
 [manifest]
-overrides = [{ name = "urllib3", specifier = ">=2.6.3" }]
+overrides = [
+    { name = "cryptography" },
+    { name = "urllib3", specifier = ">=2.6.3" },
+]
 
 [[package]]
 name = "absl-py"
@@ -4476,7 +4479,7 @@ lint = [
 [package.metadata]
 requires-dist = [
     { name = "catalogue", specifier = ">=2.0.10" },
-    { name = "cryptography", specifier = "<43.0.0" },
+    { name = "cryptography" },
     { name = "fabric", specifier = ">=3.2.2" },
     { name = "fiddle", specifier = ">=0.3.0" },
     { name = "inquirerpy", specifier = ">=0.3.4" },
