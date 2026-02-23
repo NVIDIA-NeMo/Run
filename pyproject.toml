@@ -33,6 +33,7 @@ dependencies = [
     "leptonai>=0.26.6",
     "packaging",
     "toml",
+    "urllib3>=2.6.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -99,6 +100,9 @@ build-backend = "hatchling.build"
 [tool.uv]
 managed = true
 prerelease = "allow"
+override-dependencies = [
+    "urllib3>=2.6.3",
+]
 conflicts = [
     [
         { group = "docs" },
