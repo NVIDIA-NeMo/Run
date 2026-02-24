@@ -21,11 +21,16 @@ from queue import Queue
 from typing import Optional, TextIO
 
 from torchx.cli.cmd_log import _prefix_line, find_role_replicas, validate
-from torchx.cli.colors import ENDC, GREEN
 from torchx.schedulers.api import Stream
 from torchx.specs.api import is_started, parse_app_handle
 from torchx.specs.builders import make_app_handle
 from torchx.util.types import none_throws
+
+# TorchX moved color constants from `torchx.cli.colors` to `torchx.util.colors` on main.
+try:
+    from torchx.util.colors import ENDC, GREEN
+except ImportError:  # pragma: no cover - compatibility with older TorchX releases
+    from torchx.cli.colors import ENDC, GREEN
 
 from nemo_run.core.execution.base import LogSupportedExecutor
 from nemo_run.core.frontend.console.api import CONSOLE
