@@ -31,12 +31,6 @@ conflicts = [[
 [options]
 prerelease-mode = "allow"
 
-[manifest]
-overrides = [
-    { name = "cryptography" },
-    { name = "urllib3", specifier = ">=2.6.3" },
-]
-
 [[package]]
 name = "absl-py"
 version = "2.1.0"
@@ -3237,7 +3231,7 @@ wheels = [
 
 [[package]]
 name = "ibm-cloud-sdk-core"
-version = "3.18.0"
+version = "3.24.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyjwt" },
@@ -3245,39 +3239,41 @@ dependencies = [
     { name = "requests" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/82/5fa378337357b0cdcc1f290b6b78457549939054e24f32e54ad378e0d663/ibm-cloud-sdk-core-3.18.0.tar.gz", hash = "sha256:bf2b6940761970c14b53fc8fc135af567c58b9709db3214be403a383dd51cabb", size = 57929, upload-time = "2023-11-15T18:07:51.467Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/e5/5de9646a57209bd59ee504ea11b9d83fab0e273c648d5cb9ec529c2dfb21/ibm_cloud_sdk_core-3.24.1.tar.gz", hash = "sha256:96b4b4deefc7b72874ef44545362e63ee3a7d6a4c82e68f36c482c8033683ab3", size = 76252, upload-time = "2025-05-30T15:47:12.802Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/a9/7356d14186089da1290a77d9e6e737f4cb62ab75e0cbe405ba6be7d3b322/ibm_cloud_sdk_core-3.24.1-py3-none-any.whl", hash = "sha256:28eb70379977bac15318a07634e4b56d9de671186090d8accec180b77ffb7969", size = 75783, upload-time = "2025-05-30T15:47:11.686Z" },
+]
 
 [[package]]
 name = "ibm-cos-sdk"
-version = "2.13.5"
+version = "2.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ibm-cos-sdk-core" },
     { name = "ibm-cos-sdk-s3transfer" },
     { name = "jmespath" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e4/e6/908791df6fd31d94e80be9597242eac2b942c28b0d4ea1fc6b963d4a6be3/ibm-cos-sdk-2.13.5.tar.gz", hash = "sha256:1aff7f9863ac9072a3db2f0053bec99478b26f3fb5fa797ce96a15bbb13cd40e", size = 58638, upload-time = "2024-06-11T16:39:10.253Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/ca/0d9856508d93dd66086286a66fb368cd69f6c90dfe1e5116713cec2e2866/ibm-cos-sdk-2.10.0.tar.gz", hash = "sha256:053748dee2920129bc876e4740120b3a89ab21591c41113b318ab198866b1fd8", size = 52590, upload-time = "2021-03-15T21:21:03.37Z" }
 
 [[package]]
 name = "ibm-cos-sdk-core"
-version = "2.13.5"
+version = "2.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "requests" },
-    { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/ff/cabdf3d7892c3607297ffb7d77c3caafe2f50f876d29e90c44ac67495cef/ibm-cos-sdk-core-2.13.5.tar.gz", hash = "sha256:d3a99d8b06b3f8c00b1a9501f85538d592463e63ddf8cec32672ab5a0b107b83", size = 1101815, upload-time = "2024-06-11T16:38:58.085Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/66/c51ccc8e318de67aa738aec3560ee93164d7547addac5f59e56b1f293205/ibm-cos-sdk-core-2.10.0.tar.gz", hash = "sha256:96c6554cb829d7d84d5bb0f74770bff38bae18ef28eb950e31849fb70cd33576", size = 888166, upload-time = "2021-03-15T21:20:51.634Z" }
 
 [[package]]
 name = "ibm-cos-sdk-s3transfer"
-version = "2.13.5"
+version = "2.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ibm-cos-sdk-core" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6d/42/f2faefd0c3360928336b93a14db2aff25f556aa50252188efd1ba363e371/ibm-cos-sdk-s3transfer-2.13.5.tar.gz", hash = "sha256:9649b1f2201c6de96ff5a6b5a3686de3a809e6ef3b8b12c7c4f2f7ce72da7749", size = 139491, upload-time = "2024-06-11T16:39:04.148Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/12/437a2dbad65815e207b526f7d7e0ce5bfe8f239796be1661feeb4c9218c9/ibm-cos-sdk-s3transfer-2.10.0.tar.gz", hash = "sha256:8d679ee0d2b9ecfadc08245eb5404dba2351b1ab8514004ba147760cb8102270", size = 133248, upload-time = "2021-03-15T21:20:57.286Z" }
 
 [[package]]
 name = "ibm-platform-services"
@@ -3500,11 +3496,11 @@ wheels = [
 
 [[package]]
 name = "jmespath"
-version = "1.0.1"
+version = "0.10.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/00/2a/e867e8531cf3e36b41201936b7fa7ba7b5702dbef42922193f05c8976cd6/jmespath-1.0.1.tar.gz", hash = "sha256:90261b206d6defd58fdd5e85f478bf633a2901798906be2ad389150c5c60edbe", size = 25843, upload-time = "2022-06-17T18:00:12.224Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3c/56/3f325b1eef9791759784aa5046a8f6a1aff8f7c898a2e34506771d3b99d8/jmespath-0.10.0.tar.gz", hash = "sha256:b85d0567b8666149a93172712e68920734333c0ce7e89b78b3e987f71e5ed4f9", size = 21607, upload-time = "2020-05-12T22:03:47.267Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/31/b4/b9b800c45527aadd64d5b442f9b932b00648617eb5d63d2c7a6587b7cafc/jmespath-1.0.1-py3-none-any.whl", hash = "sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980", size = 20256, upload-time = "2022-06-17T18:00:10.251Z" },
+    { url = "https://files.pythonhosted.org/packages/07/cb/5f001272b6faeb23c1c9e0acc04d48eaaf5c862c17709d20e3469c6e0139/jmespath-0.10.0-py2.py3-none-any.whl", hash = "sha256:cdf6525904cc597730141d61b36f2e4b8ecc257c420fa2f4549bac2c2d0cb72f", size = 24489, upload-time = "2020-05-12T22:03:45.643Z" },
 ]
 
 [[package]]

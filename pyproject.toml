@@ -101,10 +101,6 @@ build-backend = "hatchling.build"
 [tool.uv]
 managed = true
 prerelease = "allow"
-override-dependencies = [
-    "cryptography",
-    "urllib3>=2.6.3",
-]
 conflicts = [
     [
         { group = "docs" },
