@@ -7,7 +7,7 @@
         "name": "0.8.0 (latest)",
         "preferred": true,
         "version": "0.8.0",
-        "url": "http://docs.nvidia.com/nemo/run/0.8.0"
+        "url": "http://docs.nvidia.com/nemo/run/latest"
     },
     {
         "version": "0.5.0",
