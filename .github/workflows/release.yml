@@ -49,7 +49,7 @@ on:
         description: Tag to release from
 jobs:
   release:
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@73250271901a61238d271e19acf8d2357df80e12
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@c99deb048625fcfe18e012e8a5ba6b28651e9eb2
     with:
       release-ref: ${{ inputs.release-ref }}
       python-package: nemo_run
