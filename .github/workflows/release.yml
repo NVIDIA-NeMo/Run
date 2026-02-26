@@ -43,6 +43,10 @@ on:
         type: string
         required: true
         description: Version to release
+      from-tag:
+        type: string
+        required: true
+        description: Tag to release from
 jobs:
   release:
     uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@73250271901a61238d271e19acf8d2357df80e12
@@ -58,6 +62,7 @@ jobs:
       publish-docs: ${{ inputs.publish-docs }}
       docs-target-path: nemo/run
       release-version: ${{ inputs.release-version }}
+      gh-release-from-tag: ${{ inputs.from-tag }}
     secrets:
       TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
       TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
