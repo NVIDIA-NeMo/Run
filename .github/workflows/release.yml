@@ -39,9 +39,13 @@ on:
         type: string
         required: true
         description: Branch to target for version bump
+      release-version:
+        type: string
+        required: true
+        description: Version to release
 jobs:
   release:
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@v0.76.1
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@73250271901a61238d271e19acf8d2357df80e12
     with:
       release-ref: ${{ inputs.release-ref }}
       python-package: nemo_run
@@ -53,6 +57,7 @@ jobs:
       gh-release-use-changelog-builder: ${{ inputs.generate-changelog }}
       publish-docs: ${{ inputs.publish-docs }}
       docs-target-path: nemo/run
+      release-version: ${{ inputs.release-version }}
     secrets:
       TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
       TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
