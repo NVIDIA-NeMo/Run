@@ -47,6 +47,7 @@ jobs:
       python-package: nemo_run
       python-version: "3.10"
       library-name: NeMo Run
+      app-id: ${{ vars.BOT_ID }}
       dry-run: ${{ inputs.dry-run }}
       version-bump-branch: ${{ inputs.version-bump-branch }}
       gh-release-use-changelog-builder: ${{ inputs.generate-changelog }}
