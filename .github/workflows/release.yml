@@ -61,7 +61,7 @@ jobs:
       gh-release-use-changelog-builder: ${{ inputs.generate-changelog }}
       publish-docs: ${{ inputs.publish-docs }}
       docs-target-path: nemo/run
-      release-version: ${{ inputs.release-version }}
+      version: ${{ inputs.release-version }}
       gh-release-from-tag: ${{ inputs.from-tag }}
     secrets:
       TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
