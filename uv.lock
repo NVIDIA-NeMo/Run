@@ -257,7 +257,8 @@ dependencies = [
     { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "idna" },
     { name = "sniffio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a3/73/199a98fc2dae33535d6b8e8e6ec01f8c1d76c9adb096c6b7d64823038cde/anyio-4.8.0.tar.gz", hash = "sha256:1d9fe889df5212298c0c0723fa20479d1b94883a2df44bd3897aa91083316f7a", size = 181126, upload-time = "2025-01-05T13:13:11.095Z" }
 wheels = [
@@ -356,7 +357,7 @@ name = "astroid"
 version = "3.3.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/c5/5c83c48bbf547f3dd8b587529db7cf5a265a3368b33e85e76af8ff6061d3/astroid-3.3.8.tar.gz", hash = "sha256:a88c7994f914a4ea8572fac479459f4955eeccc877be3f2d959a33273b0cf40b", size = 398196, upload-time = "2024-12-24T01:13:05.59Z" }
 wheels = [
@@ -377,7 +378,7 @@ name = "async-lru"
 version = "2.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/e2/2b4651eff771f6fd900d233e175ddc5e2be502c7eb62c0c42f975c6d36cd/async-lru-2.0.4.tar.gz", hash = "sha256:b8a59a5df60805ff63220b2a0c5b5393da5521b113cd5465a44eb037d81a5627", size = 10019, upload-time = "2023-07-27T19:12:18.631Z" }
 wheels = [
@@ -439,7 +440,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/34/e8/6a1354d9fd22a84a83f009915598b823a7d9cb60e39cd28661b9c54d1121/azure_batch-15.0.0b1.tar.gz", hash = "sha256:dfbddd158ffade52193e3e4d86c996ea7236ffd2695a43734fae5e05a974e2ed", size = 896678, upload-time = "2024-09-19T22:29:31.336Z" }
 wheels = [
@@ -615,7 +617,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
     { name = "six" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cc/ee/668328306a9e963a5ad9f152cd98c7adad86c822729fd1d2a01613ad1e67/azure_core-1.32.0.tar.gz", hash = "sha256:22b3c35d6b2dae14990f6c1be2912bf23ffe50b220e708a28ab1bb92b1c730e5", size = 279128, upload-time = "2024-10-31T17:45:17.528Z" }
 wheels = [
@@ -670,7 +673,8 @@ dependencies = [
     { name = "cryptography" },
     { name = "msal" },
     { name = "msal-extensions" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ee/89/7d170fab0b85d9650cdb7abda087e849644beb52bd28f6804620dd0cecd9/azure_identity-1.20.0.tar.gz", hash = "sha256:40597210d56c83e15031b0fe2ea3b26420189e1e7f3e20bdbb292315da1ba014", size = 264447, upload-time = "2025-02-12T00:40:41.225Z" }
 wheels = [
@@ -685,7 +689,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/4f/b0d62738a6e3c8e27c3cc33400e8deb14d6490042180fc872c1cdbe891ac/azure-keyvault-administration-4.4.0b2.tar.gz", hash = "sha256:8d0edefad78024c3a97b071fa5cf50daf923085e9d4379259f7237d911e66810", size = 98067, upload-time = "2023-11-03T21:01:36.248Z" }
 wheels = [
@@ -700,7 +705,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e6/cf/85d521e65557e4dee2cd9c700f518c3a46f6f71068e61c07d0b13b2e0727/azure-keyvault-certificates-4.7.0.zip", hash = "sha256:9e47d9a74825e502b13d5481c99c182040c4f54723f43371e00859436dfcf3ca", size = 533075, upload-time = "2023-03-16T21:52:21.956Z" }
 wheels = [
@@ -716,7 +722,8 @@ dependencies = [
     { name = "azure-core" },
     { name = "cryptography" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/f0/cc544f2ea8dc1a7ea9a1159ffb5b2b56b3fb86694fc565c87e5444a98718/azure-keyvault-keys-4.9.0b3.tar.gz", hash = "sha256:aa8b1ec9fe96a81106f2f3dcd61175ecae3a01693c05af15f4a45e77894e946a", size = 208992, upload-time = "2023-11-03T21:02:08.115Z" }
 wheels = [
@@ -731,7 +738,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5c/a1/78ecabf98e97d600dcac1559ff64b4bc9f84eca126c0aeba859916832b0c/azure-keyvault-secrets-4.7.0.zip", hash = "sha256:77ee2534ba651a1f306c85d7b505bc3ccee8fea77450ebafafc26aec16e5445d", size = 423956, upload-time = "2023-03-16T21:52:57.183Z" }
 wheels = [
@@ -774,7 +782,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ac/38/8916327a19b106916ed950461eed816c53a7d8736990ddc6167a5738f161/azure_mgmt_appconfiguration-3.1.0.tar.gz", hash = "sha256:0596f09e7e7841be91dde1c818134100bbfa124486e06889d239dd587744b47c", size = 187092, upload-time = "2024-10-21T06:17:55.606Z" }
 wheels = [
@@ -915,7 +924,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/90/f2/a2b1391e9df876d7ef9086f8d41ad4666eafef921ae0c47da931f8cedb1a/azure-mgmt-compute-33.0.0.tar.gz", hash = "sha256:a3cc0fe4f09c8e1d3523c1bfb92620dfe263a0a893b0ac13a33d7057e9ddddd2", size = 5308187, upload-time = "2024-08-23T08:47:37.38Z" }
 wheels = [
@@ -930,7 +940,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4a/0c/434063cc0dfd1a5f07e4517d6ffc9ffa6bdc6159019266402f61624129c6/azure_mgmt_containerinstance-10.2.0b1.tar.gz", hash = "sha256:bf4bb77bd6681270dd0a733aa3a7c3ecdfacba8e616d3a8c3b98cce9c48cc7c0", size = 79214, upload-time = "2024-10-21T07:07:15.846Z" }
 wheels = [
@@ -959,7 +970,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/31/b0/a5a2d6c2b2f9f7404f86732d400786d7cd996a155467f47ecaf786ce56d9/azure_mgmt_containerservice-34.1.0.tar.gz", hash = "sha256:637a6cf8f06636c016ad151d76f9c7ba75bd05d4334b3dd7837eb8b517f30dbe", size = 319609, upload-time = "2025-02-19T04:08:41.59Z" }
 wheels = [
@@ -986,7 +998,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/74/2a/3240e83aff38443d334a17467d32a46bab269164ab9477bb17d2277b32f8/azure_mgmt_cosmosdb-9.7.0.tar.gz", hash = "sha256:b5072d319f11953d8f12e22459aded1912d5f27e442e1d8b49596a85005410a1", size = 265676, upload-time = "2024-11-19T03:19:26.253Z" }
 wheels = [
@@ -1099,7 +1112,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/89/3c/04ce6c779c28d95a13e37cf00854a31472ef4b563d98361c50200180b8f2/azure-mgmt-hdinsight-9.0.0b3.tar.gz", hash = "sha256:72549e08ff3eed3d6e23835e73ece1cc32bdf340bdf8919e78916c352c200f64", size = 103516, upload-time = "2024-08-21T09:18:57.044Z" }
 wheels = [
@@ -1282,7 +1296,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/85/b86cb3e554d72a837f0c86caf9ed43c3462cce5d7ce1bb1114bfcd34745b/azure_mgmt_mysqlflexibleservers-1.0.0b3.tar.gz", hash = "sha256:611fd88f3db1e0a8477a1633fe94c461d17213e215170eb53c1eea9b823bd4c3", size = 96156, upload-time = "2024-11-18T06:10:12.832Z" }
 wheels = [
@@ -1311,7 +1326,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/19/a3/8d2fa6e33107354c8cd2abcca4e0f02138bda4c6024984ae5fce5cf23b27/azure_mgmt_network-28.1.0.tar.gz", hash = "sha256:8c84bffb5ec75c6e0244e58ecf07c00d5fc421d616b0cb369c6fe585af33cf87", size = 651528, upload-time = "2024-12-20T05:56:54.599Z" }
 wheels = [
@@ -1340,7 +1356,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/52/f2/7cc422a144074a30e88bd5d5ca8e12100ca2a90791fef82a1e962bea816f/azure_mgmt_postgresqlflexibleservers-1.1.0b2.tar.gz", hash = "sha256:f0eb026f275f97bf95ae82cd58e30a760fff2944a7f4a80fc285aaf8da070934", size = 122431, upload-time = "2024-12-16T07:44:34.269Z" }
 wheels = [
@@ -1411,7 +1428,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/01/a2/b89ba36f4bc2708a7ab0115b451028b8888184b3c19bd9a3ac71afec8941/azure-mgmt-redhatopenshift-1.5.0.tar.gz", hash = "sha256:51fb7429c39c88acc9fa273d9f89f19303520662996a6d7d8e1122a98f5f2527", size = 234247, upload-time = "2024-07-23T05:59:00.053Z" }
 wheels = [
@@ -1426,7 +1444,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7c/e2/7e4895296df120458af54186d788cb43abb95676e0a075c154606b8772ab/azure_mgmt_redis-14.5.0.tar.gz", hash = "sha256:5c3434c82492688e25b93aaf5113ecff0b92b7ad6da2a4fd4695530f82b152fa", size = 87997, upload-time = "2025-01-20T09:10:41.814Z" }
 wheels = [
@@ -1483,7 +1502,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9c/c3/92afefab2efcea35a605910e9aeb229a94907eec6b453566f333b8e5cdff/azure_mgmt_servicebus-8.2.1.tar.gz", hash = "sha256:d4e0024bef6c619c6a65f530865147d5645b01f76b12f8611c0ebb16ef16cf47", size = 535699, upload-time = "2024-11-05T06:33:13.837Z" }
 wheels = [
@@ -1512,7 +1532,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4f/68/d707b2a7fc64cbb42d1e57a183b332dfe8746deca58577a78c4fe42b803e/azure_mgmt_servicefabricmanagedclusters-2.1.0b1.tar.gz", hash = "sha256:2b16b93c8446e13372e28b378f635da1ad2aa631d9547b31b9fa3b7bc56d0f63", size = 147216, upload-time = "2024-10-21T06:17:37.128Z" }
 wheels = [
@@ -1527,7 +1548,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/81/b2/747b748a16f934f65eec2c37fbab23144b63365483ab19436a921d42ae31/azure_mgmt_servicelinker-1.2.0b3.tar.gz", hash = "sha256:c51c111fb76c59e58fceccfecfd119f8c83e4d64fdca77a46b62d81ec6a3ea29", size = 73179, upload-time = "2024-10-11T05:57:41.92Z" }
 wheels = [
@@ -1556,7 +1578,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/75/2c/02dac3293cd65277314bb07305c98d7e1a4d0fefe9d4f9304f11f2315be0/azure_mgmt_sql-4.0.0b20.tar.gz", hash = "sha256:9a986a1d47ade008662fc694a116eb18e8dba289021d1dc4c7eba7a4eabb6903", size = 584891, upload-time = "2024-11-04T09:28:41.06Z" }
 wheels = [
@@ -1585,7 +1608,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ca/d2/f06af604fe54231f049c861dd1556495c95ad95620ed3b14337c3e164913/azure_mgmt_storage-22.1.0.tar.gz", hash = "sha256:727b8c8be4aca4551a9b921cdf76bb92b1e988d009de3b983ce72b7343b749e9", size = 370185, upload-time = "2025-02-19T06:11:15.368Z" }
 wheels = [
@@ -1628,7 +1652,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7f/a4/a47081049ae17378b920518db566587c5691ed52c15802a2b418912081ad/azure-mgmt-web-7.3.1.tar.gz", hash = "sha256:87b771436bc99a7a8df59d0ad185b96879a06dce14764a06b3fc3dafa8fcb56b", size = 5283442, upload-time = "2024-08-20T03:23:38.733Z" }
 wheels = [
@@ -1642,7 +1667,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ad/16/fd06cccfc583d8d38d8d99ee92ec1bbc9604cf6e8c62e64ddca5644e0a60/azure-monitor-query-1.2.0.zip", hash = "sha256:2c57432443f203069e64e500c7e958ca31650f641950515ffe65555ba134c371", size = 185223, upload-time = "2023-05-09T19:55:12.691Z" }
 wheels = [
@@ -1674,7 +1700,8 @@ dependencies = [
     { name = "azure-core" },
     { name = "cryptography" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/96/6b881bb65de8638f00a010dd86e64ca9ebb0d973efcf1d15d9fd36d06977/azure_storage_blob-12.25.0b1.tar.gz", hash = "sha256:6ad34cf8535ea2a10124d8b2f79cc42028d7d9e1242bfbb4d86479522975eba6", size = 569965, upload-time = "2025-02-11T20:17:59.002Z" }
 wheels = [
@@ -1718,7 +1745,8 @@ dependencies = [
     { name = "azure-common" },
     { name = "azure-mgmt-core" },
     { name = "isodate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/be/9a/32e71b8f048d0e7cf5b6df3d652c102368de40180834956fcc968fe0c1ff/azure_synapse_artifacts-0.20.0.tar.gz", hash = "sha256:3ed6c142faf62d3191a943b3222547f7730d4cbc10355d17d64fa77e0421644a", size = 447979, upload-time = "2025-02-24T06:32:58.475Z" }
 wheels = [
@@ -1835,7 +1863,8 @@ version = "4.13.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "soupsieve" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f0/3c/adaf39ce1fb4afdd21b611e3d530b183bb7759c9b673d60db0e347fd4439/beautifulsoup4-4.13.3.tar.gz", hash = "sha256:1bd32405dacc920b42b83ba01644747ed77456a65760e285fbc47633ceddaf8b", size = 619516, upload-time = "2025-02-04T20:05:01.681Z" }
 wheels = [
@@ -2597,7 +2626,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "starlette" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b5/28/c5d26e5860df807241909a961a37d45e10533acef95fc368066c7dd186cd/fastapi-0.115.11.tar.gz", hash = "sha256:cc81f03f688678b92600a65a5e618b93592c65005db37157147204d8924bf94f", size = 294441, upload-time = "2025-03-01T22:16:50.378Z" }
 wheels = [
@@ -2656,7 +2686,8 @@ dependencies = [
     { name = "absl-py" },
     { name = "graphviz" },
     { name = "libcst" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/73/36/7a4fac76351619b36bbc7937abf59f7b601326dc4efc253b3c16819f782a/fiddle-0.3.0.tar.gz", hash = "sha256:5d083d3299a479868345513385a6c5546141bd92086c15d3dcbf8008a90075d3", size = 277884, upload-time = "2024-04-09T17:23:58.974Z" }
 wheels = [
@@ -2665,11 +2696,11 @@ wheels = [
 
 [[package]]
 name = "filelock"
-version = "3.17.0"
+version = "3.20.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/dc/9c/0b15fb47b464e1b663b1acd1253a062aa5feecb07d4e597daea542ebd2b5/filelock-3.17.0.tar.gz", hash = "sha256:ee4e77401ef576ebb38cd7f13b9b28893194acc20a8e68e18730ba9c0e54660e", size = 18027, upload-time = "2025-01-21T20:04:49.099Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1d/65/ce7f1b70157833bf3cb851b556a37d4547ceafc158aa9b34b36782f23696/filelock-3.20.3.tar.gz", hash = "sha256:18c57ee915c7ec61cff0ecf7f0f869936c7c30191bb0cf406f1341778d0834e1", size = 19485, upload-time = "2026-01-09T17:55:05.421Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/ec/00d68c4ddfedfe64159999e5f8a98fb8442729a63e2077eb9dcd89623d27/filelock-3.17.0-py3-none-any.whl", hash = "sha256:533dc2f7ba78dc2f0f531fc6c4940addf7b70a481e269a5a3b93be94ffbe8338", size = 16164, upload-time = "2025-01-21T20:04:47.734Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/36/7fb70f04bf00bc646cd5bb45aa9eddb15e19437a28b8fb2b4a5249fac770/filelock-3.20.3-py3-none-any.whl", hash = "sha256:4b0dda527ee31078689fc205ec4f1c1bf7d56cf88b6dc9426c4f230e46c2dce1", size = 16701, upload-time = "2026-01-09T17:55:04.334Z" },
 ]
 
 [[package]]
@@ -3201,7 +3232,8 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "tqdm" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4b/9e/9366b7349fc125dd68b9d384a0fea84d67b7497753fe92c71b67e13f47c4/huggingface_hub-0.33.4.tar.gz", hash = "sha256:6af13478deae120e765bfd92adad0ae1aec1ad8c439b46f23058ad5956cbca0a", size = 426674, upload-time = "2025-07-11T12:32:48.694Z" }
 wheels = [
@@ -3403,7 +3435,8 @@ dependencies = [
     { name = "pygments" },
     { name = "stack-data" },
     { name = "traitlets" },
-    { name = "typing-extensions", marker = "python_full_version < '3.12' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/13/18/1a60aa62e9d272fcd7e658a89e1c148da10e1a5d38edcbcd834b52ca7492/ipython-8.34.0.tar.gz", hash = "sha256:c31d658e754673ecc6514583e7dda8069e47136eb62458816b7d1e6625948b5a", size = 5508477, upload-time = "2025-03-08T13:43:17.591Z" }
 wheels = [
@@ -3839,7 +3872,8 @@ dependencies = [
     { name = "ray" },
     { name = "requests" },
     { name = "rich" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
     { name = "uvicorn" },
 ]
 wheels = [
@@ -4081,7 +4115,7 @@ name = "mistune"
 version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/f7/f6d06304c61c2a73213c0a4815280f70d985429cda26272f490e42119c1a/mistune-3.1.2.tar.gz", hash = "sha256:733bf018ba007e8b5f2d3a9eb624034f6ee26c4ea769a98ec533ee111d504dff", size = 94613, upload-time = "2025-02-19T03:41:27.13Z" }
 wheels = [
@@ -4239,7 +4273,7 @@ name = "multidict"
 version = "6.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d6/be/504b89a5e9ca731cd47487e91c469064f8ae5af93b7259758dcfc2b9c848/multidict-6.1.0.tar.gz", hash = "sha256:22ae2ebf9b0c69d206c003e2f6a914ea33f0a932d4aa16f236afc049d9958f4a", size = 64002, upload-time = "2024-09-09T23:49:38.163Z" }
 wheels = [
@@ -4715,7 +4749,8 @@ version = "1.38.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "importlib-metadata" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/08/d8/0f354c375628e048bd0570645b310797299754730079853095bf000fba69/opentelemetry_api-1.38.0.tar.gz", hash = "sha256:f4c193b5e8acb0912b06ac5b16321908dd0843d75049c091487322284a3eea12", size = 65242, upload-time = "2025-10-16T08:35:50.25Z" }
 wheels = [
@@ -4755,7 +4790,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-semantic-conventions" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/85/cb/f0eee1445161faf4c9af3ba7b848cc22a50a3d3e2515051ad8628c35ff80/opentelemetry_sdk-1.38.0.tar.gz", hash = "sha256:93df5d4d871ed09cb4272305be4d996236eedb232253e3ab864c8620f051cebe", size = 171942, upload-time = "2025-10-16T08:36:02.257Z" }
 wheels = [
@@ -4768,7 +4804,8 @@ version = "0.59b0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/40/bc/8b9ad3802cd8ac6583a4eb7de7e5d7db004e89cb7efe7008f9c8a537ee75/opentelemetry_semantic_conventions-0.59b0.tar.gz", hash = "sha256:7a6db3f30d70202d5bf9fa4b69bc866ca6a30437287de6c510fb594878aed6b0", size = 129861, upload-time = "2025-10-16T08:36:03.346Z" }
 wheels = [
@@ -5553,7 +5590,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-types" },
     { name = "pydantic-core" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
     { name = "typing-inspection" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/31/3e/a1d12c6c5ad4429b3549ebdb8553f4cd0766acb22268c0dba02b4c4dc459/pydantic-2.11.0b1.tar.gz", hash = "sha256:47ea8082d748ee14f7be613787e32b76111112add84eb6e313cc47000c4cd4e8", size = 774826, upload-time = "2025-03-06T16:29:19.074Z" }
@@ -5566,7 +5604,8 @@ name = "pydantic-core"
 version = "2.31.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/df/ce/f4c0e43c788ebb10a8b107c9774169091a0b8b3a62b3f76ca528d1e79bf0/pydantic_core-2.31.1.tar.gz", hash = "sha256:a9cc2f56cba2b78b487325ff3de016a70670b615eaf00cad88cb17f271e01971", size = 424824, upload-time = "2025-03-06T15:30:14.296Z" }
 wheels = [
@@ -5654,7 +5693,8 @@ version = "2.10.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/23/ed/69f3f3de12c02ebd58b2f66ffb73d0f5a1b10b322227897499753cebe818/pydantic_extra_types-2.10.2.tar.gz", hash = "sha256:934d59ab7a02ff788759c3a97bc896f5cfdc91e62e4f88ea4669067a73f14b98", size = 86893, upload-time = "2025-01-16T16:00:07.161Z" }
 wheels = [
@@ -5686,7 +5726,8 @@ dependencies = [
     { name = "pygments" },
     { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/00/20/bb50f9de3a6de69e6abd6b087b52fa2418a0418b19597601605f855ad044/pydata_sphinx_theme-0.16.1.tar.gz", hash = "sha256:a08b7f0b7f70387219dc659bff0893a7554d5eb39b59d3b8ef37b8401b7642d7", size = 2412693, upload-time = "2024-12-17T10:53:39.537Z" }
 wheels = [
@@ -5702,7 +5743,8 @@ dependencies = [
     { name = "azure-identity" },
     { name = "isodate" },
     { name = "msrest" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ac/30/08d3b6f9c53dbd6937a101ec47cfd325ace2e451f65656616b2564d77d1c/pydo-0.9.2.tar.gz", hash = "sha256:eee51a6b122aa4d33575ef00f48221d299b9d37c57c41eb96654b9d662996864", size = 1543547, upload-time = "2025-02-26T20:51:40.496Z" }
 wheels = [
@@ -5812,7 +5854,8 @@ name = "pyre-extensions"
 version = "0.0.32"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
     { name = "typing-inspect" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a7/53/5bc2532536e921c48366ad1047c1344ccef6afa5e84053f0f6e20a453767/pyre_extensions-0.0.32.tar.gz", hash = "sha256:5396715f14ea56c4d5fd0a88c57ca7e44faa468f905909edd7de4ad90ed85e55", size = 10852, upload-time = "2024-11-22T19:26:44.152Z" }
@@ -6184,7 +6227,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "rpds-py" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2f/db/98b5c277be99dd18bfd91dd04e1b759cad18d1a338188c936e92f921c7e2/referencing-0.36.2.tar.gz", hash = "sha256:df2e89862cd09deabbdba16944cc3f10feb6b3e6f18e902f7cc25609a34775aa", size = 74744, upload-time = "2025-01-25T08:48:16.138Z" }
 wheels = [
@@ -6252,7 +6296,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py" },
     { name = "pygments" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ab/3a/0316b28d0761c6734d6bc14e770d85506c986c85ffb239e688eeaab2c2bc/rich-13.9.4.tar.gz", hash = "sha256:439594978a49a09530cff7ebc4b5c7103ef57baf48d5ea3184f21d9a2befa098", size = 223149, upload-time = "2024-11-01T16:43:57.873Z" }
 wheels = [
@@ -6266,7 +6310,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "rich" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5b/8a/71cfbf6bf6257ea785d1f030c22468f763eea1b3e5417620f2ba9abd6dca/rich_toolkit-0.13.2.tar.gz", hash = "sha256:fea92557530de7c28f121cbed572ad93d9e0ddc60c3ca643f1b831f2f56b95d3", size = 72288, upload-time = "2025-01-13T19:30:02.403Z" }
 wheels = [
@@ -6677,7 +6722,8 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "sqlalchemy-adapter" },
     { name = "tabulate" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "uvicorn", extra = ["standard"], marker = "extra == 'extra-8-nemo-run-skypilot' or extra == 'extra-8-nemo-run-skypilot-all'" },
     { name = "wheel" },
 ]
@@ -6963,7 +7009,8 @@ version = "2.0.41"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "greenlet", marker = "(python_full_version < '3.14' and platform_machine == 'AMD64') or (python_full_version < '3.14' and platform_machine == 'WIN32') or (python_full_version < '3.14' and platform_machine == 'aarch64') or (python_full_version < '3.14' and platform_machine == 'amd64') or (python_full_version < '3.14' and platform_machine == 'ppc64le') or (python_full_version < '3.14' and platform_machine == 'win32') or (python_full_version < '3.14' and platform_machine == 'x86_64')" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version >= '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/63/66/45b165c595ec89aa7dcc2c1cd222ab269bc753f1fc7a1e68f8481bd957bf/sqlalchemy-2.0.41.tar.gz", hash = "sha256:edba70118c4be3c2b1f90754d308d0b79c6fe2c0fdc52d8ddf603916f83f4db9", size = 9689424, upload-time = "2025-05-14T17:10:32.339Z" }
 wheels = [
@@ -7289,7 +7336,8 @@ dependencies = [
     { name = "click" },
     { name = "rich" },
     { name = "shellingham" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8b/6f/3991f0f1c7fcb2df31aef28e0594d8d54b05393a0e4e34c65e475c2a5d41/typer-0.15.2.tar.gz", hash = "sha256:ab2fab47533a813c49fe1f16b1a370fd5819099c00b119e0633df65f22144ba5", size = 100711, upload-time = "2025-02-27T19:17:34.807Z" }
 wheels = [
@@ -7309,9 +7357,41 @@ wheels = [
 name = "typing-extensions"
 version = "4.12.2"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.13' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/df/db/f35a00659bc03fec321ba8bce9420de607a1d37f8342eee1863174c69557/typing_extensions-4.12.2.tar.gz", hash = "sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8", size = 85321, upload-time = "2024-06-07T18:52:15.995Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/26/9f/ad63fc0248c5379346306f8668cda6e2e2e9c95e01216d2b8ffd9ff037d0/typing_extensions-4.12.2-py3-none-any.whl", hash = "sha256:04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d", size = 37438, upload-time = "2024-06-07T18:52:13.582Z" },
+]
+
+[[package]]
+name = "typing-extensions"
+version = "4.15.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466", size = 109391, upload-time = "2025-08-25T13:49:26.313Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/18/67/36e9267722cc04a6b9f15c7f3441c2363321a3ea07da7ae0c0707beb2a9c/typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548", size = 44614, upload-time = "2025-08-25T13:49:24.86Z" },
 ]
 
 [[package]]
@@ -7320,7 +7400,8 @@ version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mypy-extensions" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/dc/74/1789779d91f1961fa9438e9a8710cdae6bd138c80d7303996933d117264a/typing_inspect-0.9.0.tar.gz", hash = "sha256:b23fc42ff6f6ef6954e4852c1fb512cdd18dbea03134f91f856a95ccc9461f78", size = 13825, upload-time = "2023-05-24T20:25:47.612Z" }
 wheels = [
@@ -7332,7 +7413,8 @@ name = "typing-inspection"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/82/5c/e6082df02e215b846b4b8c0b887a64d7d08ffaba30605502639d44c06b82/typing_inspection-0.4.0.tar.gz", hash = "sha256:9765c87de36671694a67904bf2c96e395be9c6439bb6c87b5142569dcdd65122", size = 76222, upload-time = "2025-02-25T17:27:59.638Z" }
 wheels = [
@@ -7436,7 +7518,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "h11" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4b/4d/938bd85e5bf2edeec766267a5015ad969730bb91e31b44021dfe8b22df6c/uvicorn-0.34.0.tar.gz", hash = "sha256:404051050cd7e905de2c9a7e61790943440b3416f49cb409f965d9dcd0fa73e9", size = 76568, upload-time = "2024-12-15T13:33:30.42Z" }
 wheels = [
@@ -7508,16 +7590,17 @@ wheels = [
 
 [[package]]
 name = "virtualenv"
-version = "20.29.3"
+version = "20.36.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "distlib" },
     { name = "filelock" },
     { name = "platformdirs" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/9c/57d19fa093bcf5ac61a48087dd44d00655f85421d1aa9722f8befbf3f40a/virtualenv-20.29.3.tar.gz", hash = "sha256:95e39403fcf3940ac45bc717597dba16110b74506131845d9b687d5e73d947ac", size = 4320280, upload-time = "2025-03-06T19:54:19.055Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/aa/a3/4d310fa5f00863544e1d0f4de93bddec248499ccf97d4791bc3122c9d4f3/virtualenv-20.36.1.tar.gz", hash = "sha256:8befb5c81842c641f8ee658481e42641c68b5eab3521d8e092d18320902466ba", size = 6032239, upload-time = "2026-01-09T18:21:01.296Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/eb/c6db6e3001d58c6a9e67c74bb7b4206767caa3ccc28c6b9eaf4c23fb4e34/virtualenv-20.29.3-py3-none-any.whl", hash = "sha256:3e3d00f5807e83b234dfb6122bf37cfadf4be216c53a49ac059d02414f819170", size = 4301458, upload-time = "2025-03-06T19:54:16.923Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/2a/dc2228b2888f51192c7dc766106cd475f1b768c10caaf9727659726f7391/virtualenv-20.36.1-py3-none-any.whl", hash = "sha256:575a8d6b124ef88f6f51d56d656132389f961062a9177016a50e4f507bbcc19f", size = 6008258, upload-time = "2026-01-09T18:20:59.425Z" },
 ]
 
 [[package]]
