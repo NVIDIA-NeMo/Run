@@ -423,7 +423,7 @@ COMMAND="${COMMAND:-python train.py}"
 COMMAND_WORKDIR=/workspace
 
 if [[ -n "$COMMAND" ]]; then
-  srun --no-container-mount-home --gpus=0 --overlap --container-name=ray-head --container-workdir=$COMMAND_WORKDIR --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-job.log bash -c "$COMMAND"
+  srun --no-container-mount-home --mpi=pmix --gpus=0 --overlap --container-name=ray-head --container-workdir=$COMMAND_WORKDIR --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-job.log bash -c "$COMMAND"
 else
   echo "[INFO]: Ray Cluster is idled, run this on the slurm head node to get a shell to the head node:"
   cat <<EOF >$CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh

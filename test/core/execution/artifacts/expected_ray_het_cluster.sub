@@ -463,7 +463,7 @@ COMMAND="${COMMAND:-}"
 COMMAND_WORKDIR=None
 
 if [[ -n "$COMMAND" ]]; then
-  srun --het-group=0 --no-container-mount-home --gpus=0 --overlap --container-name=ray-head --container-workdir=$COMMAND_WORKDIR --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-job.log bash -c "$COMMAND"
+  srun --het-group=0 --no-container-mount-home --mpi=pmix --gpus=0 --overlap --container-name=ray-head --container-workdir=$COMMAND_WORKDIR --nodes=1 --ntasks=1 -w "$head_node" -o $LOG_DIR/ray-job.log bash -c "$COMMAND"
 else
   echo "[INFO]: Ray Cluster is idled, run this on the slurm head node to get a shell to the head node:"
   cat <<EOF >$CLUSTER_DIR/scripts/${SLURM_JOB_ID}-attach.sh
