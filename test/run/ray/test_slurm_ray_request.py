@@ -645,6 +645,52 @@ class TestSlurmRayRequest:
         script = request.materialize()
         assert "--gpus=0 --overlap --mpi=pmix --container-name=ray-head" in script
 
+    def test_command_srun_honors_head_resource_group_srun_args(self):
+        """Test that heterogeneous grouped runs use head resource-group srun_args for COMMAND."""
+        executor = SlurmExecutor(
+            account="test_account",
+            heterogeneous=True,
+            srun_args=["--mpi=none"],
+        )
+        executor.run_as_group = True
+        executor.resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                container_image="image1",
+                container_mounts=["/data:/data"],
+                srun_args=["--mpi=pmix"],
+                het_group_index=0,
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                container_image="image2",
+                container_mounts=["/data:/data"],
+                het_group_index=1,
+            ),
+        ]
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command="echo hello",
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+        assert (
+            "--het-group=0 --no-container-mount-home --gpus=0 --overlap --mpi=pmix "
+            "--container-name=ray-head" in script
+        )
+        assert "--gpus=0 --overlap --mpi=none --container-name=ray-head" not in script
+
     def test_env_vars_formatting(self):
         """Test that environment variables are properly formatted as export statements."""
         executor = SlurmExecutor(
