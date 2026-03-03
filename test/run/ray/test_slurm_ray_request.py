@@ -627,6 +627,24 @@ class TestSlurmRayRequest:
         assert "--overlap" in script
         assert "cmd1" in script  # Second command in the list (index 1)
 
+    def test_command_srun_honors_executor_srun_args(self):
+        """Test that the COMMAND launch srun includes executor srun_args."""
+        executor = SlurmExecutor(account="test_account", srun_args=["--mpi=pmix"])
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command="echo hello",
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+        assert "--gpus=0 --overlap --mpi=pmix --container-name=ray-head" in script
+
     def test_env_vars_formatting(self):
         """Test that environment variables are properly formatted as export statements."""
         executor = SlurmExecutor(
