@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-semantic_version = "0.8.1.dev0"
+semantic_version = "0.8.1"
 
 __version__ = semantic_version
 
