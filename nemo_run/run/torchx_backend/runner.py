@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import logging
 from typing import Any, Optional
 
@@ -63,7 +64,12 @@ class Runner(TorchXRunner):
         with log_event("dryrun", scheduler):
             sched = self._scheduler(scheduler)
 
-            sched._validate(app, scheduler)
+            # TorchX `main` added `cfg` to `_validate`; older versions only accept
+            # `(app, scheduler)`. Support both signatures.
+            if "cfg" in inspect.signature(sched._validate).parameters:
+                sched._validate(app, scheduler, cfg)
+            else:
+                sched._validate(app, scheduler)
             dryrun_info = sched.submit_dryrun(app, cfg)
             dryrun_info._scheduler = scheduler
             return dryrun_info
