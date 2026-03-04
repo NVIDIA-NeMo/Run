@@ -13,17 +13,19 @@
 # limitations under the License.
 from packaging.version import Version
 
-__version__ = "0.8.1"
+semantic_version = "0.8.1.dev0"
 
-MAJOR = Version(__version__).major
-MINOR = Version(__version__).minor
-PATCH = Version(__version__).micro
-if pre := Version(__version__).pre:
+MAJOR = Version(semantic_version).major
+MINOR = Version(semantic_version).minor
+PATCH = Version(semantic_version).micro
+if pre := Version(semantic_version).pre:
     PRE_RELEASE = "".join(map(str, pre))
 else:
     PRE_RELEASE = ""
 
-DEV = Version(__version__).dev
+DEV = Version(semantic_version).dev
+
+__version__ = f"{MAJOR}.{MINOR}.{PATCH}{PRE_RELEASE}{DEV}"
 
 __package_name__ = "nemo_run"
 __contact_names__ = "NVIDIA"
