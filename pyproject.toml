@@ -151,7 +151,6 @@ packages = ["nemo_run"]
 
 [tool.hatch.version]
 path  = "nemo_run/package_info.py"
-pattern = 'semantic_version = "(?P<version>[^"]+)"'
 
 [tool.ruff]
 line-length = 100
