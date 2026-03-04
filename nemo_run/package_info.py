@@ -25,7 +25,7 @@ else:
 
 DEV = Version(semantic_version).dev
 
-__version__ = f"{MAJOR}.{MINOR}.{PATCH}{PRE_RELEASE}{DEV}"
+__version__ = f"{MAJOR}.{MINOR}.{PATCH}.{PRE_RELEASE}{DEV}"
 
 __package_name__ = "nemo_run"
 __contact_names__ = "NVIDIA"
