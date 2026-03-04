@@ -11,9 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-semantic_version = "0.8.1"
+from packaging.version import Version
 
-__version__ = semantic_version
+__version__ = "0.9.0rc0.dev0"
+
+MAJOR = Version(__version__).major
+MINOR = Version(__version__).minor
+PATCH = Version(__version__).micro
+if pre := Version(__version__).pre:
+    PRE_RELEASE = "".join(map(str, pre))
+else:
+    PRE_RELEASE = ""
+
+DEV = Version(__version__).dev
 
 __package_name__ = "nemo_run"
 __contact_names__ = "NVIDIA"
