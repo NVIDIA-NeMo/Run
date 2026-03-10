@@ -339,6 +339,31 @@ def test_get_job_dirs():
                     assert result == {}
 
 
+def test_get_job_dirs_retries_on_permission_error(tmp_path, mocker):
+    """Transient PermissionError should be retried; success on 3rd attempt returns data."""
+    mocker.patch("time.sleep")  # don't actually sleep in tests
+    mock_open = mocker.mock_open(read_data="")
+    mock_open.side_effect = [
+        PermissionError("[Errno 1] Operation not permitted"),
+        PermissionError("[Errno 1] Operation not permitted"),
+        mock_open.return_value,
+    ]
+    mocker.patch("builtins.open", mock_open)
+
+    result = _get_job_dirs(retries=5)
+    assert result == {}
+    assert mock_open.call_count == 3
+
+
+def test_get_job_dirs_raises_after_exhausting_retries(mocker):
+    """PermissionError should be re-raised after all retries are exhausted."""
+    mocker.patch("time.sleep")
+    mocker.patch("builtins.open", side_effect=PermissionError("[Errno 1] Operation not permitted"))
+
+    with pytest.raises(PermissionError):
+        _get_job_dirs(retries=3)
+
+
 def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
     mock_request = mock.MagicMock()
     mock_request.cmd = ["sbatch", "--requeue", "--parsable"]
