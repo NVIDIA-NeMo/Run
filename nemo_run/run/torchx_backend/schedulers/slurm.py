@@ -437,7 +437,9 @@ def _get_job_dirs(retries: int = 5) -> dict[str, tuple[str, SSHTunnel | LocalTun
             last_exc = e
             time.sleep(1)
     else:
-        raise last_exc  # type: ignore[misc]
+        if last_exc is not None:
+            raise last_exc
+        raise OSError(f"Failed to read SLURM job dirs from {SLURM_JOB_DIRS} after {retries} retries")
 
     out = {}
     for line in lines:
