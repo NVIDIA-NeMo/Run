@@ -424,12 +424,20 @@ def _save_job_dir(
         )
 
 
-def _get_job_dirs() -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
-    try:
-        with open(SLURM_JOB_DIRS, "rt") as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        return {}
+def _get_job_dirs(retries: int = 5) -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
+    last_exc: OSError | None = None
+    for _ in range(retries):
+        try:
+            with open(SLURM_JOB_DIRS, "rt") as f:
+                lines = f.readlines()
+            break
+        except FileNotFoundError:
+            return {}
+        except OSError as e:
+            last_exc = e
+            time.sleep(1)
+    else:
+        raise last_exc  # type: ignore[misc]
 
     out = {}
     for line in lines:
