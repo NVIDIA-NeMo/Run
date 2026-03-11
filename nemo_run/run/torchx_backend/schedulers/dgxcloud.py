@@ -59,7 +59,7 @@ DGX_STATES: dict[DGXCloudState, AppState] = {
     DGXCloudState.FAILED: AppState.FAILED,
     DGXCloudState.COMPLETED: AppState.SUCCEEDED,
     DGXCloudState.TERMINATING: AppState.RUNNING,
-    DGXCloudState.UNKNOWN: AppState.FAILED,
+    DGXCloudState.UNKNOWN: AppState.PENDING,
 }
 
 log = logging.getLogger(__name__)
@@ -192,7 +192,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
             return None
 
         dgx_state = executor.status(job_id) or DGXCloudState.UNKNOWN
-        app_state = DGX_STATES.get(dgx_state, AppState.UNKNOWN)
+        app_state = DGX_STATES.get(dgx_state, AppState.PENDING)
         roles_statuses[0].replicas[0].state = app_state
 
         return DescribeAppResponse(

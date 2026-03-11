@@ -369,7 +369,11 @@ mkdir -p {self.pvc_job_dir}/logs
         headers = self._default_headers(token=token)
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            return DGXCloudState("Unknown")
+            logger.warning(
+                f"Failed to get status for job {job_id}, "
+                f"status_code={response.status_code}. Treating as transient."
+            )
+            return None
 
         r_json = response.json()
         return DGXCloudState(r_json["phase"])
