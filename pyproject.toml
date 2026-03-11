@@ -27,7 +27,6 @@ dependencies = [
     "typer>=0.12.3",
     "rich>=13.7.1",
     "jinja2>=3.1.4",
-    "cryptography < 43.0.0",
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
     "leptonai>=0.26.6",
@@ -105,6 +104,10 @@ conflicts = [
         { extra = "skypilot" },
         { extra = "skypilot-all" }
     ]
+]
+override-dependencies = [
+    "cryptography>=46.0.0,<47", # To address GHSA-r6ph-v2qm-q3c2
+    "urllib3>=2.6.3",           # To address GHSA-38jv-5279-wg99
 ]
 
 [tool.pytest.ini_options]
