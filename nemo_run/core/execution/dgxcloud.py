@@ -360,7 +360,8 @@ mkdir -p {self.pvc_job_dir}/logs
         return 1
 
     def status(self, job_id: str) -> Optional[DGXCloudState]:
-        url = f"{self.base_url}/workloads/{job_id}"
+        workload_type = "distributed" if self.nodes > 1 else "trainings"
+        url = f"{self.base_url}/workloads/{workload_type}/{job_id}"
         token = self.get_auth_token()
         if not token:
             logger.error("Failed to retrieve auth token for status request.")
@@ -369,10 +370,18 @@ mkdir -p {self.pvc_job_dir}/logs
         headers = self._default_headers(token=token)
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            return DGXCloudState("Unknown")
+            logger.warning(
+                f"Failed to get status for job {job_id}, "
+                f"status_code={response.status_code}. Treating as transient."
+            )
+            return None
 
         r_json = response.json()
-        return DGXCloudState(r_json["phase"])
+        phase = r_json.get("actualPhase") or r_json.get("phase")
+        if not phase:
+            logger.warning(f"No phase field in status response for job {job_id}: {r_json}")
+            return None
+        return DGXCloudState(phase)
 
     def fetch_logs(
         self,
