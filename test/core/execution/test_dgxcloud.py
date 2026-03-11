@@ -927,6 +927,50 @@ class TestDGXCloudExecutor:
             )
 
     @patch("requests.get")
+    def test_status_falls_back_to_phase_field(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"phase": "Running"}
+        mock_get.return_value = mock_response
+
+        with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+            )
+
+            status = executor.status("job123")
+
+            assert status == DGXCloudState.RUNNING
+
+    @patch("requests.get")
+    def test_status_returns_none_when_no_phase(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"someOtherField": "value"}
+        mock_get.return_value = mock_response
+
+        with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+            )
+
+            status = executor.status("job123")
+
+            assert status is None
+
+    @patch("requests.get")
     def test_status_no_token(self, mock_get):
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value=None):
             executor = DGXCloudExecutor(
