@@ -252,6 +252,129 @@ class TestSSHTunnel:
             mock_run.assert_called_once_with(f"mkdir -p {ssh_tunnel.job_dir}")
 
 
+    @patch("nemo_run.core.tunnel.client.Connection")
+    def test_authenticate_raises_connection_error_on_failed_connect(self, mock_connection):
+        mock_session = MagicMock()
+        mock_connection.return_value = mock_session
+        mock_session.is_connected = False
+        mock_session.client.get_transport.return_value = MagicMock()
+        tunnel = SSHTunnel(host="test.host", user="test_user", job_dir="/remote/job")
+
+        with pytest.raises(ConnectionError, match="test.host"):
+            tunnel.connect()
+
+    def test_run_retries_on_connection_error(self, ssh_tunnel):
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        success_result = MagicMock()
+        mock_session.run.side_effect = [ConnectionError("auth failed"), success_result]
+        with (
+            patch("nemo_run.core.tunnel.client.time.sleep"),
+            patch.object(ssh_tunnel, "connect"),
+        ):
+            result = ssh_tunnel.run("test command")
+
+        assert result is success_result
+
+    def test_run_retries_on_transient_error(self, ssh_tunnel):
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        success_result = MagicMock()
+        mock_session.run.side_effect = [
+            OSError("Connection reset"),
+            OSError("Connection reset"),
+            success_result,
+        ]
+        with (
+            patch("nemo_run.core.tunnel.client.time.sleep"),
+            patch.object(ssh_tunnel, "connect"),
+        ):
+            result = ssh_tunnel.run("test command")
+
+        assert result is success_result
+        assert mock_session.run.call_count == 3
+
+    def test_run_raises_after_exhausting_retries(self, ssh_tunnel):
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        mock_session.run.side_effect = EOFError("Connection closed")
+        with (
+            patch("nemo_run.core.tunnel.client.time.sleep"),
+            patch.object(ssh_tunnel, "connect"),
+        ):
+            with pytest.raises(EOFError, match="Connection closed"):
+                ssh_tunnel.run("test command")
+
+    def test_run_retries_on_thread_limit(self, ssh_tunnel):
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        success_result = MagicMock()
+        mock_session.run.side_effect = [
+            RuntimeError("can't start new thread"),
+            success_result,
+        ]
+        with (
+            patch("nemo_run.core.tunnel.client.time.sleep"),
+            patch.object(ssh_tunnel, "connect"),
+        ):
+            result = ssh_tunnel.run("test command")
+
+        assert result is success_result
+
+    def test_run_backoff_increases(self, ssh_tunnel):
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        success_result = MagicMock()
+        mock_session.run.side_effect = [
+            OSError("err"),
+            OSError("err"),
+            OSError("err"),
+            success_result,
+        ]
+        sleep_calls = []
+        with (
+            patch(
+                "nemo_run.core.tunnel.client.time.sleep",
+                side_effect=lambda t: sleep_calls.append(t),
+            ),
+            patch.object(ssh_tunnel, "connect"),
+        ):
+            ssh_tunnel.run("test command")
+
+        assert sleep_calls == [4, 8, 16]
+
+    def test_put_retries_on_transient_error(self, ssh_tunnel):
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        mock_session.put.side_effect = [OSError("Network error"), None]
+        with (
+            patch("nemo_run.core.tunnel.client.time.sleep"),
+            patch.object(ssh_tunnel, "connect"),
+        ):
+            ssh_tunnel.put("/local/file", "/remote/file")
+
+        assert mock_session.put.call_count == 2
+
+    def test_get_retries_on_transient_error(self, ssh_tunnel):
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        mock_session.get.side_effect = [OSError("Network error"), None]
+        with (
+            patch("nemo_run.core.tunnel.client.time.sleep"),
+            patch.object(ssh_tunnel, "connect"),
+        ):
+            ssh_tunnel.get("/remote/file", "/local/file")
+
+        assert mock_session.get.call_count == 2
+
+
 class TestSSHConfigFile:
     def test_init_default_path(self):
         with patch("os.path.expanduser", return_value="/home/user/.ssh/config"):

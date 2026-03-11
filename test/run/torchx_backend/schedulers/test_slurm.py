@@ -393,6 +393,130 @@ def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
         mock_tunnel.run.assert_called_once()
 
 
+def test_describe_retries_on_network_error(slurm_scheduler, mocker):
+    job_dirs = {"existing_id": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    success_result = mocker.MagicMock()
+    success_result.stdout = "JobID|State|JobName\nexisting_id|COMPLETED|test.test_app.test_role"
+    mock_tunnel = mocker.MagicMock()
+    mock_tunnel.run.side_effect = [
+        Exception("SSH connection reset"),
+        Exception("SSH connection reset"),
+        success_result,
+    ]
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm.time.sleep")
+    slurm_scheduler.tunnel = mock_tunnel
+
+    with mock.patch.object(csv, "DictReader") as mock_reader:
+        mock_reader.return_value = [
+            {"JobID": "existing_id", "State": "COMPLETED", "JobName": "test.test_app.test_role"}
+        ]
+        result = slurm_scheduler.describe("existing_id")
+
+    assert result is not None
+    assert mock_tunnel.run.call_count == 3
+
+
+def test_describe_raises_after_exhausting_retries(slurm_scheduler, mocker):
+    job_dirs = {"existing_id": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm.time.sleep")
+    slurm_scheduler.tunnel = mocker.MagicMock()
+    slurm_scheduler.tunnel.run.side_effect = Exception("SSH connection reset")
+
+    with pytest.raises(Exception, match="SSH connection reset"):
+        slurm_scheduler.describe("existing_id")
+
+
+def test_schedule_retries_on_network_error(slurm_scheduler, mocker):
+    mock_request = mocker.MagicMock()
+    mock_request.launch_cmd = ["sbatch", "--requeue", "--parsable", "/job.sh"]
+    dryrun_info = mocker.MagicMock()
+    dryrun_info.request = mock_request
+
+    success_result = mocker.MagicMock()
+    success_result.stdout.strip.return_value = "99999"
+    mock_tunnel = mocker.MagicMock()
+    mock_tunnel.run.side_effect = [
+        Exception("SLURM controller unavailable"),
+        success_result,
+    ]
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm.time.sleep")
+    slurm_scheduler.tunnel = mock_tunnel
+
+    result = slurm_scheduler.schedule(dryrun_info)
+
+    assert result == "99999"
+    assert mock_tunnel.run.call_count == 2
+
+
+def test_schedule_raises_after_exhausting_retries(slurm_scheduler, mocker):
+    mock_request = mocker.MagicMock()
+    mock_request.launch_cmd = ["sbatch", "--requeue", "--parsable", "/job.sh"]
+    dryrun_info = mocker.MagicMock()
+    dryrun_info.request = mock_request
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm.time.sleep")
+    slurm_scheduler.tunnel = mocker.MagicMock()
+    slurm_scheduler.tunnel.run.side_effect = Exception("SLURM controller unavailable")
+
+    with pytest.raises(Exception, match="SLURM controller unavailable"):
+        slurm_scheduler.schedule(dryrun_info)
+
+
+def test_describe_backoff_increases(slurm_scheduler, mocker):
+    job_dirs = {"existing_id": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    success_result = mocker.MagicMock()
+    success_result.stdout = "JobID|State|JobName\nexisting_id|COMPLETED|test.test_app.test_role"
+    mock_tunnel = mocker.MagicMock()
+    mock_tunnel.run.side_effect = [
+        Exception("err"),
+        Exception("err"),
+        Exception("err"),
+        success_result,
+    ]
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    sleep_calls = []
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm.time.sleep",
+        side_effect=lambda t: sleep_calls.append(t),
+    )
+    slurm_scheduler.tunnel = mock_tunnel
+
+    with mock.patch.object(csv, "DictReader") as mock_reader:
+        mock_reader.return_value = [
+            {"JobID": "existing_id", "State": "COMPLETED", "JobName": "test.test_app.test_role"}
+        ]
+        slurm_scheduler.describe("existing_id")
+
+    assert sleep_calls == [4, 8, 16]
+
+
+def test_get_job_dirs_backoff_increases(mocker):
+    """Sleep delay should double between retries."""
+    mocker.patch("builtins.open", side_effect=[OSError("err"), OSError("err"), OSError("err")])
+    sleep_calls = []
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm.time.sleep",
+        side_effect=lambda t: sleep_calls.append(t),
+    )
+    with pytest.raises(OSError):
+        _get_job_dirs(retries=3)
+
+    assert sleep_calls == [1, 2, 4]
+
+
 def test_ray_template_executor(slurm_scheduler, slurm_executor, temp_dir):
     """Test that executor.ray_template selects the correct template."""
     from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY

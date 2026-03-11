@@ -186,5 +186,43 @@ class TestRsync(unittest.TestCase):
         self.assertEqual("rsync failed", str(context.exception))
 
 
+    def test_rsync_retries_on_transient_error(self):
+        """Test that rsync retries on transient network errors."""
+        self.mock_connection.local.side_effect = [
+            Exception("Network error"),
+            Exception("Network error"),
+            self.mock_result,
+        ]
+        sleep_mock = Mock()
+        with patch("nemo_run.core.tunnel.rsync.time.sleep", sleep_mock):
+            rsync(self.mock_connection, self.source, self.target)
+
+        assert self.mock_connection.local.call_count == 3
+        assert sleep_mock.call_count == 2
+
+    def test_rsync_raises_after_exhausting_retries(self):
+        """Test that rsync raises after all retries are exhausted."""
+        self.mock_connection.local.side_effect = Exception("Network error")
+        with patch("nemo_run.core.tunnel.rsync.time.sleep"):
+            with self.assertRaises(Exception, msg="Network error"):
+                rsync(self.mock_connection, self.source, self.target)
+
+    def test_rsync_backoff_increases(self):
+        """Test that retry delay doubles between attempts."""
+        self.mock_connection.local.side_effect = [
+            Exception("err"),
+            Exception("err"),
+            Exception("err"),
+            self.mock_result,
+        ]
+        sleep_calls = []
+        with patch(
+            "nemo_run.core.tunnel.rsync.time.sleep", side_effect=lambda t: sleep_calls.append(t)
+        ):
+            rsync(self.mock_connection, self.source, self.target)
+
+        assert sleep_calls == [4, 8, 16]
+
+
 if __name__ == "__main__":
     unittest.main()

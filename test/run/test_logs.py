@@ -206,6 +206,32 @@ def test_get_logs_exception_handling(mock_runner, mock_status, mock_app):
             )
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_get_logs_raises_after_exhausting_thread_retries(mock_runner, mock_status, mock_app):
+    mock_runner.status.return_value = mock_status
+    mock_runner.describe.return_value = mock_app
+    mock_app.roles = [Role("main", image="")]
+    executor_cls = MockExecutorNoLogs
+    REVERSE_EXECUTOR_MAPPING["dummy_backend"] = executor_cls
+
+    sleep_mock = MagicMock()
+    with (
+        patch("nemo_run.run.logs.time.sleep", sleep_mock),
+        patch("threading.Thread.start", side_effect=RuntimeError("can't start new thread")),
+    ):
+        with pytest.raises(RuntimeError, match="can't start new thread"):
+            logs.get_logs(
+                sys.stdout,
+                "dummy_backend://nemo_run/12345",
+                None,
+                False,
+                mock_runner,
+                wait_timeout=0,
+            )
+
+    assert sleep_mock.call_count > 0
+
+
 def test_get_logs_calls_print_log_lines(mock_runner, mock_status, mock_app):
     mock_runner.status.return_value = mock_status
     mock_runner.describe.return_value = mock_app

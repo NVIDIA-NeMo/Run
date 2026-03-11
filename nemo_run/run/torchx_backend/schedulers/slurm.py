@@ -210,7 +210,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         # Run sbatch script
         req.launch_cmd += [dst_path]
-        job_id = self.tunnel.run(" ".join(req.launch_cmd)).stdout.strip()
+        job_id = _run_tunnel_cmd(self.tunnel, " ".join(req.launch_cmd)).stdout.strip()
 
         # Save metadata
         _save_job_dir(job_id, job_dir, tunnel, slurm_executor.job_details.ls_term)
@@ -236,9 +236,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             return None
 
         assert self.tunnel, "Tunnel is None."
-        p = self.tunnel.run(
-            f"sacct --parsable2 -j {app_id}",
-        )
+        p = _run_tunnel_cmd(self.tunnel, f"sacct --parsable2 -j {app_id}")
         output = p.stdout.strip().split("\n")
 
         if len(output) <= 1:
@@ -295,7 +293,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         # To return all jobs launched, set starttime to one second past unix epoch time
         # Starttime will be modified when listing jobs by timeframe is supported
         assert self.tunnel, "Tunnel is None."
-        p = self.tunnel.run("sacct --json -S1970-01-01-00:00:01")
+        p = _run_tunnel_cmd(self.tunnel, "sacct --json -S1970-01-01-00:00:01")
         output_json = json.loads(p.stdout.strip())
         return [
             ListAppResponse(app_id=str(job["job_id"]), state=SLURM_STATES[job["state"]["current"]])
@@ -424,8 +422,30 @@ def _save_job_dir(
         )
 
 
-def _get_job_dirs(retries: int = 5) -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
+def _run_tunnel_cmd(tunnel, cmd: str, retries: int = 4, initial_delay: float = 4, **kwargs):
+    """Run a tunnel command with exponential-backoff retries on transient failures."""
+    delay = initial_delay
+    last_exc: Exception | None = None
+    for attempt in range(retries):
+        try:
+            return tunnel.run(cmd, **kwargs)
+        except Exception as e:
+            last_exc = e
+            log.warning(
+                f"Tunnel command failed (attempt {attempt + 1}/{retries}): {e}, "
+                f"retrying in {delay}s..."
+            )
+            time.sleep(delay)
+            delay = min(delay * 2, 60)
+    assert last_exc is not None
+    raise last_exc
+
+
+def _get_job_dirs(
+    retries: int = 5, initial_delay: float = 1
+) -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
     last_exc: OSError | None = None
+    delay = initial_delay
     for _ in range(retries):
         try:
             with open(SLURM_JOB_DIRS, "rt") as f:
@@ -435,7 +455,8 @@ def _get_job_dirs(retries: int = 5) -> dict[str, tuple[str, SSHTunnel | LocalTun
             return {}
         except OSError as e:
             last_exc = e
-            time.sleep(1)
+            time.sleep(delay)
+            delay = min(delay * 2, 60)
     else:
         if last_exc is not None:
             raise last_exc

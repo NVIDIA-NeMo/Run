@@ -1511,3 +1511,68 @@ def test_initialize_tunnels_extract_from_executors(temp_dir):
             # Should pull tunnel and connect
             exp._initialize_tunnels(extract_from_executors=True)
             assert "t1" in exp.tunnels
+
+
+def test_initialize_tunnels_retries_on_connection_error(temp_dir):
+    """_initialize_tunnels should retry SSH connect on transient ConnectionError."""
+    from nemo_run.core.tunnel.client import SSHTunnel
+
+    connect_calls = []
+
+    def flaky_connect():
+        connect_calls.append(1)
+        if len(connect_calls) < 3:
+            raise ConnectionError("SSH host temporarily unreachable")
+        mock_tunnel.session = MagicMock()
+
+    mock_tunnel = MagicMock(spec=SSHTunnel)
+    mock_tunnel.key = "user@host"
+    mock_tunnel.session = None
+    mock_tunnel.connect.side_effect = flaky_connect
+
+    with Experiment("test-exp", base_dir=temp_dir) as exp:
+        exp.tunnels = {"user@host": mock_tunnel}
+        with patch("nemo_run.run.experiment.time.sleep"):
+            exp._initialize_tunnels()
+
+    assert len(connect_calls) == 3
+
+
+def test_initialize_tunnels_raises_after_exhausting_retries(temp_dir):
+    """_initialize_tunnels should raise ConnectionError after all retries are exhausted."""
+    from nemo_run.core.tunnel.client import SSHTunnel
+
+    mock_tunnel = MagicMock(spec=SSHTunnel)
+    mock_tunnel.key = "user@host"
+    mock_tunnel.connect.side_effect = ConnectionError("SSH host unreachable")
+
+    with Experiment("test-exp", base_dir=temp_dir) as exp:
+        exp.tunnels = {"user@host": mock_tunnel}
+        with (
+            patch("nemo_run.run.experiment.time.sleep"),
+            pytest.raises(ConnectionError, match="SSH host unreachable"),
+        ):
+            exp._initialize_tunnels()
+
+
+def test_initialize_tunnels_connect_backoff_increases(temp_dir):
+    """Sleep delay should double between connect retries."""
+    from nemo_run.core.tunnel.client import SSHTunnel
+
+    mock_tunnel = MagicMock(spec=SSHTunnel)
+    mock_tunnel.key = "user@host"
+    mock_tunnel.connect.side_effect = ConnectionError("err")
+
+    sleep_calls = []
+    with Experiment("test-exp", base_dir=temp_dir) as exp:
+        exp.tunnels = {"user@host": mock_tunnel}
+        with (
+            patch(
+                "nemo_run.run.experiment.time.sleep",
+                side_effect=lambda t: sleep_calls.append(t),
+            ),
+            pytest.raises(ConnectionError),
+        ):
+            exp._initialize_tunnels()
+
+    assert sleep_calls == [4, 8, 16, 32]

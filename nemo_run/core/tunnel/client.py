@@ -237,17 +237,61 @@ class SSHTunnel(Tunnel):
         if self.pre_command:
             command = f"{self.pre_command} && {command}"
 
-        return self.session.run(command, hide=hide, warn=warn, **kwargs)
+        delay = 4
+        last_exc: Exception | None = None
+        for attempt in range(4):
+            try:
+                return self.session.run(command, hide=hide, warn=warn, **kwargs)
+            except (RuntimeError, EOFError, OSError, ConnectionError) as e:
+                last_exc = e
+                logger.warning(
+                    f"SSH command failed (attempt {attempt + 1}/4): {e}, retrying in {delay}s..."
+                )
+                time.sleep(delay)
+                delay = min(delay * 2, 60)
+                self.connect()
+        assert last_exc is not None
+        raise last_exc
 
     def put(self, local_path: str, remote_path: str) -> None:
         self._check_connect()
         assert self.session, "session is not yet established."
-        self.session.put(local_path, remote_path)
+        delay = 4
+        last_exc: Exception | None = None
+        for attempt in range(4):
+            try:
+                self.session.put(local_path, remote_path)
+                return
+            except (RuntimeError, EOFError, OSError, ConnectionError) as e:
+                last_exc = e
+                logger.warning(
+                    f"SSH put failed (attempt {attempt + 1}/4): {e}, retrying in {delay}s..."
+                )
+                time.sleep(delay)
+                delay = min(delay * 2, 60)
+                self.connect()
+        assert last_exc is not None
+        raise last_exc
 
     def get(self, remote_path: str, local_path: str) -> None:
         self._check_connect()
         assert self.session, "session is not yet established."
-        self.session.get(remote_path, local_path)
+        delay = 4
+        last_exc: Exception | None = None
+        for attempt in range(4):
+            try:
+                self.session.get(remote_path, local_path)
+                return
+            except (RuntimeError, EOFError, OSError, ConnectionError) as e:
+                last_exc = e
+                logger.warning(
+                    f"SSH get failed (attempt {attempt + 1}/4): {e}, retrying in {delay}s..."
+                )
+                time.sleep(delay)
+                delay = min(delay * 2, 60)
+                self.connect()
+        assert last_exc is not None
+        raise last_exc
 
     def cleanup(self):
         if self.session:
@@ -302,7 +346,10 @@ class SSHTunnel(Tunnel):
                 except Exception:
                     logger.debug("[bold red]:x: Failed to Authenticate your connection")
         if not self.session.is_connected:
-            sys.exit(1)
+            raise ConnectionError(
+                f"Failed to connect to {self.user}@{self.host}. "
+                "Check your SSH credentials and network connectivity."
+            )
         logger.debug(":white_check_mark: The client is authenticated successfully")
 
 

@@ -885,8 +885,24 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
         for tunnel in self.tunnels.values():
             if isinstance(tunnel, SSHTunnel):
-                tunnel.connect()
-                assert tunnel.session, f"SSH tunnel {tunnel.key} failed to connect."
+                delay = 4
+                last_exc: ConnectionError | None = None
+                for attempt in range(4):
+                    try:
+                        tunnel.connect()
+                        assert tunnel.session, f"SSH tunnel {tunnel.key} failed to connect."
+                        last_exc = None
+                        break
+                    except ConnectionError as e:
+                        last_exc = e
+                        self.console.log(
+                            f"SSH tunnel {tunnel.key} connection failed "
+                            f"(attempt {attempt + 1}/4): {e}, retrying in {delay}s..."
+                        )
+                        time.sleep(delay)
+                        delay = min(delay * 2, 60)
+                if last_exc is not None:
+                    raise last_exc
 
     def status(self, return_dict: bool = False) -> Optional[dict[str, dict[str, str]]]:
         """

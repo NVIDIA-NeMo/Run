@@ -133,22 +133,41 @@ def get_logs(
     exceptions = Queue()
     threads = []
     for role_name, replica_id in replica_ids:
-        thread = threading.Thread(
-            target=print_log_lines,
-            args=(
-                file,
-                runner,
-                app_handle,
-                role_name,
-                replica_id,
-                regex,
-                should_tail,
-                exceptions,
-                streams,
-            ),
-        )
-        thread.daemon = True
-        thread.start()
+        delay = 2
+        last_exc: RuntimeError | None = None
+        for attempt in range(4):
+            thread = threading.Thread(
+                target=print_log_lines,
+                args=(
+                    file,
+                    runner,
+                    app_handle,
+                    role_name,
+                    replica_id,
+                    regex,
+                    should_tail,
+                    exceptions,
+                    streams,
+                ),
+            )
+            thread.daemon = True
+            try:
+                thread.start()
+                last_exc = None
+                break
+            except RuntimeError as e:
+                if "can't start new thread" in str(e):
+                    last_exc = e
+                    logger.warning(
+                        f"Thread limit reached for {role_name}/{replica_id} "
+                        f"(attempt {attempt + 1}/4), retrying in {delay}s..."
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 2, 60)
+                else:
+                    raise
+        if last_exc is not None:
+            raise last_exc
         threads.append(thread)
 
     for thread in threads:

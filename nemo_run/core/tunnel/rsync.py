@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+import time
 from typing import Iterable
 
 from fabric import Connection
@@ -88,8 +89,21 @@ def rsync(
         cmd = "rsync {} {} {}@{}:{}"
     cmd = cmd.format(options, source, user, host, target)
     c.run(f"mkdir -p {target}", hide=hide_output)
-    result = c.local(cmd, hide=hide_output)
-    if result:
-        logger.info(f"Successfully ran `{result.command}`")
-    else:
-        raise RuntimeError("rsync failed")
+    delay = 4
+    last_exc: Exception | None = None
+    for attempt in range(4):
+        try:
+            result = c.local(cmd, hide=hide_output)
+        except Exception as e:
+            last_exc = e
+            logger.warning(f"rsync attempt {attempt + 1}/4 failed: {e}, retrying in {delay}s...")
+            time.sleep(delay)
+            delay = min(delay * 2, 60)
+            continue
+        if result:
+            logger.info(f"Successfully ran `{result.command}`")
+            return
+        else:
+            raise RuntimeError("rsync failed")
+    assert last_exc is not None
+    raise last_exc
