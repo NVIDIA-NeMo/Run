@@ -19,10 +19,14 @@ from unittest.mock import MagicMock
 
 import pytest
 from torchx.schedulers.api import AppDryRunInfo
-from torchx.specs import AppDef, Role
+from torchx.specs import AppDef, AppState, Role
 
-from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
-from nemo_run.run.torchx_backend.schedulers.dgxcloud import DGXCloudScheduler, create_scheduler
+from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
+from nemo_run.run.torchx_backend.schedulers.dgxcloud import (
+    DGX_STATES,
+    DGXCloudScheduler,
+    create_scheduler,
+)
 
 
 @pytest.fixture
@@ -182,6 +186,56 @@ def test_log_iter(dgx_cloud_scheduler, dgx_cloud_executor):
             )
         )
         assert logs == ["log2", "log3"]
+
+
+def test_unknown_state_maps_to_pending_not_failed():
+    # DGXCloudState.UNKNOWN must map to PENDING so transient API errors during
+    # job startup do not cause wait_and_exit() to treat the job as terminal.
+    assert DGX_STATES[DGXCloudState.UNKNOWN] == AppState.PENDING
+
+
+def test_describe_returns_pending_when_status_is_none(dgx_cloud_scheduler, dgx_cloud_executor):
+    # Regression test: executor.status() returns None when the auth token is
+    # missing or the API call fails transiently right after job submission.
+    # describe() must return PENDING so the wait loop keeps polling.
+    with (
+        mock.patch(
+            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+        ) as mock_get_job_dirs,
+        mock.patch.object(DGXCloudExecutor, "status", return_value=None),
+    ):
+        mock_get_job_dirs.return_value = {
+            "test_experiment___test_role___test_job_id": {
+                "job_status": "RUNNING",
+                "executor": dgx_cloud_executor,
+            }
+        }
+
+        response = dgx_cloud_scheduler.describe("test_experiment___test_role___test_job_id")
+        assert response is not None
+        assert response.state == AppState.PENDING
+
+
+def test_describe_returns_pending_when_status_is_unknown(dgx_cloud_scheduler, dgx_cloud_executor):
+    # Regression test: the DGXCloud API transiently returns "Unknown" before a
+    # job is visible (e.g. HTTP 404 right after submission). describe() must
+    # return PENDING so the wait loop keeps polling instead of failing.
+    with (
+        mock.patch(
+            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+        ) as mock_get_job_dirs,
+        mock.patch.object(DGXCloudExecutor, "status", return_value=DGXCloudState.UNKNOWN),
+    ):
+        mock_get_job_dirs.return_value = {
+            "test_experiment___test_role___test_job_id": {
+                "job_status": "RUNNING",
+                "executor": dgx_cloud_executor,
+            }
+        }
+
+        response = dgx_cloud_scheduler.describe("test_experiment___test_role___test_job_id")
+        assert response is not None
+        assert response.state == AppState.PENDING
 
 
 def test_log_iter_str(dgx_cloud_scheduler, dgx_cloud_executor):

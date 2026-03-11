@@ -936,7 +936,7 @@ class TestDGXCloudExecutor:
 
             status = executor.status("job123")
 
-            assert status == DGXCloudState.UNKNOWN
+            assert status is None
 
     @patch("requests.get")
     def test_cancel(self, mock_get):
