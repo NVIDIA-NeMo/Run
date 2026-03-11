@@ -185,7 +185,6 @@ class TestRsync(unittest.TestCase):
 
         self.assertEqual("rsync failed", str(context.exception))
 
-
     def test_rsync_retries_on_transient_error(self):
         """Test that rsync retries on transient network errors."""
         self.mock_connection.local.side_effect = [

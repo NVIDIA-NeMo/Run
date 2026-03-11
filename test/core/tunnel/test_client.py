@@ -251,7 +251,6 @@ class TestSSHTunnel:
             ssh_tunnel.setup()
             mock_run.assert_called_once_with(f"mkdir -p {ssh_tunnel.job_dir}")
 
-
     @patch("nemo_run.core.tunnel.client.Connection")
     def test_authenticate_raises_connection_error_on_failed_connect(self, mock_connection):
         mock_session = MagicMock()

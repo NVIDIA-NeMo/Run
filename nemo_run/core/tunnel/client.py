@@ -18,7 +18,6 @@ import os
 import shutil
 import socket
 import subprocess
-import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
