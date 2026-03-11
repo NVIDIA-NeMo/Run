@@ -340,8 +340,8 @@ def test_get_job_dirs():
 
 
 def test_get_job_dirs_retries_on_permission_error(tmp_path, mocker):
-    """Transient PermissionError should be retried; success on 3rd attempt returns data."""
-    mocker.patch("time.sleep")  # don't actually sleep in tests
+    """Transient PermissionError should be retried with exponential backoff; success on 3rd attempt returns data."""
+    mock_sleep = mocker.patch("time.sleep")
     mock_open = mocker.mock_open(read_data="")
     mock_open.side_effect = [
         PermissionError("[Errno 1] Operation not permitted"),
@@ -353,6 +353,8 @@ def test_get_job_dirs_retries_on_permission_error(tmp_path, mocker):
     result = _get_job_dirs(retries=5)
     assert result == {}
     assert mock_open.call_count == 3
+    # Exponential backoff: attempt 0 -> sleep(1), attempt 1 -> sleep(2)
+    assert mock_sleep.call_args_list == [mock.call(1), mock.call(2)]
 
 
 def test_get_job_dirs_raises_after_exhausting_retries(mocker):
@@ -362,6 +364,20 @@ def test_get_job_dirs_raises_after_exhausting_retries(mocker):
 
     with pytest.raises(PermissionError):
         _get_job_dirs(retries=3)
+
+
+def test_describe_returns_unknown_on_persistent_permission_error(slurm_scheduler, mocker):
+    """describe() should return UNKNOWN state when _get_job_dirs() raises OSError, not propagate."""
+    from torchx.specs import AppState
+
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        side_effect=PermissionError("[Errno 1] Operation not permitted"),
+    )
+
+    result = slurm_scheduler.describe("12345")
+    assert result is not None
+    assert result.state == AppState.UNKNOWN
 
 
 def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
