@@ -171,8 +171,7 @@ class TestSSHTunnel:
 
     @patch("nemo_run.core.tunnel.client.Connection")
     @patch("nemo_run.core.tunnel.client.logger")
-    @patch("nemo_run.core.tunnel.client.sys.exit")
-    def test_connect_with_password(self, mock_exit, mock_logger, mock_connection):
+    def test_connect_with_password(self, mock_logger, mock_connection):
         mock_session = MagicMock()
         mock_connection.return_value = mock_session
 
@@ -196,9 +195,6 @@ class TestSSHTunnel:
             transport.auth_interactive_dumb.side_effect = auth_interactive_side_effect
             tunnel.connect()
             transport.auth_interactive_dumb.assert_called_once()
-
-        # We should not exit if the connection is successful
-        mock_exit.assert_not_called()
 
     def test_run(self, ssh_tunnel):
         mock_session = MagicMock()
