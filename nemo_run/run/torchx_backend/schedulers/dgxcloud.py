@@ -161,7 +161,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
 
         # Store a status entry or logs path if available
         # Currently, the DGXExecutor status is placeholder, but we keep the pattern
-        _save_job_dir(app_id, job_status=status, executor=executor)
+        _save_job_dir(app_id, job_status=status, executor=executor, job_id=job_id)
 
         return app_id
 
@@ -173,7 +173,8 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         # We split out the stored values from the JSON file
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)
-        _, role_name, job_id = app_id.split("___")
+        parts = app_id.split("___")
+        role_name = parts[1] if len(parts) > 1 else app_id
         roles = [Role(name=role_name, image="", num_replicas=1)]
         roles_statuses = [
             RoleStatus(
@@ -191,6 +192,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         if not executor:
             return None
 
+        job_id = job_info.get("job_id") or parts[-1]
         dgx_state = executor.status(job_id) or DGXCloudState.UNKNOWN
         app_state = DGX_STATES.get(dgx_state, AppState.PENDING)
         roles_statuses[0].replicas[0].state = app_state
@@ -217,7 +219,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
     ) -> Iterable[str]:
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)
-        _, _, job_id = app_id.split("___")
+        job_id = job_info.get("job_id") or app_id.split("___")[-1]
         executor: Optional[DGXCloudExecutor] = job_info.get("executor", None)  # type: ignore
         if not executor:
             return [""]
@@ -240,7 +242,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         """
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)
-        _, _, job_id = app_id.split("___")
+        job_id = job_info.get("job_id") or app_id.split("___")[-1]
         executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
         if not executor:
             return None
@@ -257,7 +259,9 @@ def create_scheduler(session_name: str, **kwargs: Any) -> DGXCloudScheduler:
     return DGXCloudScheduler(session_name=session_name)
 
 
-def _save_job_dir(app_id: str, job_status: str, executor: DGXCloudExecutor) -> None:
+def _save_job_dir(
+    app_id: str, job_status: str, executor: DGXCloudExecutor, job_id: str = ""
+) -> None:
     """
     Saves or updates local record of job status in JSON for demonstration.
     """
@@ -276,6 +280,7 @@ def _save_job_dir(app_id: str, job_status: str, executor: DGXCloudExecutor) -> N
 
         app = {
             "job_status": job_status,
+            "job_id": job_id,
             "executor": serializer.serialize(
                 fdl_dc.convert_dataclasses_to_configs(executor, allow_post_init=True)
             ),
