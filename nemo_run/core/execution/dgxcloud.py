@@ -360,7 +360,8 @@ mkdir -p {self.pvc_job_dir}/logs
         return 1
 
     def status(self, job_id: str) -> Optional[DGXCloudState]:
-        url = f"{self.base_url}/workloads/{job_id}"
+        workload_type = "distributed" if self.nodes > 1 else "trainings"
+        url = f"{self.base_url}/workloads/{workload_type}/{job_id}"
         token = self.get_auth_token()
         if not token:
             logger.error("Failed to retrieve auth token for status request.")
