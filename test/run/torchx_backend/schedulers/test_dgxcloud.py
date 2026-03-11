@@ -19,10 +19,14 @@ from unittest.mock import MagicMock
 
 import pytest
 from torchx.schedulers.api import AppDryRunInfo
-from torchx.specs import AppDef, Role
+from torchx.specs import AppDef, AppState, Role
 
-from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
-from nemo_run.run.torchx_backend.schedulers.dgxcloud import DGXCloudScheduler, create_scheduler
+from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
+from nemo_run.run.torchx_backend.schedulers.dgxcloud import (
+    DGX_STATES,
+    DGXCloudScheduler,
+    create_scheduler,
+)
 
 
 @pytest.fixture
@@ -106,6 +110,7 @@ def test_describe(dgx_cloud_scheduler, dgx_cloud_executor):
         mock_get_job_dirs.return_value = {
             "test_experiment___test_role___test_job_id": {
                 "job_status": "RUNNING",
+                "job_id": "test_job_id",
                 "executor": dgx_cloud_executor,
             }
         }
@@ -128,6 +133,7 @@ def test_cancel_existing(dgx_cloud_scheduler, dgx_cloud_executor):
         mock_get_job_dirs.return_value = {
             "test_experiment___test_role___test_job_id": {
                 "job_status": "RUNNING",
+                "job_id": "test_job_id",
                 "executor": dgx_cloud_executor,
             }
         }
@@ -155,10 +161,11 @@ def test_save_and_get_job_dirs():
             pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
-        _save_job_dir("test_app_id", "RUNNING", executor)
+        _save_job_dir("test_app_id", "RUNNING", executor, job_id="actual_job_id")
         job_dirs = _get_job_dirs()
 
         assert "test_app_id" in job_dirs
+        assert job_dirs["test_app_id"]["job_id"] == "actual_job_id"
         assert isinstance(job_dirs["test_app_id"]["executor"], DGXCloudExecutor)
 
 
@@ -169,6 +176,7 @@ def test_log_iter(dgx_cloud_scheduler, dgx_cloud_executor):
         mock_get_job_dirs.return_value = {
             "test_session___test_role___test_container_id": {
                 "job_status": "RUNNING",
+                "job_id": "test_job_id",
                 "executor": dgx_cloud_executor,
             }
         }
@@ -184,6 +192,88 @@ def test_log_iter(dgx_cloud_scheduler, dgx_cloud_executor):
         assert logs == ["log2", "log3"]
 
 
+def test_describe_uses_stored_job_id_not_split(dgx_cloud_scheduler, dgx_cloud_executor):
+    # Regression test: when a role name ends with '_', splitting app_id on '___'
+    # produces a job_id with a spurious leading '_' (e.g. role 'W-foo_' + sep '___'
+    # gives '____' which splits into 'role_' and '_job_id'). describe() must use
+    # the job_id stored at schedule time, not re-derive it from the app_id string.
+    real_job_id = "48db46d2-ae56-4c9d-9abd-ba0d873e50eb"
+    # role name ending with '_' triggers the collision
+    app_id = f"experiment___role_name___{real_job_id}"
+
+    with (
+        mock.patch(
+            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+        ) as mock_get_job_dirs,
+        mock.patch.object(
+            DGXCloudExecutor, "status", return_value=DGXCloudState.RUNNING
+        ) as mock_status,
+    ):
+        mock_get_job_dirs.return_value = {
+            app_id: {
+                "job_status": "RUNNING",
+                "job_id": real_job_id,
+                "executor": dgx_cloud_executor,
+            }
+        }
+
+        response = dgx_cloud_scheduler.describe(app_id)
+        assert response is not None
+        mock_status.assert_called_once_with(real_job_id)
+
+
+def test_unknown_state_maps_to_pending_not_failed():
+    # DGXCloudState.UNKNOWN must map to PENDING so transient API errors during
+    # job startup do not cause wait_and_exit() to treat the job as terminal.
+    assert DGX_STATES[DGXCloudState.UNKNOWN] == AppState.PENDING
+
+
+def test_describe_returns_pending_when_status_is_none(dgx_cloud_scheduler, dgx_cloud_executor):
+    # Regression test: executor.status() returns None when the auth token is
+    # missing or the API call fails transiently right after job submission.
+    # describe() must return PENDING so the wait loop keeps polling.
+    with (
+        mock.patch(
+            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+        ) as mock_get_job_dirs,
+        mock.patch.object(DGXCloudExecutor, "status", return_value=None),
+    ):
+        mock_get_job_dirs.return_value = {
+            "test_experiment___test_role___test_job_id": {
+                "job_status": "RUNNING",
+                "job_id": "test_job_id",
+                "executor": dgx_cloud_executor,
+            }
+        }
+
+        response = dgx_cloud_scheduler.describe("test_experiment___test_role___test_job_id")
+        assert response is not None
+        assert response.state == AppState.PENDING
+
+
+def test_describe_returns_pending_when_status_is_unknown(dgx_cloud_scheduler, dgx_cloud_executor):
+    # Regression test: the DGXCloud API transiently returns "Unknown" before a
+    # job is visible (e.g. HTTP 404 right after submission). describe() must
+    # return PENDING so the wait loop keeps polling instead of failing.
+    with (
+        mock.patch(
+            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+        ) as mock_get_job_dirs,
+        mock.patch.object(DGXCloudExecutor, "status", return_value=DGXCloudState.UNKNOWN),
+    ):
+        mock_get_job_dirs.return_value = {
+            "test_experiment___test_role___test_job_id": {
+                "job_status": "RUNNING",
+                "job_id": "test_job_id",
+                "executor": dgx_cloud_executor,
+            }
+        }
+
+        response = dgx_cloud_scheduler.describe("test_experiment___test_role___test_job_id")
+        assert response is not None
+        assert response.state == AppState.PENDING
+
+
 def test_log_iter_str(dgx_cloud_scheduler, dgx_cloud_executor):
     with mock.patch(
         "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
@@ -191,6 +281,7 @@ def test_log_iter_str(dgx_cloud_scheduler, dgx_cloud_executor):
         mock_get_job_dirs.return_value = {
             "test_session___test_role___test_container_id": {
                 "job_status": "RUNNING",
+                "job_id": "test_job_id",
                 "executor": dgx_cloud_executor,
             }
         }
