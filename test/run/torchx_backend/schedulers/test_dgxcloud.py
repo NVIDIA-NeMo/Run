@@ -205,7 +205,9 @@ def test_describe_uses_stored_job_id_not_split(dgx_cloud_scheduler, dgx_cloud_ex
         mock.patch(
             "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
         ) as mock_get_job_dirs,
-        mock.patch.object(DGXCloudExecutor, "status", return_value=DGXCloudState.RUNNING) as mock_status,
+        mock.patch.object(
+            DGXCloudExecutor, "status", return_value=DGXCloudState.RUNNING
+        ) as mock_status,
     ):
         mock_get_job_dirs.return_value = {
             app_id: {
