@@ -153,18 +153,20 @@ def wait_and_exit(
 
     tries = 0
     status = None
-    thread_retry_delay = 2
+    thread_retries = 0
+    thread_retry_delay = 20
     while tries < timeout:
         try:
             status = runner.wait(app_handle, wait_interval=2)
         except RuntimeError as e:
-            if "can't start new thread" in str(e):
+            if "can't start new thread" in str(e) and thread_retries < 5:
+                thread_retries += 1
                 logger.warning(
                     f"Thread limit reached while waiting for job {app_id}, "
-                    f"retrying in {thread_retry_delay}s..."
+                    f"retrying ({thread_retries}/5) in {thread_retry_delay}s..."
                 )
                 time.sleep(thread_retry_delay)
-                thread_retry_delay = min(thread_retry_delay * 2, 60)
+                thread_retry_delay = min(thread_retry_delay * 2, 300)
                 continue
             raise
         if status:
