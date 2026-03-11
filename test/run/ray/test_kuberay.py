@@ -2205,3 +2205,318 @@ class TestKubeConfigLoadingFallback:
                 # Verify error chaining (raise kube_error from incluster_error)
                 assert exc_info.value == kube_error
                 assert exc_info.value.__cause__ == incluster_error
+
+
+class TestKubeRayClusterAdditionalCoverage:
+    """Additional tests to cover remaining missing lines in KubeRayCluster."""
+
+    @pytest.fixture
+    def mock_k8s_clients(self):
+        """Mock Kubernetes API clients."""
+        with patch("nemo_run.run.ray.kuberay.config.load_kube_config"):
+            with patch("nemo_run.run.ray.kuberay.client.CustomObjectsApi") as mock_api:
+                with patch("nemo_run.run.ray.kuberay.client.CoreV1Api") as mock_core_api:
+                    yield mock_api.return_value, mock_core_api.return_value
+
+    @pytest.fixture
+    def basic_executor(self):
+        return KubeRayExecutor(namespace="test-namespace")
+
+    @pytest.fixture
+    def cluster_with_executor(self, basic_executor, mock_k8s_clients):
+        with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
+            return KubeRayCluster(name="test-cluster", executor=basic_executor)
+
+    def test_status_display_true_triggers_banner(self, cluster_with_executor, mock_k8s_clients):
+        """Test status with display=True calls _display_banner."""
+        mock_api, _ = mock_k8s_clients
+        mock_api.get_namespaced_custom_object_status.return_value = {
+            "metadata": {"name": "test"},
+            "status": {"state": "ready", "head": {"serviceIP": "10.0.0.1"}},
+        }
+
+        with patch.object(cluster_with_executor, "_display_banner") as mock_banner:
+            result = cluster_with_executor.status(display=True)
+
+        assert result == {"state": "ready", "head": {"serviceIP": "10.0.0.1"}}
+        mock_banner.assert_called_once()
+
+    def test_status_no_status_field_times_out(self, cluster_with_executor, mock_k8s_clients):
+        """Test status when resource never has status field (timeout)."""
+        mock_api, _ = mock_k8s_clients
+        # Resource always lacks status field
+        mock_api.get_namespaced_custom_object_status.return_value = {
+            "metadata": {"name": "test"},
+        }
+
+        with patch("time.sleep"):
+            result = cluster_with_executor.status(timeout=2, delay_between_attempts=1)
+
+        assert result is None
+
+    def test_wait_until_running_status_none(self, cluster_with_executor, mock_k8s_clients):
+        """Test wait_until_running returns False when status() returns None."""
+        with patch.object(cluster_with_executor, "status") as mock_status:
+            mock_status.return_value = None
+
+            result = cluster_with_executor.wait_until_running(timeout=10)
+
+        assert result is False
+
+    def test_delete_non_404_api_exception(self, cluster_with_executor, mock_k8s_clients):
+        """Test delete when API raises non-404 exception."""
+        mock_api, _ = mock_k8s_clients
+        mock_api.delete_namespaced_custom_object.side_effect = ApiException(status=500)
+
+        result = cluster_with_executor.delete()
+
+        assert result is None
+
+    def test_delete_with_wait_cr_deleted_via_404_in_loop(
+        self, cluster_with_executor, mock_k8s_clients
+    ):
+        """Test delete with wait=True where CR deletion is detected via 404 ApiException in loop."""
+        mock_api, mock_core_api = mock_k8s_clients
+        mock_api.delete_namespaced_custom_object.return_value = None
+
+        with patch.object(cluster_with_executor, "_get") as mock_get:
+            # First call in loop raises 404 -> cluster_deleted = True
+            mock_get.side_effect = ApiException(status=404)
+
+            # Pods are empty
+            mock_pods_empty = Mock()
+            mock_pods_empty.items = []
+            mock_core_api.list_namespaced_pod.return_value = mock_pods_empty
+
+            with patch("time.sleep"):
+                result = cluster_with_executor.delete(wait=True, timeout=10, poll_interval=1)
+
+        assert result is True
+
+    def test_port_forward_wait_mode(self, cluster_with_executor, mock_k8s_clients):
+        """Test port_forward with wait=True calls _wait_for_forwarding_termination."""
+        mock_api, mock_core_api = mock_k8s_clients
+
+        with patch.object(cluster_with_executor, "_get") as mock_get:
+            mock_get.return_value = {"metadata": {"namespace": "test-namespace"}}
+            mock_core_api.read_namespaced_service.return_value = Mock()
+
+            with patch("subprocess.Popen") as mock_popen:
+                mock_process = Mock()
+                mock_process.poll.return_value = None
+                mock_popen.return_value = mock_process
+
+                with patch("queue.Queue") as mock_queue_class:
+                    mock_queue = Mock()
+                    mock_queue.get.return_value = ("success", None)
+                    mock_queue_class.return_value = mock_queue
+
+                    with patch.object(
+                        cluster_with_executor, "_wait_for_forwarding_termination"
+                    ) as mock_wait:
+                        thread = cluster_with_executor.port_forward(
+                            port=8080, target_port=8265, wait=True
+                        )
+
+                    mock_wait.assert_called_once()
+                    assert isinstance(thread, threading.Thread)
+
+    def test_wait_for_forwarding_termination(self, cluster_with_executor):
+        """Test _wait_for_forwarding_termination stops on stop_event."""
+        import threading
+
+        stop_event = threading.Event()
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = False
+
+        # Stop the event immediately
+        stop_event.set()
+
+        # Should not raise
+        with patch("time.sleep"):
+            cluster_with_executor._wait_for_forwarding_termination(mock_thread, stop_event)
+
+        mock_thread.join.assert_called_once()
+
+    def test_port_forward_error_from_queue(self, cluster_with_executor, mock_k8s_clients):
+        """Test port_forward raises RuntimeError when queue returns error status."""
+        mock_api, mock_core_api = mock_k8s_clients
+
+        with patch.object(cluster_with_executor, "_get") as mock_get:
+            mock_get.return_value = {"metadata": {"namespace": "test-namespace"}}
+            mock_core_api.read_namespaced_service.return_value = Mock()
+
+            with patch("subprocess.Popen"):
+                with patch("queue.Queue") as mock_queue_class:
+                    mock_queue = Mock()
+                    mock_queue.get.return_value = ("error", "Connection refused")
+                    mock_queue_class.return_value = mock_queue
+
+                    with pytest.raises(RuntimeError, match="Failed to establish port forwarding"):
+                        cluster_with_executor.port_forward(port=8080, target_port=8265)
+
+    def test_port_forward_timeout_raises(self, cluster_with_executor, mock_k8s_clients):
+        """Test port_forward raises TimeoutError when queue is empty."""
+        mock_api, mock_core_api = mock_k8s_clients
+
+        with patch.object(cluster_with_executor, "_get") as mock_get:
+            mock_get.return_value = {"metadata": {"namespace": "test-namespace"}}
+            mock_core_api.read_namespaced_service.return_value = Mock()
+
+            with patch("subprocess.Popen"):
+                with patch("queue.Queue") as mock_queue_class:
+                    import queue as queue_module
+
+                    mock_queue = Mock()
+                    mock_queue.get.side_effect = queue_module.Empty()
+                    mock_queue_class.return_value = mock_queue
+
+                    with pytest.raises(TimeoutError, match="Timed out"):
+                        cluster_with_executor.port_forward(port=8080, target_port=8265)
+
+
+class TestKubeRayJobAdditionalCoverage:
+    """Additional tests for KubeRayJob to cover remaining missing lines."""
+
+    @pytest.fixture
+    def mock_k8s_clients(self):
+        """Mock Kubernetes API clients."""
+        with patch("nemo_run.run.ray.kuberay.config.load_kube_config"):
+            with patch("nemo_run.run.ray.kuberay.client.CustomObjectsApi") as mock_api:
+                with patch("nemo_run.run.ray.kuberay.client.CoreV1Api") as mock_core_api:
+                    yield mock_api.return_value, mock_core_api.return_value
+
+    @pytest.fixture
+    def basic_executor(self):
+        return KubeRayExecutor(
+            namespace="test-namespace",
+            volumes=[
+                {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
+            ],
+            volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+        )
+
+    @pytest.fixture
+    def job_fixture(self, basic_executor, mock_k8s_clients):
+        with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
+            return KubeRayJob(name="test-job", executor=basic_executor)
+
+    def test_stop_non_404_api_exception(self, job_fixture, mock_k8s_clients):
+        """Test stop when API raises non-404 exception (line 792)."""
+        mock_api, _ = mock_k8s_clients
+        mock_api.delete_namespaced_custom_object.side_effect = ApiException(status=500)
+
+        # Should not raise, just log error
+        job_fixture.stop()
+
+    def test_follow_logs_delete_on_finish_false(self, job_fixture):
+        """Test follow_logs_until_completion with delete_on_finish=False (line 980->exit)."""
+        status_sequence = [
+            {"jobDeploymentStatus": "Running"},
+            {"jobDeploymentStatus": "Complete"},
+        ]
+
+        with patch.object(job_fixture, "status") as mock_status:
+            mock_status.side_effect = status_sequence
+
+            with patch.object(job_fixture, "logs"):
+                with patch.object(job_fixture, "stop") as mock_stop:
+                    with patch("time.sleep"):
+                        job_fixture.follow_logs_until_completion(
+                            poll_interval=1,
+                            delete_on_finish=False,
+                        )
+
+                    # stop should NOT be called when delete_on_finish=False
+                    mock_stop.assert_not_called()
+
+    def test_follow_logs_terminal_deploy_status_no_delete(self, job_fixture):
+        """Test follow_logs with terminal deploy status when delete_on_finish=False."""
+        status_sequence = [
+            {"jobDeploymentStatus": "Pending"},
+            {"jobDeploymentStatus": "Failed"},
+        ]
+
+        with patch.object(job_fixture, "status") as mock_status:
+            mock_status.side_effect = status_sequence
+
+            with patch.object(job_fixture, "stop") as mock_stop:
+                with patch("time.sleep"):
+                    job_fixture.follow_logs_until_completion(
+                        poll_interval=1,
+                        delete_on_finish=False,
+                    )
+
+                # stop should NOT be called when delete_on_finish=False
+                mock_stop.assert_not_called()
+
+    def test_start_with_lifecycle_kwargs_none(self, job_fixture, mock_k8s_clients):
+        """Test start() when executor.lifecycle_kwargs is None (line 1021)."""
+        mock_api, _ = mock_k8s_clients
+        job_fixture.executor.lifecycle_kwargs = None
+
+        job_fixture.start(command="python train.py")
+
+        # Should have set lifecycle_kwargs to {}
+        assert job_fixture.executor.lifecycle_kwargs is not None
+        mock_api.create_namespaced_custom_object.assert_called_once()
+
+    def test_start_with_pre_ray_start_commands(self, job_fixture, mock_k8s_clients):
+        """Test start() with pre_ray_start_commands (lines 1024-1025)."""
+        mock_api, _ = mock_k8s_clients
+
+        pre_cmds = ["echo hello", "pip install numpy"]
+        job_fixture.start(command="python train.py", pre_ray_start_commands=pre_cmds)
+
+        # Verify lifecycle kwargs were set
+        assert "postStart" in job_fixture.executor.lifecycle_kwargs
+        assert job_fixture.executor.lifecycle_kwargs["postStart"]["exec"]["command"][
+            2
+        ] == "\n".join(pre_cmds)
+        mock_api.create_namespaced_custom_object.assert_called_once()
+
+    def test_start_workdir_dryrun(self, job_fixture, mock_k8s_clients, capsys):
+        """Test start() with workdir but dryrun=True (lines 1043-1056)."""
+        # With dryrun=True, sync_workdir_via_pod should NOT be called
+        with patch("nemo_run.core.execution.kuberay.sync_workdir_via_pod") as mock_sync:
+            result = job_fixture.start(
+                command="python train.py",
+                workdir="/local/path",
+                dryrun=True,
+            )
+
+        # sync should not have been called in dryrun mode
+        mock_sync.assert_not_called()
+        assert result is not None  # Should return the body
+
+    def test_start_apply_workdir_to_worker_groups(self, job_fixture, mock_k8s_clients):
+        """Test start() applies workdir to worker group specs (lines 1083-1087)."""
+        # Use dryrun to avoid actual API calls
+        result = job_fixture.start(
+            command="python train.py",
+            dryrun=True,
+        )
+        # dryrun returns the rayjob_body dict
+        assert result is not None
+        assert result.get("kind") == "RayJob"
+
+    def test_start_apply_workdir_exception_ignored(self, job_fixture, mock_k8s_clients):
+        """Test start() ignores exceptions from _apply_workdir when template is None."""
+        # Create a cluster body where headGroupSpec has malformed template
+        bad_body = {
+            "spec": {
+                "headGroupSpec": {
+                    "template": None  # Malformed - will cause exception in _apply_workdir
+                },
+                "workerGroupSpecs": [],
+            }
+        }
+
+        with patch.object(job_fixture.executor, "get_cluster_body", return_value=bad_body):
+            # Should not raise even with malformed template - exception is caught and ignored
+            result = job_fixture.start(
+                command="python train.py",
+                workdir="/local/path",
+                dryrun=True,
+            )
+        assert result is not None

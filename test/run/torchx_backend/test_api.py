@@ -21,6 +21,7 @@ import pytest
 from nemo_run.config import Partial, Script, set_nemorun_home
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.run.api import run
+from nemo_run.run.torchx_backend.components.ft_launcher import ft_launcher
 from test.conftest import MockContext
 
 
@@ -142,3 +143,60 @@ def test_run_with_executor(
 #         config = fdl.Config()
 #         run(Partial(config, {}, "test"), executor=MockExecutor("test"))
 #         assert mock_exp.title == "test_config"
+
+
+class TestFtLauncher:
+    def test_ft_launcher_basic(self):
+        """ft_launcher with no FT params uses --ignore-missing-fault-tol-cfg."""
+        app_def = ft_launcher(script="my_script.py", j="1x1")
+        assert app_def.roles[0].entrypoint == "ft_launcher"
+        assert "--ignore-missing-fault-tol-cfg" in app_def.roles[0].args
+
+    def test_ft_launcher_with_workload_check_interval(self):
+        """ft_launcher adds --ft-workload_check_interval arg when specified."""
+        app_def = ft_launcher(script="my_script.py", j="1x1", workload_check_interval=30.0)
+        args = app_def.roles[0].args
+        assert "--ft-workload_check_interval" in args
+        idx = args.index("--ft-workload_check_interval")
+        assert "30.0" in args[idx + 1]
+
+    def test_ft_launcher_with_initial_rank_heartbeat_timeout(self):
+        """ft_launcher adds --ft-initial_rank_heartbeat_timeout arg when specified."""
+        app_def = ft_launcher(script="my_script.py", j="1x1", initial_rank_heartbeat_timeout=60.0)
+        args = app_def.roles[0].args
+        assert "--ft-initial_rank_heartbeat_timeout" in args
+
+    def test_ft_launcher_with_rank_heartbeat_timeout(self):
+        """ft_launcher adds --ft-rank_heartbeat_timeout arg when specified."""
+        app_def = ft_launcher(script="my_script.py", j="1x1", rank_heartbeat_timeout=45.0)
+        args = app_def.roles[0].args
+        assert "--ft-rank_heartbeat_timeout" in args
+
+    def test_ft_launcher_with_rank_termination_signal(self):
+        """ft_launcher adds --ft-rank_termination_signal arg when specified."""
+        app_def = ft_launcher(script="my_script.py", j="1x1", rank_termination_signal="SIGTERM")
+        args = app_def.roles[0].args
+        assert "--ft-rank_termination_signal" in args
+
+    def test_ft_launcher_with_log_level(self):
+        """ft_launcher adds --ft-log_level arg when specified."""
+        app_def = ft_launcher(script="my_script.py", j="1x1", log_level="DEBUG")
+        args = app_def.roles[0].args
+        assert "--ft-log_level" in args
+
+    def test_ft_launcher_with_max_restarts(self):
+        """ft_launcher adds --max-restarts arg when specified and not dgxc."""
+        app_def = ft_launcher(script="my_script.py", j="1x1", max_restarts=3)
+        args = app_def.roles[0].args
+        assert "--max-restarts" in args
+        idx = args.index("--max-restarts")
+        assert "3" in args[idx + 1]
+
+    def test_ft_launcher_max_restarts_ignored_for_dgxc(self):
+        """ft_launcher ignores max_restarts and logs warning when dgxc=True."""
+
+        with patch("nemo_run.run.torchx_backend.components.ft_launcher.logger") as mock_logger:
+            app_def = ft_launcher(script="my_script.py", j="1x1", max_restarts=3, dgxc=True)
+            mock_logger.warning.assert_called_once()
+            args = app_def.roles[0].args
+            assert "--max-restarts" not in args

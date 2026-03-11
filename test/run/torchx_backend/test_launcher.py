@@ -228,3 +228,109 @@ def test_context_thread_run(mocked_run, setup_and_teardown):
         thread = ContextThread(target=test_function)
         thread.start()
         mocked_run.assert_called_once()
+
+
+@patch("nemo_run.run.torchx_backend.launcher.get_runner")
+def test_wait_and_exit_uses_get_runner_when_runner_is_none(mock_get_runner):
+    """wait_and_exit calls get_runner() when runner is None."""
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    mock_runner = Mock()
+    mock_runner.wait.return_value = MagicMock(spec=AppStatus, state="SUCCEEDED")
+    mock_get_runner.return_value = mock_runner
+
+    result = wait_and_exit(app_handle=mock_app_handle, log=False, runner=None)
+
+    mock_get_runner.assert_called_once()
+    assert result.state == "SUCCEEDED"
+
+
+def test_wait_and_exit_log_thread_join_warning(mock_runner):
+    """wait_and_exit logs warning while waiting for log thread, and after timeout."""
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    mock_runner.wait.return_value = MagicMock(spec=AppStatus, state="SUCCEEDED")
+
+    mock_log_thread = MagicMock()
+    mock_log_thread.daemon = True
+    # Thread is alive after join (simulates timeout)
+    mock_log_thread.is_alive.return_value = True
+
+    with patch("nemo_run.run.torchx_backend.launcher.ContextThread", return_value=mock_log_thread):
+        with patch("nemo_run.run.torchx_backend.launcher.logger") as mock_logger:
+            wait_and_exit(app_handle=mock_app_handle, log=True, runner=mock_runner)
+
+            # Should have logged the "Waiting for log thread" warning
+            warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
+            assert any("log thread" in w.lower() or "log" in w.lower() for w in warning_calls)
+
+
+def test_wait_and_exit_log_thread_alive_after_join(mock_runner):
+    """wait_and_exit logs a warning when log thread is still alive after join timeout."""
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    mock_runner.wait.return_value = MagicMock(spec=AppStatus, state="SUCCEEDED")
+
+    mock_log_thread = MagicMock()
+    mock_log_thread.daemon = True
+    mock_log_thread.is_alive.return_value = True  # still alive after join
+
+    with patch("nemo_run.run.torchx_backend.launcher.ContextThread", return_value=mock_log_thread):
+        with patch("nemo_run.run.torchx_backend.launcher.logger") as mock_logger:
+            result = wait_and_exit(
+                app_handle=mock_app_handle,
+                log=True,
+                runner=mock_runner,
+                log_join_timeout=1,
+            )
+            # Should warn about log thread not completing
+            warning_messages = [str(c) for c in mock_logger.warning.call_args_list]
+            assert any(
+                "did not complete" in msg or "log thread" in msg.lower() for msg in warning_messages
+            )
+            assert result.state == "SUCCEEDED"
+
+
+def test_context_thread_copies_context():
+    """ContextThread copies the current context on init."""
+    import contextvars
+
+    test_var: contextvars.ContextVar[str] = contextvars.ContextVar("test_var")
+    test_var.set("hello")
+
+    thread = ContextThread(target=lambda: None)
+    assert isinstance(thread.ctx, contextvars.Context)
+    # The thread's copied context should have the value set before init
+    assert thread.ctx.run(test_var.get) == "hello"
+
+
+def test_context_thread_run_uses_ctx():
+    """ContextThread.run() executes the target in the copied context."""
+    import contextvars
+
+    result_holder = []
+    test_var: contextvars.ContextVar[str] = contextvars.ContextVar("test_var2")
+    test_var.set("world")
+
+    def capture():
+        result_holder.append(test_var.get())
+
+    thread = ContextThread(target=capture)
+    thread.start()
+    thread.join(timeout=5)
+    assert result_holder == ["world"]
+
+
+def test_launch_dryrun_with_log_dryrun(mock_runner, mock_executor, mock_executable):
+    """launch with dryrun=True and log_dryrun=True logs the dryrun info."""
+    dryrun_info = "Dryrun Info"
+    mock_runner.dryrun.return_value = dryrun_info
+
+    with patch("nemo_run.run.torchx_backend.launcher.CONSOLE") as mock_console:
+        result = launch(
+            mock_executable,
+            "test_executor",
+            mock_executor,
+            dryrun=True,
+            log_dryrun=True,
+            runner=mock_runner,
+        )
+        assert result == (None, dryrun_info)
+        mock_console.log.assert_called()

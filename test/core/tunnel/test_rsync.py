@@ -222,6 +222,13 @@ class TestRsync(unittest.TestCase):
 
         assert sleep_calls == [4, 8, 16]
 
+    def test_rsync_strict_host_keys_false(self):
+        """Test that StrictHostKeyChecking=no is added when strict_host_keys=False."""
+        rsync(self.mock_connection, self.source, self.target, strict_host_keys=False)
+
+        cmd = self.mock_connection.local.call_args[0][0]
+        self.assertIn("StrictHostKeyChecking=no", cmd)
+
 
 if __name__ == "__main__":
     unittest.main()

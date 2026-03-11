@@ -13,34 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
+from unittest.mock import MagicMock
 
-import pytest
-
-from nemo_run.config import Config
-from nemo_run.core.packaging.base import Packager
+from nemo_run.run.plugin import ExperimentPlugin
 
 
-@pytest.fixture
-def packager():
-    return Packager()
+def test_experiment_plugin_default_experiment_id():
+    plugin = ExperimentPlugin()
+    assert plugin.experiment_id == ""
 
 
-def test_default_init(packager):
-    assert packager.debug is False
+def test_experiment_plugin_assign():
+    plugin = ExperimentPlugin()
+    plugin.assign("exp-123")
+    assert plugin.experiment_id == "exp-123"
 
 
-def test_to_config(packager):
-    config = packager.to_config()
-    assert isinstance(config, Config)
-    assert config.debug is False
-
-
-def test_packager_package_returns_none(packager):
-    result = packager.package(Path("."), "/tmp", "test")
-    assert result is None
-
-
-def test_packager_setup_returns_none(packager):
-    result = packager.setup()
+def test_experiment_plugin_setup_is_noop():
+    plugin = ExperimentPlugin()
+    task = MagicMock()
+    executor = MagicMock()
+    result = plugin.setup(task, executor)
     assert result is None

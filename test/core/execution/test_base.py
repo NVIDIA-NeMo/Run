@@ -14,6 +14,8 @@
 # limitations under the License.
 
 
+from unittest.mock import patch
+
 import fiddle as fdl
 import pytest
 from torchx.specs import Role
@@ -22,6 +24,8 @@ from nemo_run.config import Config
 from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
+    LogSupportedExecutor,
+    import_executor,
 )
 from nemo_run.core.execution.launcher import FaultTolerance, Launcher, Torchrun
 from nemo_run.core.execution.slurm import SlurmExecutor
@@ -134,3 +138,89 @@ class TestExecutor:
     def test_cleanup(self):
         executor = Executor()
         assert executor.cleanup("handle") is None
+
+    def test_get_launcher_prefix_with_nsys(self, tmp_path):
+        """Test get_launcher_prefix returns prefix when nsys_profile=True (lines 163-166)."""
+        launcher = Launcher(nsys_profile=True)
+        executor = Executor(launcher=launcher, job_dir=str(tmp_path))
+        prefix = executor.get_launcher_prefix()
+        assert prefix is not None
+        assert isinstance(prefix, list)
+        assert "profile" in prefix
+
+    def test_get_launcher_prefix_without_nsys(self, tmp_path):
+        """Test get_launcher_prefix returns None when nsys_profile=False."""
+        launcher = Launcher(nsys_profile=False)
+        executor = Executor(launcher=launcher, job_dir=str(tmp_path))
+        prefix = executor.get_launcher_prefix()
+        assert prefix is None
+
+
+class TestLogSupportedExecutor:
+    def test_log_supported_executor_protocol(self):
+        """Test that LogSupportedExecutor is a runtime-checkable Protocol (line 76)."""
+
+        # A class implementing the logs classmethod should satisfy the protocol
+        class MyExecutor:
+            @classmethod
+            def logs(cls, app_id: str, fallback_path=None):
+                pass
+
+        assert isinstance(MyExecutor, type)
+        assert isinstance(MyExecutor(), LogSupportedExecutor)
+
+    def test_not_log_supported_executor(self):
+        """Test that a class without logs() does not satisfy LogSupportedExecutor."""
+
+        class NoLogs:
+            pass
+
+        assert not isinstance(NoLogs(), LogSupportedExecutor)
+
+
+class TestImportExecutor:
+    def test_import_executor_callable(self, tmp_path):
+        """Test import_executor with a callable executor factory (lines 224-235)."""
+        executor_file = tmp_path / "executors.py"
+        executor_file.write_text(
+            "from nemo_run.core.execution.local import LocalExecutor\n"
+            "def my_executor(**kwargs):\n"
+            "    return LocalExecutor(**kwargs)\n"
+        )
+        result = import_executor("my_executor", file_path=str(executor_file))
+        from nemo_run.core.execution.local import LocalExecutor
+
+        assert isinstance(result, LocalExecutor)
+
+    def test_import_executor_non_callable(self, tmp_path):
+        """Test import_executor with a non-callable (instance) executor (line 233-234)."""
+        executor_file = tmp_path / "executors.py"
+        executor_file.write_text(
+            "from nemo_run.core.execution.local import LocalExecutor\n"
+            "my_executor = LocalExecutor()\n"
+        )
+        result = import_executor("my_executor", file_path=str(executor_file), call=False)
+        from nemo_run.core.execution.local import LocalExecutor
+
+        assert isinstance(result, LocalExecutor)
+
+    def test_import_executor_default_path(self, tmp_path, monkeypatch):
+        """Test import_executor uses default path when file_path is None (line 224-225)."""
+        from nemo_run import config as nemo_config
+
+        monkeypatch.setattr(nemo_config, "_NEMORUN_HOME", str(tmp_path))
+
+        # Create the expected executors.py at the default location
+        executors_file = tmp_path / "executors.py"
+        executors_file.write_text(
+            "from nemo_run.core.execution.local import LocalExecutor\n"
+            "def local(**kwargs):\n"
+            "    return LocalExecutor(**kwargs)\n"
+        )
+
+        # Patch get_nemorun_home to return tmp_path
+        with patch("nemo_run.core.execution.base.get_nemorun_home", return_value=str(tmp_path)):
+            result = import_executor("local")
+        from nemo_run.core.execution.local import LocalExecutor
+
+        assert isinstance(result, LocalExecutor)

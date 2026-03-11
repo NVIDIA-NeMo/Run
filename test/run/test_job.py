@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from torchx.specs.api import AppState
+from nemo_run.core.execution.local import LocalExecutor
 
 from nemo_run.config import Partial, Script
 from nemo_run.core.execution.docker import DockerExecutor
@@ -752,3 +753,28 @@ def test_job_group_prepare_serialize_metadata_flag(simple_task, docker_executor)
         # Verify at least one call had flag False
         for _args, kwargs in mock_package.call_args_list:
             assert kwargs["serialize_metadata_for_scripts"] is False
+
+
+def test_job_group_local_single_executor_expands(simple_task):
+    """LocalExecutor with single executor: executors list gets expanded to num_tasks."""
+    executor = LocalExecutor(job_dir="/tmp/test")
+    job_group = JobGroup(
+        id="test-group",
+        tasks=[simple_task, simple_task],
+        executors=executor,
+    )
+    # LocalExecutor falls into the else branch, single executor becomes list of len(tasks)
+    assert isinstance(job_group.executors, list)
+    assert len(job_group.executors) == 2
+    assert job_group._merge is False
+
+
+def test_job_group_empty_handle_returns_empty_string(simple_task, docker_executor):
+    """handle property returns empty string when handles list is empty."""
+    job_group = JobGroup(
+        id="test-group",
+        tasks=[simple_task, simple_task],
+        executors=docker_executor,
+    )
+    # handles is empty by default
+    assert job_group.handle == ""

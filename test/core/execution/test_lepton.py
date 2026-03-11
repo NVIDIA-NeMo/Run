@@ -997,3 +997,512 @@ class TestLeptonExecutor:
         handle = mock_file.return_value.__enter__.return_value
         written_content = handle.write.call_args[0][0]
         assert "echo setup\nexport VAR=1\n" in written_content
+
+    # -----------------------------------------------------------------------
+    # Tests for missing coverage lines
+    # -----------------------------------------------------------------------
+
+    @patch.object(LeptonExecutor, "copy_directory_data_command")
+    @patch("nemo_run.core.execution.lepton.time")
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_move_data_timeout(self, mock_APIClient, mock_time, mock_copy):
+        """Line 162: TimeoutError when move_data loop exceeds timeout."""
+        mock_client = mock_APIClient.return_value
+        mock_copy.return_value = ["sh", "-c", "echo hi"]
+
+        # Simulate node group / nodes
+        mock_client.nodegroup.list_all.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(name="ng1", id_="ng-id"))
+        ]
+        mock_client.nodegroup.list_nodes.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(id_="node-1"))
+        ]
+
+        # Job create returns an ID
+        mock_client.job.create.return_value = SimpleNamespace(
+            metadata=SimpleNamespace(id_="job-timeout")
+        )
+
+        # Make the loop always think it's in a non-terminal state
+        mock_client.job.get.return_value = SimpleNamespace(status=SimpleNamespace(state="Starting"))
+
+        # time.time() returns values that exceed timeout immediately on second call
+        mock_time.time.side_effect = [0, 9999]
+        mock_time.sleep = MagicMock()
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/workspace/nemo_run",
+            node_group="ng1",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        with pytest.raises(TimeoutError):
+            executor.move_data()
+
+    @patch.object(LeptonExecutor, "copy_directory_data_command")
+    @patch("nemo_run.core.execution.lepton.time")
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_move_data_unknown_state_recovers(self, mock_APIClient, mock_time, mock_copy):
+        """Lines 171-186: Unknown state in move_data loop then recovery."""
+        mock_client = mock_APIClient.return_value
+        mock_copy.return_value = ["sh", "-c", "echo hi"]
+
+        mock_client.nodegroup.list_all.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(name="ng1", id_="ng-id"))
+        ]
+        mock_client.nodegroup.list_nodes.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(id_="node-1"))
+        ]
+        mock_client.job.create.return_value = SimpleNamespace(
+            metadata=SimpleNamespace(id_="job-unknown-recover")
+        )
+
+        # First get → Unknown, second get (inside grace period) → Completed
+        # Third get → back in outer loop → Completed (breaks outer loop)
+        unknown_job = SimpleNamespace(status=SimpleNamespace(state="Unknown"))
+        completed_job = SimpleNamespace(status=SimpleNamespace(state="Completed"))
+        mock_client.job.get.side_effect = [unknown_job, completed_job, completed_job]
+
+        # time.time() calls:
+        # 1: start_time = time.time()  → 0
+        # 2: outer loop timeout check  → 1  (ok)
+        # 3: unknown_start_time = time.time()  → 2
+        # 4: inner while check  → 3  (3-2 < 60: True, enter inner loop)
+        # 5: outer loop timeout check (2nd iteration)  → 4  (ok)
+        mock_time.time.side_effect = [0, 1, 2, 3, 4]
+        mock_time.sleep = MagicMock()
+        mock_client.job.delete.return_value = True
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/workspace/nemo_run",
+            node_group="ng1",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        executor.move_data()
+        mock_client.job.delete.assert_called_once()
+
+    @patch.object(LeptonExecutor, "copy_directory_data_command")
+    @patch("nemo_run.core.execution.lepton.time")
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_move_data_unknown_state_not_recovered(self, mock_APIClient, mock_time, mock_copy):
+        """Lines 187-191: Unknown state in move_data loop without recovery (grace period expires)."""
+        mock_client = mock_APIClient.return_value
+        mock_copy.return_value = ["sh", "-c", "echo hi"]
+
+        mock_client.nodegroup.list_all.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(name="ng1", id_="ng-id"))
+        ]
+        mock_client.nodegroup.list_nodes.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(id_="node-1"))
+        ]
+        mock_client.job.create.return_value = SimpleNamespace(
+            metadata=SimpleNamespace(id_="job-unknown-stuck")
+        )
+
+        # All get calls return Unknown state
+        unknown_job = SimpleNamespace(status=SimpleNamespace(state="Unknown"))
+        mock_client.job.get.return_value = unknown_job
+
+        # time.time() side effects:
+        # 1st call: outer loop start (0)
+        # 2nd call: outer timeout check (1) → ok
+        # 3rd call: inner grace period start (2)
+        # 4th call: inner grace period check (2 + 61 = 63 > 60 → expired)
+        mock_time.time.side_effect = [0, 1, 2, 63]
+        mock_time.sleep = MagicMock()
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/workspace/nemo_run",
+            node_group="ng1",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        # After grace period expires, job status is still Unknown → RuntimeError (line 195)
+        with pytest.raises(RuntimeError):
+            executor.move_data()
+
+    @patch.object(LeptonExecutor, "copy_directory_data_command")
+    @patch("nemo_run.core.execution.lepton.time")
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_move_data_job_failed(self, mock_APIClient, mock_time, mock_copy):
+        """Line 195: RuntimeError when job ends with Failed state."""
+        mock_client = mock_APIClient.return_value
+        mock_copy.return_value = ["sh", "-c", "echo hi"]
+
+        mock_client.nodegroup.list_all.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(name="ng1", id_="ng-id"))
+        ]
+        mock_client.nodegroup.list_nodes.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(id_="node-1"))
+        ]
+        mock_client.job.create.return_value = SimpleNamespace(
+            metadata=SimpleNamespace(id_="job-failed")
+        )
+
+        failed_job = SimpleNamespace(status=SimpleNamespace(state="Failed"))
+        mock_client.job.get.return_value = failed_job
+
+        mock_time.time.side_effect = [0, 1]
+        mock_time.sleep = MagicMock()
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/workspace/nemo_run",
+            node_group="ng1",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        with pytest.raises(RuntimeError, match="failed with status"):
+            executor.move_data()
+
+    @patch.object(LeptonExecutor, "copy_directory_data_command")
+    @patch("nemo_run.core.execution.lepton.time")
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_move_data_delete_failure(self, mock_APIClient, mock_time, mock_copy):
+        """Line 201: logging.error when delete fails after successful job completion."""
+        mock_client = mock_APIClient.return_value
+        mock_copy.return_value = ["sh", "-c", "echo hi"]
+
+        mock_client.nodegroup.list_all.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(name="ng1", id_="ng-id"))
+        ]
+        mock_client.nodegroup.list_nodes.return_value = [
+            SimpleNamespace(metadata=SimpleNamespace(id_="node-1"))
+        ]
+        mock_client.job.create.return_value = SimpleNamespace(
+            metadata=SimpleNamespace(id_="job-del-fail")
+        )
+
+        completed_job = SimpleNamespace(status=SimpleNamespace(state="Completed"))
+        mock_client.job.get.return_value = completed_job
+        mock_client.job.delete.return_value = False  # delete fails
+
+        mock_time.time.side_effect = [0, 1]
+        mock_time.sleep = MagicMock()
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/workspace/nemo_run",
+            node_group="ng1",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        # Should not raise, just log error
+        executor.move_data()
+        mock_client.job.delete.assert_called_once_with("job-del-fail")
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_no_node_group_id(self, mock_APIClient_class):
+        """Line 263: RuntimeError when node_group_id.metadata.id_ is falsy."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = MagicMock()
+
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_=None))
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="my-group",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+        )
+        executor._node_group_id = MagicMock(return_value=node_group)
+        executor._valid_node_ids = MagicMock(return_value=["node-1"])
+
+        with pytest.raises(RuntimeError, match="Unable to find node group ID"):
+            executor.create_lepton_job("my-job")
+
+    def test_nproc_per_node_both_zero(self):
+        """Line 353: return 1 when both gpus_per_node and nprocs_per_node are 0."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            gpus_per_node=0,
+            nprocs_per_node=0,
+        )
+        assert executor.nproc_per_node() == 1
+
+    @patch("nemo_run.core.execution.lepton.time")
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_logs_classmethod(self, mock_APIClient, mock_time):
+        """Lines 379-431: logs classmethod streams job logs."""
+        mock_time.sleep = MagicMock()
+
+        # Create per-call client instances
+        # APIClient() is called multiple times inside logs():
+        # once at module level, once in _first_replica, once in _status (×2)
+        mock_client = MagicMock()
+        mock_APIClient.return_value = mock_client
+
+        running_job = MagicMock()
+        running_job.status.state = "Running"
+        running_job.status.ready = 1
+        running_job.status.active = 1
+        mock_client.job.get.return_value = running_job
+
+        # Build a replica whose id_ starts with "<job-id>-0"
+        replica = MagicMock()
+        replica.metadata.id_ = "my-job-0-abc"
+        mock_client.job.get_replicas.return_value = [replica]
+
+        # get_log returns an iterable of log lines
+        mock_client.job.get_log.return_value = ["line1\n", "line2\n"]
+
+        # app_id format: two "___" separated prefixes then the job id
+        app_id = "prefix1___prefix2___my-job"
+
+        import io
+        import sys
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            LeptonExecutor.logs(app_id=app_id, fallback_path=None)
+        finally:
+            sys.stdout = sys.__stdout__
+
+        output = captured.getvalue()
+        assert "line1\n" in output
+        assert "line2\n" in output
+
+    @patch("nemo_run.core.execution.lepton.time")
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_logs_classmethod_first_replica_not_found(self, mock_APIClient, mock_time):
+        """Lines 400-401: RuntimeError when no matching first replica is found."""
+        mock_time.sleep = MagicMock()
+
+        mock_client = MagicMock()
+        mock_APIClient.return_value = mock_client
+
+        running_job = MagicMock()
+        running_job.status.state = "Running"
+        running_job.status.ready = 1
+        running_job.status.active = 1
+        mock_client.job.get.return_value = running_job
+
+        # replica whose id does NOT start with "<job-id>-0"
+        replica = MagicMock()
+        replica.metadata.id_ = "my-job-1-xyz"
+        mock_client.job.get_replicas.return_value = [replica]
+
+        app_id = "prefix1___prefix2___my-job"
+
+        with pytest.raises(RuntimeError, match="Unable to retrieve workers"):
+            LeptonExecutor.logs(app_id=app_id, fallback_path=None)
+
+    @patch("nemo_run.core.execution.lepton.time")
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_logs_classmethod_replica_no_id(self, mock_APIClient, mock_time):
+        """Lines 389-390: replica with no id_ is skipped."""
+        mock_time.sleep = MagicMock()
+
+        mock_client = MagicMock()
+        mock_APIClient.return_value = mock_client
+
+        running_job = MagicMock()
+        running_job.status.state = "Running"
+        running_job.status.ready = 1
+        running_job.status.active = 1
+        mock_client.job.get.return_value = running_job
+
+        # first replica has no id_, second has matching id_
+        replica_no_id = MagicMock()
+        replica_no_id.metadata.id_ = None
+        replica_ok = MagicMock()
+        replica_ok.metadata.id_ = "my-job-0-abc"
+        mock_client.job.get_replicas.return_value = [replica_no_id, replica_ok]
+
+        mock_client.job.get_log.return_value = []
+
+        app_id = "prefix1___prefix2___my-job"
+
+        import io
+        import sys
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            LeptonExecutor.logs(app_id=app_id, fallback_path=None)
+        finally:
+            sys.stdout = sys.__stdout__
+
+    @patch("nemo_run.core.execution.lepton.get_nemorun_home")
+    def test_assign_method(self, mock_get_home):
+        """Lines 442-455: assign sets job_name, experiment_dir, job_dir, lepton_job_dir."""
+        mock_get_home.return_value = "/home/user/.nemo_run"
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/remote/nemo_run",
+        )
+
+        executor.assign(
+            exp_id="exp-001",
+            exp_dir="/home/user/.nemo_run/experiments",
+            task_id="task-001",
+            task_dir="task_subdir",
+        )
+
+        assert executor.job_name == "task-001"
+        assert executor.experiment_dir == "/home/user/.nemo_run/experiments"
+        assert executor.job_dir == "/home/user/.nemo_run/experiments/task_subdir"
+        assert executor.experiment_id == "exp-001"
+        # lepton_job_dir should be nemo_run_dir + subdir relative to nemo_run_home
+        # job_dir = "/home/user/.nemo_run/experiments/task_subdir"
+        # nemo_run_home = "/home/user/.nemo_run"
+        # job_subdir = "experiments/task_subdir"
+        assert executor.lepton_job_dir == "/remote/nemo_run/experiments/task_subdir"
+
+    def test_get_launcher_prefix_with_nsys(self):
+        """Lines 458-460: get_launcher_prefix returns nsys prefix when nsys_profile is True."""
+        from nemo_run.core.execution.launcher import Launcher
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+        )
+
+        mock_launcher = MagicMock(spec=Launcher)
+        mock_launcher.nsys_profile = True
+        mock_launcher.get_nsys_prefix.return_value = [
+            "nsys",
+            "profile",
+            "--output",
+            "/nemo_run/...",
+        ]
+
+        with patch.object(executor, "get_launcher", return_value=mock_launcher):
+            result = executor.get_launcher_prefix()
+
+        assert result == ["nsys", "profile", "--output", "/nemo_run/..."]
+        mock_launcher.get_nsys_prefix.assert_called_once_with(profile_dir="/nemo_run")
+
+    def test_get_launcher_prefix_no_nsys(self):
+        """get_launcher_prefix returns None when nsys_profile is False."""
+        from nemo_run.core.execution.launcher import Launcher
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+        )
+
+        mock_launcher = MagicMock(spec=Launcher)
+        mock_launcher.nsys_profile = False
+
+        with patch.object(executor, "get_launcher", return_value=mock_launcher):
+            result = executor.get_launcher_prefix()
+
+        assert result is None
+
+    @patch("invoke.context.Context.run")
+    def test_package_non_git_packager(self, mock_context_run):
+        """Line 489: base_path from cwd when packager is NOT GitArchivePackager."""
+        from nemo_run.core.packaging.base import Packager
+
+        class DummyPackager(Packager):
+            def package(self, base_path, job_dir, job_name):
+                return None
+
+        mock_context_run.return_value = MagicMock()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor = LeptonExecutor(
+                container_image="test-image",
+                nemo_run_dir="/test/path",
+            )
+            executor.experiment_id = "test_exp"
+            executor.job_dir = tmp_dir
+
+            packager = DummyPackager()
+            # Should use os.getcwd() as base_path, no subprocess call needed
+            executor.package(packager, "test_job")
+
+            # mkdir -p called for code extraction path (no nsys, no local_pkg)
+            mock_context_run.assert_called_once()
+            call_arg = mock_context_run.call_args[0][0]
+            assert "mkdir -p" in call_arg
+
+    @patch("invoke.context.Context.run")
+    def test_package_with_nsys_profile(self, mock_context_run):
+        """Lines 497-500: nsys folder created when nsys_profile is True."""
+        from nemo_run.core.execution.launcher import Launcher
+
+        mock_context_run.return_value = MagicMock()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor = LeptonExecutor(
+                container_image="test-image",
+                nemo_run_dir="/test/path",
+            )
+            executor.experiment_id = "test_exp"
+            executor.job_dir = tmp_dir
+
+            mock_launcher = MagicMock(spec=Launcher)
+            mock_launcher.nsys_profile = True
+            mock_launcher.nsys_folder = "nsys_profile"
+
+            from nemo_run.core.packaging.base import Packager
+
+            class DummyPackager(Packager):
+                def package(self, base_path, job_dir, job_name):
+                    return None
+
+            packager = DummyPackager()
+            with patch.object(executor, "get_launcher", return_value=mock_launcher):
+                executor.package(packager, "test_job")
+
+            # Two ctx.run calls: mkdir for code + mkdir for nsys folder
+            assert mock_context_run.call_count == 2
+            calls = [c[0][0] for c in mock_context_run.call_args_list]
+            assert any("nsys_profile" in c for c in calls)
+
+    @patch("invoke.context.Context.run")
+    def test_package_with_local_pkg_none(self, mock_context_run):
+        """Lines 501->exit: no tar extraction when local_pkg is None."""
+        from nemo_run.core.packaging.base import Packager
+
+        mock_context_run.return_value = MagicMock()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor = LeptonExecutor(
+                container_image="test-image",
+                nemo_run_dir="/test/path",
+            )
+            executor.experiment_id = "test_exp"
+            executor.job_dir = tmp_dir
+
+            class DummyPackager(Packager):
+                def package(self, base_path, job_dir, job_name):
+                    return None  # no local package
+
+            packager = DummyPackager()
+            executor.package(packager, "test_job")
+
+            # Only mkdir, no tar extraction
+            for call in mock_context_run.call_args_list:
+                assert "tar" not in call[0][0]
+
+    def test_default_headers_without_token(self):
+        """Lines 510-513: _default_headers without token."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+        )
+        headers = executor._default_headers()
+        assert headers["Accept"] == "application/json"
+        assert headers["Content-Type"] == "application/json"
+        assert "Authorization" not in headers
+
+    def test_default_headers_with_token(self):
+        """Lines 514-515: _default_headers with token includes Authorization."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+        )
+        headers = executor._default_headers(token="my-secret-token")
+        assert headers["Authorization"] == "Bearer my-secret-token"
+        assert headers["Accept"] == "application/json"
+        assert headers["Content-Type"] == "application/json"

@@ -257,3 +257,112 @@ def test_get_logs_calls_print_log_lines(mock_runner, mock_status, mock_app):
             ("worker", 1),
         ]
         assert mock_print_log_lines.call_count == len(roles_and_replicas)
+
+
+def test_get_logs_without_runner_uses_get_runner(mock_status, mock_app, capsys):
+    """Test that get_logs calls get_runner() when no runner is provided (line 94)."""
+    executor_cls = MockExecutorNoLogs
+    REVERSE_EXECUTOR_MAPPING["dummy_backend"] = executor_cls
+    mock_app.roles = [Role("main", image="")]
+
+    mock_runner = MagicMock()
+    mock_runner.status.return_value = mock_status
+    mock_runner.describe.return_value = mock_app
+    mock_runner.log_lines.return_value = []
+
+    with (
+        patch("nemo_run.run.logs.get_runner", return_value=mock_runner) as mock_get_runner,
+        patch("nemo_run.run.logs.print_log_lines"),
+    ):
+        logs.get_logs(
+            sys.stderr,
+            "dummy_backend://nemo_run/12345",
+            None,
+            False,
+            runner=None,
+            wait_timeout=0,
+        )
+        mock_get_runner.assert_called_once()
+
+
+def test_get_logs_waiting_loops_until_timeout(mock_app, capsys):
+    """Test that get_logs waits when app is not started, logs once, then breaks at timeout."""
+    executor_cls = MockExecutorNoLogs
+    REVERSE_EXECUTOR_MAPPING["dummy_backend"] = executor_cls
+    mock_app.roles = [Role("main", image="")]
+
+    mock_runner = MagicMock()
+    # Return None status always (app not started) to trigger the waiting path
+    mock_runner.status.return_value = None
+    mock_runner.describe.return_value = mock_app
+
+    with (
+        patch("nemo_run.run.logs.time.sleep") as mock_sleep,
+        patch("nemo_run.run.logs.find_role_replicas", return_value=[]),
+        pytest.raises(SystemExit),
+    ):
+        logs.get_logs(
+            sys.stderr,
+            "dummy_backend://nemo_run/12345",
+            None,
+            False,
+            mock_runner,
+            wait_timeout=2,
+        )
+
+    # sleep should have been called once (tries=1, then tries=2 which >= wait_timeout=2)
+    assert mock_sleep.call_count >= 1
+    captured = capsys.readouterr()
+    # The "Waiting..." message should appear exactly once (display_waiting set to False after)
+    assert captured.out.count("Waiting for app state response before fetching logs...") == 1
+
+
+def test_get_logs_breaks_when_status_is_started(mock_app, capsys):
+    """Test that the while loop breaks via line 103 when is_started returns True."""
+    executor_cls = MockExecutorNoLogs
+    REVERSE_EXECUTOR_MAPPING["dummy_backend"] = executor_cls
+    mock_app.roles = [Role("main", image="")]
+
+    started_status = MagicMock(spec=AppStatus)
+    started_status.state = AppState.RUNNING
+
+    mock_runner = MagicMock(spec=Runner)
+    mock_runner.status.return_value = started_status
+    mock_runner.describe.return_value = mock_app
+
+    with patch("nemo_run.run.logs.print_log_lines"):
+        logs.get_logs(
+            sys.stderr,
+            "dummy_backend://nemo_run/12345",
+            None,
+            False,
+            mock_runner,
+            wait_timeout=0,
+        )
+    # Status is started, so loop breaks at line 103
+    mock_runner.status.assert_called_once()
+
+
+def test_get_logs_raises_non_thread_runtime_error(mock_runner, mock_status, mock_app):
+    """Test that non-'can't start new thread' RuntimeError is re-raised immediately (line 168)."""
+    mock_runner.status.return_value = mock_status
+    mock_runner.describe.return_value = mock_app
+    mock_app.roles = [Role("main", image="")]
+    executor_cls = MockExecutorNoLogs
+    REVERSE_EXECUTOR_MAPPING["dummy_backend"] = executor_cls
+
+    with (
+        patch(
+            "threading.Thread.start",
+            side_effect=RuntimeError("some other error"),
+        ),
+        pytest.raises(RuntimeError, match="some other error"),
+    ):
+        logs.get_logs(
+            sys.stdout,
+            "dummy_backend://nemo_run/12345",
+            None,
+            False,
+            mock_runner,
+            wait_timeout=0,
+        )

@@ -103,6 +103,22 @@ class TestDevSpace:
         space.execute_cmd()
         assert not hasattr(executor_mock, "nonexistent_command")
 
+    def test_execute_cmd_with_callback(self, mocker):
+        """Test that executor_callback is passed to keep_alive when it's a Callback."""
+        from nemo_run.core.tunnel.client import Callback
+
+        executor_mock = mocker.Mock()
+        tunnel_mock = mocker.Mock()
+        executor_mock.tunnel = tunnel_mock
+
+        callback = Callback()
+        executor_mock.launch_devspace.return_value = callback
+
+        space = DevSpace("test", executor_mock)
+        space.execute_cmd()
+
+        tunnel_mock.keep_alive.assert_called_once_with(callback)
+
     # def test_execute_cmd_callback(self, mocker):
     #     executor_mock = mocker.Mock()
     #     tunnel_mock = mocker.Mock()

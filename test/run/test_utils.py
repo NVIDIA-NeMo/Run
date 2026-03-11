@@ -55,6 +55,13 @@ class TestTeeStdoutStderr:
         assert captured.out == "output_out\noutput_out\n"
         assert captured.err == "output_err\noutput_err\n"
 
+    def test_TeeStdoutStderr_exit_without_enter(self):
+        """__exit__ without __enter__ should not raise (file is None)."""
+        tee = TeeStdoutStderr("test.txt")
+        # self.file is None at this point - tests the `if self.file:` False branch
+        tee.__exit__(None, None, None)
+        # Should return False (no exception suppression) and not raise
+
 
 def test_list_experiments_handles_missing():
     assert Experiment.catalog("test_experiment") == []

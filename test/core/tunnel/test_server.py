@@ -13,9 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from nemo_run.core.tunnel import server
 
@@ -64,3 +67,63 @@ def test_tunnel_metadata_save_restore(tmpdir):
 
     restored_metadata = server.TunnelMetadata.restore(path)
     assert restored_metadata == metadata
+
+
+@patch("socket.socket")
+def test_launch_verbose(mock_socket, tmpdir):
+    """Test that verbose=True adds LogLevel DEBUG3 to sshd config."""
+    path = Path(tmpdir)
+    os.environ["USER"] = "dummy"
+    mock_socket_obj = MagicMock()
+    mock_socket.return_value = mock_socket_obj
+    mock_socket_obj.getsockname.return_value = ("localhost", 1234)
+    mock_context = MagicMock()
+    with patch("nemo_run.core.tunnel.server.Context", return_value=mock_context):
+        server.launch(path, "workspace", verbose=True)
+    mock_context.run.assert_any_call('echo "LogLevel DEBUG3" >> /etc/ssh/sshd_config.d/custom.conf')
+    mock_context.run.assert_any_call("/usr/sbin/sshd -D -p 1234", pty=True, hide=False)
+
+
+def test_launch_signal_handler(tmpdir):
+    """Test that the SIGINT signal handler calls sys.exit."""
+    path = Path(tmpdir)
+    os.environ["USER"] = "dummy"
+    captured_handler = {}
+
+    def fake_signal(sig, handler):
+        captured_handler["handler"] = handler
+
+    with patch("socket.socket") as mock_socket:
+        mock_socket_obj = MagicMock()
+        mock_socket.return_value = mock_socket_obj
+        mock_socket_obj.getsockname.return_value = ("localhost", 9999)
+        mock_context = MagicMock()
+        with patch("nemo_run.core.tunnel.server.Context", return_value=mock_context):
+            with patch("signal.signal", side_effect=fake_signal):
+                server.launch(path, "ws_test")
+
+    # The captured handler should call sys.exit(0) when invoked
+    handler = captured_handler.get("handler")
+    assert handler is not None
+    with pytest.raises(SystemExit):
+        handler(None, None)
+
+
+def test_tunnel_metadata_restore_with_tunnel(tmpdir):
+    """Test restore using a remote tunnel."""
+    path = Path(tmpdir)
+    expected = {
+        "user": "remote_user",
+        "hostname": "remote_host",
+        "port": 2222,
+        "workspace_name": "remote_ws",
+    }
+    mock_tunnel = MagicMock()
+    tunnel_file = path / "metadata.json"
+    mock_tunnel.run.return_value.stdout = json.dumps(expected)
+
+    metadata = server.TunnelMetadata.restore(path, tunnel=mock_tunnel)
+    assert metadata.user == "remote_user"
+    assert metadata.port == 2222
+    assert metadata.hostname == "remote_host"
+    mock_tunnel.run.assert_called_once_with(f"cat {tunnel_file}", hide="out")

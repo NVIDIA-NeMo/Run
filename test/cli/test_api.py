@@ -1918,3 +1918,594 @@ class TestExtractConstituentTypes:
     def test_various_type_hints(self, type_hint, expected_types):
         """Test get_underlying_types with various type hints."""
         assert extract_constituent_types(type_hint) == expected_types
+
+
+class TestConfigureGlobalOptions:
+    """Tests for _configure_global_options function."""
+
+    def test_configure_rich_exceptions_enabled(self):
+        """Test that rich exceptions settings are applied when enabled."""
+        from nemo_run.cli.api import _configure_global_options
+
+        app = typer.Typer()
+        _configure_global_options(app, rich_exceptions=True, rich_traceback=True, rich_locals=False)
+        assert app.pretty_exceptions_enable is True
+        assert app.pretty_exceptions_short is False  # False when rich_exceptions=True
+        assert app.pretty_exceptions_show_locals is True  # True when rich_exceptions=True
+
+    def test_configure_rich_exceptions_disabled(self):
+        """Test that rich exceptions settings are applied when disabled."""
+        from nemo_run.cli.api import _configure_global_options
+
+        app = typer.Typer()
+        _configure_global_options(
+            app, rich_exceptions=False, rich_traceback=True, rich_locals=False
+        )
+        assert app.pretty_exceptions_enable is False
+        assert app.pretty_exceptions_short is True  # rich_traceback when rich_exceptions=False
+        assert app.pretty_exceptions_show_locals is False  # rich_locals when rich_exceptions=False
+
+    def test_configure_with_rich_theme(self):
+        """Test that rich theme is applied when provided."""
+        from nemo_run.cli.api import _configure_global_options
+        from unittest.mock import patch
+
+        app = typer.Typer()
+        with patch("nemo_run.cli.api.configure_logging"):
+            with patch("rich.traceback.Traceback") as mock_traceback:
+                _configure_global_options(app, rich_theme="dark")
+                assert mock_traceback.theme == "dark"
+
+    def test_configure_logging_verbose(self):
+        """Test configure_logging sets INFO level when verbose."""
+        import logging
+        from nemo_run.cli.api import configure_logging
+
+        configure_logging(True)
+        logger = logging.getLogger("torchx")
+        assert logger.level == logging.INFO
+
+    def test_configure_logging_not_verbose(self):
+        """Test configure_logging sets WARNING level when not verbose."""
+        import logging
+        from nemo_run.cli.api import configure_logging
+
+        configure_logging(False)
+        logger = logging.getLogger("torchx")
+        assert logger.level == logging.WARNING
+
+
+class TestAddTyperNested:
+    """Tests for _add_typer_nested function."""
+
+    def test_add_nested_dict(self):
+        """Test adding nested dict to typer."""
+        from nemo_run.cli.api import _add_typer_nested
+
+        parent = typer.Typer()
+        mock_entrypoint = Mock()
+        mock_entrypoint.cli = Mock()
+
+        to_add = {"namespace1": {"task1": mock_entrypoint}}
+        _add_typer_nested(parent, to_add)
+
+        # cli should have been called with some typer instance
+        mock_entrypoint.cli.assert_called_once()
+
+    def test_add_invalid_value_raises(self):
+        """Test that adding an invalid value raises ValueError."""
+        from nemo_run.cli.api import _add_typer_nested
+
+        parent = typer.Typer()
+        # An object without .cli attribute
+        to_add = {"key": 42}  # plain int has no .cli method
+
+        with pytest.raises(ValueError, match="Cannot add"):
+            _add_typer_nested(parent, to_add)
+
+    def test_get_or_add_typer_existing(self):
+        """Test that _get_or_add_typer returns existing typer if found."""
+        from nemo_run.cli.api import _get_or_add_typer
+
+        parent = typer.Typer()
+        # Add first time
+        first = _get_or_add_typer(parent, "mymodule")
+        # Add second time - should return existing
+        second = _get_or_add_typer(parent, "mymodule")
+        assert first is second
+
+    def test_get_or_add_typer_new(self):
+        """Test that _get_or_add_typer creates a new typer when not found."""
+        from nemo_run.cli.api import _get_or_add_typer
+
+        parent = typer.Typer()
+        result = _get_or_add_typer(parent, "newmodule")
+        assert result is not None
+        assert isinstance(result, typer.Typer)
+
+
+class TestCreateCLILazy:
+    """Tests for create_cli with --lazy flag."""
+
+    def test_create_cli_lazy_devspace_raises(self):
+        """Test that lazy CLI raises if devspace command is used."""
+        import sys
+
+        original_argv = sys.argv.copy()
+        try:
+            # devspace must be sys.argv[1] for the check to trigger
+            sys.argv = ["nemo", "devspace", "--lazy"]
+            with pytest.raises(ValueError, match="Lazy CLI does not support"):
+                create_cli()
+        finally:
+            sys.argv = original_argv
+
+    def test_create_cli_lazy_experiment_raises(self):
+        """Test that lazy CLI raises if experiment command is used."""
+        import sys
+
+        original_argv = sys.argv.copy()
+        try:
+            # experiment must be sys.argv[1] for the check to trigger
+            sys.argv = ["nemo", "experiment", "--lazy"]
+            with pytest.raises(ValueError, match="Lazy CLI does not support"):
+                create_cli()
+        finally:
+            sys.argv = original_argv
+
+    def test_create_cli_normal(self):
+        """Test create_cli in normal (non-lazy) mode."""
+        import sys
+
+        original_argv = sys.argv.copy()
+        try:
+            sys.argv = ["nemo"]
+            app = create_cli(nested_entrypoints_creation=False)
+            assert app is not None
+        finally:
+            sys.argv = original_argv
+
+    def test_create_cli_lazy_valid(self):
+        """Test create_cli in lazy mode with a valid command."""
+        import sys
+        import os
+
+        original_argv = sys.argv.copy()
+        original_lazy = os.environ.get("LAZY_CLI")
+        try:
+            # Set up lazy mode with a non-reserved command
+            sys.argv = ["nemo", "--lazy", "my_command", "arg1=val1"]
+            with patch("nemo_run.cli.api.RunContext.cli_command") as mock_cmd:
+                app = create_cli()
+                assert app is not None
+                mock_cmd.assert_called_once()
+                # Verify the command name and lazy flag processing
+                call_args = mock_cmd.call_args
+                assert call_args.args[1] == "my_command"
+        finally:
+            sys.argv = original_argv
+            if original_lazy is None:
+                os.environ.pop("LAZY_CLI", None)
+            else:
+                os.environ["LAZY_CLI"] = original_lazy
+
+    def test_create_cli_lazy_with_export_flags(self):
+        """Test create_cli in lazy mode with export flags."""
+        import sys
+        import os
+
+        original_argv = sys.argv.copy()
+        original_lazy = os.environ.get("LAZY_CLI")
+        try:
+            sys.argv = ["nemo", "--lazy", "my_cmd", "--to-yaml", "output.yaml", "arg=val"]
+            with patch("nemo_run.cli.api.RunContext.cli_command"):
+                app = create_cli()
+                assert app is not None
+                # --lazy and export flags should be removed from sys.argv
+                assert "--lazy" not in sys.argv
+        finally:
+            sys.argv = original_argv
+            if original_lazy is None:
+                os.environ.pop("LAZY_CLI", None)
+            else:
+                os.environ["LAZY_CLI"] = original_lazy
+
+
+class TestEntrypointInit:
+    """Tests for Entrypoint initialization edge cases."""
+
+    def test_entrypoint_with_help_str(self):
+        """Test Entrypoint creation with explicit help string."""
+
+        def my_func(a: int):
+            """This is a docstring."""
+            pass
+
+        ep = Entrypoint(my_func, namespace="test", help_str="Custom help text")
+        assert "Custom help text" in ep.help_str
+
+    def test_entrypoint_with_docstring(self):
+        """Test Entrypoint creation uses docstring when no help_str provided."""
+
+        def my_func(a: int):
+            """My function description. Args: a: integer value."""
+            pass
+
+        ep = Entrypoint(my_func, namespace="test")
+        assert "My function description" in ep.help_str
+
+    def test_entrypoint_with_executor_reserved_arg_raises(self):
+        """Test that Entrypoint raises if fn has 'executor' parameter."""
+
+        def my_func(executor: int):
+            pass
+
+        with pytest.raises(ValueError, match="reserved keyword"):
+            Entrypoint(my_func, namespace="test", type="task")
+
+    def test_entrypoint_execute_simple(self):
+        """Test _execute_simple method."""
+
+        call_results = []
+
+        def my_func(a: int) -> int:
+            call_results.append(a)
+            return a * 2
+
+        ep = Entrypoint(my_func, namespace="test")
+        console = Mock()
+
+        # _execute_simple parses args, builds, and calls the result
+        ep._execute_simple(["a=5"], console)
+        assert call_results == [5]
+
+
+class TestRunContextCommandErrors:
+    """Test RunContext command error handling."""
+
+    def test_cli_command_run_context_error(self):
+        """Test that RunContextError is handled gracefully."""
+        from nemo_run.cli.api import RunContextError
+
+        runner = CliRunner()
+        app = typer.Typer()
+
+        def my_func(a: int):
+            raise RunContextError("Test error")
+
+        with patch.object(RunContext, "cli_execute", side_effect=RunContextError("Test error")):
+            RunContext.cli_command(app, "testcmd", my_func)
+            result = runner.invoke(app, ["testcmd"])
+            assert result.exit_code == 1
+
+    def test_cli_command_generic_exception(self):
+        """Test that generic exceptions are handled gracefully."""
+        runner = CliRunner()
+        app = typer.Typer()
+
+        def my_func(a: int):
+            pass
+
+        with patch.object(RunContext, "cli_execute", side_effect=RuntimeError("Generic error")):
+            RunContext.cli_command(app, "testcmd", my_func)
+            result = runner.invoke(app, ["testcmd"])
+            assert result.exit_code == 1
+
+    def test_cli_command_with_default_executor(self):
+        """Test that default executor is set when provided."""
+        runner = CliRunner()
+        app = typer.Typer()
+
+        def my_func(a: int):
+            pass
+
+        mock_executor = run.LocalExecutor()
+
+        with patch.object(RunContext, "cli_execute") as mock_execute:
+            RunContext.cli_command(app, "testcmd", my_func, default_executor=mock_executor)
+            runner.invoke(app, ["testcmd"])
+            # The command was created, cli_execute was called
+            mock_execute.assert_called_once()
+
+    def test_cli_command_with_default_plugins(self):
+        """Test that default plugins are set when provided."""
+        runner = CliRunner()
+        app = typer.Typer()
+
+        def my_func(a: int):
+            pass
+
+        from test.dummy_factory import DummyPlugin
+
+        mock_plugins = [DummyPlugin()]
+
+        with patch.object(RunContext, "cli_execute") as mock_execute:
+            RunContext.cli_command(app, "testcmd", my_func, default_plugins=mock_plugins)
+            runner.invoke(app, ["testcmd"])
+            mock_execute.assert_called_once()
+
+
+class TestRunContextParseArgs:
+    """Tests for RunContext.parse_args with existing executor/plugins."""
+
+    def test_parse_args_with_existing_executor(self):
+        """Test parse_args calls parse_cli_args on existing executor."""
+        ctx = RunContext(name="test")
+        mock_executor = Mock()
+        ctx.executor = mock_executor
+
+        # No executor= argument, but executor already set
+        # When parse_args is called with existing executor, it should try to parse_cli_args on it
+        with (
+            patch("nemo_run.cli.api.parse_cli_args") as mock_parse,
+            patch("nemo_run.cli.api.fdl.build", return_value=mock_executor),
+        ):
+            mock_parse.return_value = mock_executor
+            ctx.parse_args(["ntasks_per_node=2"])
+            # parse_cli_args should be called at least once for the executor
+            mock_parse.assert_called()
+
+    def test_parse_args_with_existing_plugins(self):
+        """Test parse_args calls parse_cli_args on existing plugins."""
+
+        ctx = RunContext(name="test")
+        mock_plugins = [Mock()]
+        ctx.plugins = mock_plugins
+
+        with (
+            patch("nemo_run.cli.api.parse_cli_args") as mock_parse,
+            patch("nemo_run.cli.api.fdl.build", return_value=mock_plugins),
+        ):
+            mock_parse.return_value = mock_plugins
+            ctx.parse_args(["some_arg=20"])
+            # parse_cli_args should be called for plugins
+            mock_parse.assert_called()
+
+    def test_parse_args_plugins_single_to_list(self):
+        """Test that single plugin is wrapped in list."""
+        ctx = RunContext(name="test")
+        ctx.parse_args(["plugins=dummy_plugin"])
+        # After parse_args, plugins should be a list
+        assert isinstance(ctx.plugins, list)
+
+    def test_parse_partial_method(self):
+        """Test _parse_partial method directly."""
+
+        def my_func(a: int, b: str):
+            pass
+
+        ctx = RunContext(name="test")
+        result = ctx._parse_partial(my_func, ["a=5", "b=hello"])
+        assert result.a == 5
+        assert result.b == "hello"
+
+
+class TestFactoryNamespace:
+    """Tests for factory with namespace functionality."""
+
+    def test_list_factories_with_namespace_string(self):
+        """Test list_factories with string namespace."""
+        from nemo_run.cli.api import list_factories
+
+        # This should work with a string namespace
+        result = list_factories("nemo_run.cli.entrypoints")
+        assert isinstance(result, list)
+
+    def test_factory_without_auto_config_raises_for_invalid_return(self):
+        """Test that factory raises ValueError for invalid return type."""
+        from dataclasses import dataclass
+
+        @dataclass
+        class MyObj:
+            val: int
+
+        with pytest.raises(ValueError, match="not a subclass of Config or Partial"):
+
+            @cli.factory
+            def bad_factory() -> MyObj:
+                return MyObj(val=1)
+
+
+class TestSearchWorkspaceFileAdditional:
+    """Additional tests for _search_workspace_file."""
+
+    def test_search_workspace_private_file(self, tmp_path, monkeypatch):
+        """Test that workspace_private.py is found first."""
+        monkeypatch.chdir(tmp_path)
+        cli_api._load_workspace.cache_clear()
+
+        # Create workspace_private.py
+        ws_private = tmp_path / "workspace_private.py"
+        ws_private.touch()
+
+        # Also create workspace.py
+        ws = tmp_path / "workspace.py"  # noqa: F841
+        ws.touch()
+
+        with patch.object(cli_api, "INCLUDE_WORKSPACE_FILE", True):
+            result = _search_workspace_file()
+        assert result == str(ws_private)
+
+        cli_api._load_workspace.cache_clear()
+
+    def test_search_workspace_in_home(self, tmp_path, monkeypatch):
+        """Test that workspace.py in nemorun home is found."""
+        nemorun_home = tmp_path / ".nemorun"
+        nemorun_home.mkdir()
+        # Use a subdirectory so the current dir has no workspace.py
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+
+        monkeypatch.chdir(work_dir)
+        cli_api._load_workspace.cache_clear()
+
+        # Create workspace.py in nemorun home
+        ws_home = nemorun_home / "workspace.py"
+        ws_home.touch()
+
+        with patch.object(cli_api, "INCLUDE_WORKSPACE_FILE", True):
+            with patch.object(cli_api, "get_nemorun_home", return_value=str(nemorun_home)):
+                result = _search_workspace_file()
+        assert result == str(ws_home)
+
+        cli_api._load_workspace.cache_clear()
+
+
+class TestEntrypointSimpleCommand:
+    """Tests for Entrypoint._add_simple_command."""
+
+    def test_add_simple_command_registers_command(self):
+        """Test _add_simple_command adds a command to typer."""
+
+        def simple_fn(value: int):
+            return value
+
+        ep = Entrypoint(simple_fn, namespace="test", enable_executor=False)
+        parent = typer.Typer()
+        ep._add_simple_command(parent)
+        # Verify the command was added
+        assert len(parent.registered_commands) > 0
+
+    def test_add_command_with_enable_executor_false(self):
+        """Test _add_command when enable_executor is False."""
+
+        def simple_fn(value: int):
+            pass
+
+        ep = Entrypoint(simple_fn, namespace="test", enable_executor=False)
+        parent = typer.Typer()
+
+        with patch.object(ep, "_add_simple_command") as mock_simple:
+            with patch.object(ep, "_add_executor_command") as mock_executor:
+                ep._add_command(parent)
+                mock_simple.assert_called_once()
+                mock_executor.assert_not_called()
+
+    def test_add_command_with_enable_executor_true(self):
+        """Test _add_command when enable_executor is True."""
+
+        def simple_fn(value: int):
+            pass
+
+        ep = Entrypoint(simple_fn, namespace="test", enable_executor=True)
+        parent = typer.Typer()
+
+        with patch.object(ep, "_add_simple_command") as mock_simple:
+            with patch.object(ep, "_add_executor_command") as mock_executor:
+                ep._add_command(parent)
+                mock_executor.assert_called_once()
+                mock_simple.assert_not_called()
+
+
+class TestGeneralCommandHelp:
+    """Tests for GeneralCommand format_usage and format_help."""
+
+    def test_general_command_format_usage(self):
+        """Test GeneralCommand.format_usage adds [ARGUMENTS]."""
+        from nemo_run.cli.api import GeneralCommand
+
+        cmd = GeneralCommand(name="test", callback=None)
+        ctx = Mock()
+        formatter = Mock()
+
+        # collect_usage_pieces returns some pieces
+        cmd.collect_usage_pieces = Mock(return_value=["OPTIONS"])
+        cmd.format_usage(ctx, formatter)
+        formatter.write_usage.assert_called_once()
+        # Check that [ARGUMENTS] was added
+        call_args = formatter.write_usage.call_args
+        assert "[ARGUMENTS]" in call_args[0][1]
+
+    def test_general_command_format_help(self):
+        """Test GeneralCommand.format_help calls rich_format_help."""
+        from nemo_run.cli.api import GeneralCommand
+
+        cmd = GeneralCommand(name="test", callback=None)
+        ctx = Mock()
+        formatter = Mock()
+
+        with patch("nemo_run.cli.api.rich_utils.rich_format_help", return_value="help_output"):
+            result = cmd.format_help(ctx, formatter)
+        assert result == "help_output"
+
+
+class TestEntrypointCommandFormatUsage:
+    """Tests for EntrypointCommand.format_usage."""
+
+    def test_format_usage(self):
+        """Test EntrypointCommand.format_usage adds [ARGUMENTS]."""
+
+        def my_fn(a: int):
+            pass
+
+        cmd = EntrypointCommand(name="test_cmd", callback=my_fn)
+        ctx = Mock()
+        formatter = Mock()
+        cmd.collect_usage_pieces = Mock(return_value=["OPTIONS"])
+        cmd.format_usage(ctx, formatter)
+        formatter.write_usage.assert_called_once()
+        call_args = formatter.write_usage.call_args
+        assert "[ARGUMENTS]" in call_args[0][1]
+
+
+class TestRunContextExecuteTaskDryrun:
+    """Test _execute_task with dryrun flag."""
+
+    @patch("nemo_run.dryrun_fn")
+    def test_execute_task_dryrun_prints_message(self, mock_dryrun_fn):
+        """Test that dryrun mode prints a message and returns."""
+
+        def my_func(a: int):
+            return a
+
+        ctx = RunContext(name="test_dryrun", dryrun=True, skip_confirmation=True)
+        with patch("nemo_run.run") as mock_run:
+            ctx.cli_execute(my_func, ["a=5"])
+            mock_dryrun_fn.assert_called_once()
+            mock_run.assert_not_called()
+
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_execute_task_continue_false(self, mock_run, mock_dryrun_fn):
+        """Test that when _should_continue is False, run is not called."""
+
+        def my_func(a: int):
+            return a
+
+        ctx = RunContext(name="test_no_continue", skip_confirmation=False)
+        with patch.object(RunContext, "_should_continue", return_value=False):
+            ctx.cli_execute(my_func, ["a=5"])
+            mock_dryrun_fn.assert_called_once()
+            mock_run.assert_not_called()
+
+
+class TestMainFunctionPluginsConfig:
+    """Tests for main function with plugin Config handling."""
+
+    def test_main_single_plugin_config(self):
+        """Test main with a single Config plugin."""
+        from test.dummy_factory import DummyPlugin
+
+        @cli.entrypoint(namespace="test_single_plugin", skip_confirmation=True)
+        def _my_func(a: int):
+            pass
+
+        plugin_config = run.Config(DummyPlugin, some_arg=5)
+
+        with patch("nemo_run.cli.api.Entrypoint.main") as mock_main:
+            cli_main(_my_func, default_plugins=plugin_config)
+            mock_main.assert_called_once()
+
+    def test_main_list_plugin_configs(self):
+        """Test main with a list of Config plugins."""
+        from test.dummy_factory import DummyPlugin
+
+        @cli.entrypoint(namespace="test_list_plugin", skip_confirmation=True)
+        def _my_func2(a: int):
+            pass
+
+        plugin_configs = [run.Config(DummyPlugin, some_arg=5)]
+
+        with patch("nemo_run.cli.api.Entrypoint.main") as mock_main:
+            cli_main(_my_func2, default_plugins=plugin_configs)
+            mock_main.assert_called_once()

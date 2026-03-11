@@ -18,6 +18,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -125,3 +126,35 @@ def test_hybrid_packager_extract_at_root(mock_subpackager_one, mock_subpackager_
 
         assert content1 == "Content from packager one", f"Unexpected content in {file1}: {content1}"
         assert content2 == "Content from packager two", f"Unexpected content in {file2}: {content2}"
+
+
+@patch("nemo_run.core.packaging.hybrid.Context", MockContext)
+def test_hybrid_packager_cached_output(mock_subpackager_one, tmp_path):
+    """Test that existing output file is returned without reprocessing."""
+    hybrid = HybridPackager(sub_packagers={"1": mock_subpackager_one})
+    with tempfile.TemporaryDirectory() as job_dir:
+        # First call creates the archive
+        output1 = hybrid.package(Path(tmp_path), job_dir, "cached_test")
+        # Second call should return same path immediately (cache hit)
+        output2 = hybrid.package(Path(tmp_path), job_dir, "cached_test")
+        assert output1 == output2
+        # sub_packager was only called once
+        assert mock_subpackager_one.package.call_count == 1
+
+
+def test_hybrid_packager_darwin_tar(mock_subpackager_one, tmp_path, monkeypatch):
+    """Test BSD/Darwin tar transform option is used on Darwin."""
+    import nemo_run.core.packaging.hybrid as hybrid_module
+
+    monkeypatch.setattr(hybrid_module.os, "uname", lambda: SimpleNamespace(sysname="Darwin"))
+
+    mock_ctx = MagicMock()
+    monkeypatch.setattr(hybrid_module, "Context", lambda: mock_ctx)
+
+    hybrid = HybridPackager(sub_packagers={"folder": mock_subpackager_one})
+    with tempfile.TemporaryDirectory() as job_dir:
+        hybrid.package(Path(tmp_path), job_dir, "darwin_test")
+
+    # Verify the Darwin-style BSD tar -s option was used
+    run_calls = [str(c) for c in mock_ctx.run.call_args_list]
+    assert any("-s '," in call for call in run_calls)

@@ -98,3 +98,111 @@ def test_dryrun_success():
     runner._scheduler_factories = {"local": create_mock_scheduler}  # type: ignore
     dryrun_info = runner.dryrun(app, "local")
     assert dryrun_info.request == "mock-dryrun"
+
+
+def test_run_creates_app_handle():
+    """runner.run() should call dryrun then schedule, returning an AppHandle."""
+    app = AppDef(
+        name="test_app",
+        roles=[
+            Role(
+                name="role1",
+                entrypoint="test_entrypoint",
+                num_replicas=1,
+                image="test:latest",
+            )
+        ],
+    )
+
+    class SchedulerWithSchedule(MockScheduler):
+        def submit_dryrun(self, app, cfg=None):
+            info = AppDryRunInfo(request="mock-dryrun", fmt=repr)
+            info._app = app
+            return info
+
+        def schedule(self, dryrun_info):
+            return "mock-app-id"
+
+    def create_scheduler_with_schedule(session_name, **kwargs):
+        return SchedulerWithSchedule(session_name=session_name)
+
+    runner = Runner("test_runner", {}, {}, {})
+    runner._scheduler_factories = {"local": create_scheduler_with_schedule}
+
+    handle = runner.run(app, "local")
+    assert handle is not None
+    assert "mock-app-id" in handle
+
+
+def test_schedule_tracks_app():
+    """runner.schedule() stores the app in runner._apps."""
+    app = AppDef(
+        name="test_app",
+        roles=[
+            Role(
+                name="role1",
+                entrypoint="test_entrypoint",
+                num_replicas=1,
+                image="test:latest",
+            )
+        ],
+    )
+
+    class SchedulerWithSchedule(MockScheduler):
+        def submit_dryrun(self, app, cfg=None):
+            info = AppDryRunInfo(request="mock-dryrun", fmt=repr)
+            info._app = app
+            return info
+
+        def schedule(self, dryrun_info):
+            return "sched-app-id"
+
+    def create_scheduler_with_schedule(session_name, **kwargs):
+        return SchedulerWithSchedule(session_name=session_name)
+
+    runner = Runner("test_runner", {}, {}, {})
+    runner._scheduler_factories = {"local": create_scheduler_with_schedule}
+
+    # First get dryrun info
+    dryrun_info = runner.dryrun(app, "local")
+    # Then schedule
+    handle = runner.schedule(dryrun_info)
+    assert handle in runner._apps
+    assert runner._apps[handle] == app
+
+
+def test_run_with_existing_dryrun_info():
+    """runner.run() with pre-computed dryrun_info skips dryrun step."""
+    app = AppDef(
+        name="test_app",
+        roles=[
+            Role(
+                name="role1",
+                entrypoint="test_entrypoint",
+                num_replicas=1,
+                image="test:latest",
+            )
+        ],
+    )
+
+    class SchedulerWithSchedule(MockScheduler):
+        def submit_dryrun(self, app, cfg=None):
+            info = AppDryRunInfo(request="mock-dryrun", fmt=repr)
+            info._app = app
+            return info
+
+        def schedule(self, dryrun_info):
+            return "precomputed-app-id"
+
+    def create_scheduler_with_schedule(session_name, **kwargs):
+        return SchedulerWithSchedule(session_name=session_name)
+
+    runner = Runner("test_runner", {}, {}, {})
+    runner._scheduler_factories = {"local": create_scheduler_with_schedule}
+
+    # Pre-compute dryrun info
+    dryrun_info = runner.dryrun(app, "local")
+
+    # run() with pre-computed dryrun_info
+    handle = runner.run(app, "local", dryrun_info=dryrun_info)
+    assert "precomputed-app-id" in handle

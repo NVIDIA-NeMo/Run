@@ -471,3 +471,22 @@ def test_include_pattern_length_mismatch_raises(packager, temp_repo):
     with tempfile.TemporaryDirectory() as job_dir:
         with pytest.raises(ValueError, match="same length"):
             packager.package(Path(temp_repo), job_dir, "mismatch")
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_concatenate_empty_list_raises(tmp_path):
+    """_concatenate_tar_files raises ValueError for empty list."""
+    packager = GitArchivePackager()
+    ctx = MockContext()
+    with pytest.raises(ValueError, match="must not be empty"):
+        packager._concatenate_tar_files(ctx, str(tmp_path / "out.tar"), [])
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_cached_output(packager, temp_repo):
+    """Second package() call returns cached result."""
+    with tempfile.TemporaryDirectory() as job_dir:
+        output1 = packager.package(Path(temp_repo), job_dir, "cache_test")
+        # Manually call again - should return immediately via cache
+        output2 = packager.package(Path(temp_repo), job_dir, "cache_test")
+        assert output1 == output2

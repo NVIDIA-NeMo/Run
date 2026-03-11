@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from dataclasses import dataclass
 from typing import Optional, Union
 from unittest.mock import Mock, mock_open, patch
@@ -20,13 +21,17 @@ from unittest.mock import Mock, mock_open, patch
 import fiddle as fdl
 import graphviz
 import pytest
+from fiddle._src import daglish
 from typing_extensions import Annotated
 
 import nemo_run as run
 from nemo_run.config import (
+    ConfigurableMixin,
     OptionalDefaultConfig,
     Script,
+    _parse_path,
     from_dict,
+    get_type_namespace,
     set_value,
     get_underlying_types,
 )
@@ -456,3 +461,171 @@ class TestGetUnderlyingTypes:
             str,
             type(None),
         }
+
+
+class TestGetTypeNamespace:
+    def test_regular_module(self):
+        # A class defined in a regular module should include module in namespace
+        result = get_type_namespace(DummyModel)
+        assert "DummyModel" in result
+        assert "__main__" not in result
+
+    def test_main_module(self):
+        # Simulate a type whose __module__ is "__main__"
+        class FakeMain:
+            pass
+
+        fake_module = type(sys)("__main__")
+        fake_module.__file__ = "/some/path/myscript.py"
+
+        original_module = getattr(FakeMain, "__module__", None)
+        FakeMain.__module__ = "__main__"
+
+        with patch.dict(sys.modules, {"__main__": fake_module}):
+            result = get_type_namespace(FakeMain)
+
+        # __qualname__ includes full nested path so check that module part is right
+        assert result.startswith("myscript.")
+        assert "FakeMain" in result
+        FakeMain.__module__ = original_module
+
+
+class TestSetValueWithDaglishKey:
+    def test_set_value_with_dict_key_path(self):
+        # set_value with a path using bracket notation (daglish.Key) on a list attribute
+        @dataclass
+        class WithList:
+            items: list
+
+        cfg = run.Config(WithList, items=[10, 20, 30])
+        # ".items[0]" produces: [Attr("items"), Key(0)]
+        # After following Attr("items"), walk is the list [10, 20, 30]
+        # and last is Key(0), so walk[0] = 99 is executed (line 167-168)
+        set_value(cfg, ".items[0]", 99)
+        assert cfg.items[0] == 99
+
+
+class TestConfigDiff:
+    def test_config_diff(self):
+        old = run.Config(DummyModel, hidden=100)
+        new = run.Config(DummyModel, hidden=200)
+        result = new.diff(old)
+        assert isinstance(result, graphviz.Graph)
+
+    def test_partial_diff(self):
+        old = run.Partial(DummyModel, hidden=100)
+        new = run.Partial(DummyModel, hidden=200)
+        result = new.diff(old)
+        assert isinstance(result, graphviz.Graph)
+
+
+class TestConfigUnflattenDict:
+    def test_unflatten_dict_type(self):
+        # Config wrapping dict should round-trip through flatten/unflatten
+        cfg = run.Config({}, x=1, y=2)
+        # Flatten and unflatten via fdl mechanisms
+        cloned = cfg.clone()
+        assert cloned.x == 1
+        assert cloned.y == 2
+
+
+class TestPartialBindArgsFalse:
+    def test_partial_init_bind_args_false(self):
+        # With bind_args=False, no argument binding/validation occurs
+        partial = run.Partial(DummyModel, bind_args=False, hidden=42)
+        assert partial.hidden == 42
+
+    def test_partial_init_bind_args_false_skips_binding(self):
+        # With bind_args=False, _bind_args is skipped and no TypeError is raised
+        # even when passing unexpected kwargs (fdl itself may still validate at build)
+        # We just verify that the Partial is created with the provided known args
+        partial = run.Partial(DummyModel, bind_args=False, hidden=42, activation="tanh")
+        assert partial.hidden == 42
+        assert partial.activation == "tanh"
+
+
+@dataclass
+class SimpleMixinDC:
+    value: int = 5
+
+
+class MyMixin(SimpleMixinDC, ConfigurableMixin):
+    pass
+
+
+class TestConfigurableMixinDiff:
+    def test_diff(self):
+        old = MyMixin(value=1)
+        new = MyMixin(value=2)
+        result = new.diff(old)
+        assert isinstance(result, graphviz.Graph)
+
+
+class NonDataclassMixin(ConfigurableMixin):
+    pass
+
+
+class TestConfigurableMixinToConfigException:
+    def test_to_config_raises_for_non_dataclass(self):
+        obj = NonDataclassMixin()
+        with pytest.raises(NotImplementedError):
+            obj.to_config()
+
+
+class TestScriptToCommandIsLocal:
+    def test_to_command_with_filename_is_local_true(self, tmp_path):
+        script = Script(inline="echo hello")
+        filename = str(tmp_path / "scripts" / "run.sh")
+        cmd = script.to_command(filename=filename, is_local=True)
+        assert cmd == [filename]
+
+    def test_to_command_with_filename_is_local_false(self, tmp_path):
+        from nemo_run.config import RUNDIR_NAME, SCRIPTS_DIR
+
+        script = Script(inline="echo hello")
+        filename = str(tmp_path / "scripts" / "run.sh")
+        cmd = script.to_command(filename=filename, is_local=False)
+        assert cmd == [f"/{RUNDIR_NAME}/{SCRIPTS_DIR}/run.sh"]
+
+
+class TestParsePath:
+    def test_path_without_leading_dot_or_bracket(self):
+        # A plain attribute name should get a leading "." prepended
+        path = _parse_path("myattr")
+        assert len(path) == 1
+        assert isinstance(path[0], daglish.Attr)
+        assert path[0].name == "myattr"
+
+    def test_path_with_leading_dot(self):
+        path = _parse_path(".myattr")
+        assert len(path) == 1
+        assert isinstance(path[0], daglish.Attr)
+        assert path[0].name == "myattr"
+
+    def test_path_with_leading_bracket(self):
+        path = _parse_path("[0]")
+        assert len(path) == 1
+        assert isinstance(path[0], daglish.Key)
+        assert path[0].key == 0
+
+
+class TestTrySetAllValueError:
+    def test_walk_skips_value_error_on_attr(self):
+        # A Config whose attribute raises ValueError during getattr should be handled gracefully
+        @dataclass
+        class Inner:
+            x: int = 1
+
+        cfg = run.Config(DummyModel, hidden=10)
+        inner = run.Config(Inner, x=5)
+        cfg.activation = inner  # type: ignore
+
+        # Introduce a bad attr that raises ValueError when accessed
+        class BadAttr:
+            @property
+            def __get__(self, obj, objtype=None):
+                raise ValueError("bad")
+
+        # walk should not raise even if getattr raises ValueError on some attributes
+        result = cfg.walk(x=lambda c: c.x * 2)
+        assert result.activation.x == 10

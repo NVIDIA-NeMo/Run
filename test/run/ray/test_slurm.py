@@ -507,6 +507,40 @@ class TestSlurmRayCluster:
         assert status["job_id"] == "99999"
         assert status["state"] == "COMPLETED"
 
+    def test_delete_no_job_id(self, cluster):
+        """Test delete when job has no ID."""
+        with patch.object(cluster, "status") as mock_status:
+            mock_status.return_value = {"job_id": None, "state": "NOT_FOUND"}
+
+            result = cluster.delete()
+
+            assert result is True
+
+    def test_delete_removes_from_cluster_map(self, cluster):
+        """Test that delete removes cluster from cluster_map when already completed."""
+        cluster.cluster_map["test-cluster"] = "12345"
+
+        with patch.object(cluster, "status") as mock_status:
+            mock_status.return_value = {"job_id": "12345", "state": "COMPLETED"}
+
+            result = cluster.delete()
+
+            assert result is True
+            assert "test-cluster" not in cluster.cluster_map
+
+    @patch("time.time")
+    @patch("time.sleep")
+    def test_wait_until_running_timeout_reached(self, mock_sleep, mock_time, cluster):
+        """Test wait_until_running when timeout is reached without ray being ready."""
+        mock_time.side_effect = [0, 100, 200, 300, 400, 500, 650]
+
+        with patch.object(cluster, "status") as mock_status:
+            mock_status.return_value = {"ray_ready": False, "state": "RUNNING"}
+
+            result = cluster.wait_until_running(timeout=600, delay_between_attempts=100)
+
+            assert result is False
+
 
 class TestSlurmRayJob:
     @pytest.fixture
@@ -826,6 +860,131 @@ class TestSlurmRayJob:
         with pytest.raises(AssertionError):
             job.start(command="python train.py", workdir=None)
 
+    @patch("nemo_run.run.ray.slurm.cancel_slurm_job")
+    def test_stop_with_existing_job_id(self, mock_cancel, job):
+        """Test stop when job_id is already set (no need to look up)."""
+        job.job_id = 99999
+        mock_cancel.return_value = True
+
+        result = job.stop()
+
+        assert result is True
+        mock_cancel.assert_called_once_with(
+            job.executor, "test-job", 99999, wait=False, timeout=60, poll_interval=5
+        )
+
+    @patch("nemo_run.run.ray.slurm.get_last_job_id")
+    def test_logs_with_existing_job_id(self, mock_get_last_job_id, job, mock_tunnel):
+        """Test logs when job_id is already set."""
+        job.job_id = 12345
+
+        # Mock file exists check and log tail
+        mock_tunnel.run.side_effect = [
+            Mock(return_code=0),  # test -f log_path
+            Mock(return_code=0),  # tail command
+        ]
+
+        with patch("time.time") as mock_time:
+            mock_time.return_value = 0
+
+            job.logs(follow=False)
+
+        # get_last_job_id should NOT have been called since job_id already set
+        mock_get_last_job_id.assert_not_called()
+
+    @patch("nemo_run.run.ray.slurm.get_last_job_id")
+    def test_logs_no_job_id_raises(self, mock_get_last_job_id, job):
+        """Test logs when no job_id can be determined raises RuntimeError."""
+        mock_get_last_job_id.return_value = None
+
+        with pytest.raises(RuntimeError, match="has no job_id"):
+            job.logs()
+
+    def test_status_with_existing_job_id(self, job, caplog):
+        """Test status when job_id is already set."""
+        job.job_id = 12345
+
+        with patch("nemo_run.run.ray.slurm.get_last_job_id") as mock_get_last:
+            with patch("nemo_run.run.ray.slurm.SlurmRayCluster") as mock_cluster_class:
+                mock_cluster = Mock()
+                mock_cluster.status.return_value = {"state": "RUNNING", "ray_ready": True}
+                mock_cluster.cluster_map = {}
+                mock_cluster_class.return_value = mock_cluster
+
+                status = job.status(display=False)
+
+                assert status["state"] == "RUNNING"
+                # get_last_job_id should NOT have been called since job_id already set
+                mock_get_last.assert_not_called()
+
+    @patch("subprocess.run")
+    @patch("os.makedirs")
+    def test_start_with_workdir_local_tunnel(
+        self, mock_makedirs, mock_subprocess, job, mock_tunnel
+    ):
+        """Test start with workdir when using a local (non-SSH) tunnel."""
+        # Replace with non-SSH tunnel
+        local_tunnel = Mock()
+        local_tunnel.job_dir = "/local/jobs"
+        job.executor.tunnel = local_tunnel
+
+        mock_subprocess.return_value = Mock(returncode=0)
+
+        with patch("nemo_run.run.ray.slurm.SlurmRayCluster") as mock_cluster_class:
+            mock_cluster = Mock()
+            mock_cluster.create.return_value = "12345"
+            mock_cluster_class.return_value = mock_cluster
+
+            with patch.object(job, "status") as mock_status:
+                mock_status.return_value = {"state": "RUNNING"}
+
+                job.start(command="python train.py", workdir="/local/code", dryrun=False)
+
+            mock_cluster.create.assert_called_once()
+            assert job.job_id == "12345"
+
+    @patch("subprocess.run")
+    @patch("os.makedirs")
+    @patch("os.getcwd")
+    def test_start_with_packager_git_archive_local_tunnel(
+        self, mock_getcwd, mock_makedirs, mock_subprocess, job
+    ):
+        """Test start with GitArchivePackager and local tunnel (non-SSH path)."""
+        from nemo_run.core.packaging.git import GitArchivePackager
+
+        local_tunnel = Mock()
+        local_tunnel.job_dir = "/local/jobs"
+        job.executor.tunnel = local_tunnel
+
+        mock_getcwd.return_value = "/repo/root"
+        # First call for git rev-parse, subsequent for tar and rsync
+        mock_subprocess.return_value = Mock(
+            stdout=b"/repo/root\n", returncode=0, stdout_lines=[b"/repo/root"]
+        )
+
+        packager = GitArchivePackager()
+        job.executor.packager = packager
+
+        with patch.object(packager, "package", return_value="/tmp/code.tar.gz"):
+            with patch("os.path.exists", return_value=True):
+                with patch("nemo_run.run.ray.slurm.SlurmRayCluster") as mock_cluster_class:
+                    mock_cluster = Mock()
+                    mock_cluster.create.return_value = "12345"
+                    mock_cluster_class.return_value = mock_cluster
+
+                    with patch.object(job, "status") as mock_status:
+                        mock_status.return_value = {"state": "RUNNING"}
+
+                        # Patch subprocess.run for both git rev-parse and tar + rsync commands
+                        with patch("subprocess.run") as mock_sp_run:
+                            git_result = Mock()
+                            git_result.stdout = b"/repo/root\n"
+                            mock_sp_run.return_value = git_result
+
+                            job.start(command="python train.py", workdir=None, dryrun=False)
+
+                    assert job.job_id == "12345"
+
     @patch("nemo_run.run.ray.slurm.get_last_job_id")
     def test_status_with_none_job_id(self, mock_get_last_job_id, job):
         """Test job status when get_last_job_id returns None."""
@@ -941,3 +1100,99 @@ class TestUtilityFunctions:
 
         with pytest.raises(json.JSONDecodeError):
             get_last_job_id("/tmp/test_cluster", basic_executor)
+
+    @patch("time.time")
+    @patch("time.sleep")
+    def test_cancel_slurm_job_wait_empty_state(
+        self, mock_sleep, mock_time, basic_executor, mock_tunnel
+    ):
+        """Test cancel_slurm_job with wait=True when job disappears (empty state)."""
+        mock_time.side_effect = [0, 1]  # Start, first loop iteration passes
+        mock_tunnel.run.side_effect = [
+            Mock(return_code=0),  # scancel
+            Mock(stdout="", return_code=0),  # squeue returns empty -> job gone
+        ]
+
+        result = cancel_slurm_job(
+            basic_executor, "test-job", 12345, wait=True, timeout=60, poll_interval=5
+        )
+
+        assert result is True
+
+    @patch("time.time")
+    @patch("time.sleep")
+    def test_cancel_slurm_job_wait_terminal_state(
+        self, mock_sleep, mock_time, basic_executor, mock_tunnel
+    ):
+        """Test cancel_slurm_job with wait=True when job reaches terminal state."""
+        mock_time.side_effect = [0, 1]
+        mock_tunnel.run.side_effect = [
+            Mock(return_code=0),  # scancel
+            Mock(stdout="CANCELLED", return_code=0),  # squeue returns terminal state
+        ]
+
+        result = cancel_slurm_job(
+            basic_executor, "test-job", 12345, wait=True, timeout=60, poll_interval=5
+        )
+
+        assert result is True
+
+    @patch("time.time")
+    @patch("time.sleep")
+    def test_cancel_slurm_job_wait_completed_state(
+        self, mock_sleep, mock_time, basic_executor, mock_tunnel
+    ):
+        """Test cancel_slurm_job with wait=True when job reaches COMPLETED state."""
+        mock_time.side_effect = [0, 1]
+        mock_tunnel.run.side_effect = [
+            Mock(return_code=0),  # scancel
+            Mock(stdout="COMPLETED", return_code=0),
+        ]
+
+        result = cancel_slurm_job(
+            basic_executor, "test-job", 12345, wait=True, timeout=60, poll_interval=5
+        )
+
+        assert result is True
+
+    @patch("time.time")
+    @patch("time.sleep")
+    def test_cancel_slurm_job_wait_timeout(
+        self, mock_sleep, mock_time, basic_executor, mock_tunnel
+    ):
+        """Test cancel_slurm_job with wait=True when timeout is reached."""
+        # Simulate time progressing past timeout
+        mock_time.side_effect = [0, 10, 20, 30, 40, 50, 65]  # last value > timeout=60
+        mock_tunnel.run.side_effect = [
+            Mock(return_code=0),  # scancel
+            Mock(stdout="RUNNING", return_code=0),  # still running
+            Mock(stdout="RUNNING", return_code=0),  # still running
+            Mock(stdout="RUNNING", return_code=0),  # still running
+            Mock(stdout="RUNNING", return_code=0),  # still running
+            Mock(stdout="RUNNING", return_code=0),  # still running
+        ]
+
+        result = cancel_slurm_job(
+            basic_executor, "test-job", 12345, wait=True, timeout=60, poll_interval=10
+        )
+
+        assert result is False
+
+    @patch("time.time")
+    @patch("time.sleep")
+    def test_cancel_slurm_job_wait_pending_then_cancelled(
+        self, mock_sleep, mock_time, basic_executor, mock_tunnel
+    ):
+        """Test cancel_slurm_job with wait=True, job is PENDING then CANCELLED."""
+        mock_time.side_effect = [0, 5, 6]
+        mock_tunnel.run.side_effect = [
+            Mock(return_code=0),  # scancel
+            Mock(stdout="PENDING", return_code=0),  # first poll - still pending
+            Mock(stdout="CANCELLED", return_code=0),  # second poll - cancelled
+        ]
+
+        result = cancel_slurm_job(
+            basic_executor, "test-job", 12345, wait=True, timeout=60, poll_interval=5
+        )
+
+        assert result is True

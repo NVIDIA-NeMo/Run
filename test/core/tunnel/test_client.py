@@ -15,6 +15,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, call, mock_open, patch
 
+import paramiko.ssh_exception
 import pytest
 
 from nemo_run.core.tunnel.client import (
@@ -500,3 +501,171 @@ class TestCallback:
         callback.on_start.assert_called_once()
         callback.on_error.assert_called_once()
         callback.on_stop.assert_called_once()
+
+
+class TestSSHTunnelAdditional:
+    """Additional tests to cover missing lines in SSHTunnel."""
+
+    @pytest.fixture
+    def ssh_tunnel(self):
+        return SSHTunnel(host="test.host", user="test_user", job_dir="/remote/job")
+
+    def test_create_job_dir(self, ssh_tunnel):
+        """Test _create_job_dir calls run on the given tunnel (lines 222-223)."""
+        mock_tunnel = MagicMock()
+        ssh_tunnel._create_job_dir(mock_tunnel)
+        mock_tunnel.run.assert_called_once_with(f"mkdir -p {ssh_tunnel.job_dir}")
+
+    def test_connect_calls_authenticate_when_not_connected(self, ssh_tunnel):
+        """Test connect() calls _authenticate when session is None (line 226)."""
+        ssh_tunnel.session = None
+        with patch.object(ssh_tunnel, "_authenticate") as mock_auth:
+            ssh_tunnel.connect()
+            mock_auth.assert_called_once()
+
+    def test_connect_calls_authenticate_when_disconnected(self, ssh_tunnel):
+        """Test connect() calls _authenticate when session is not connected."""
+        mock_session = MagicMock()
+        mock_session.is_connected = False
+        ssh_tunnel.session = mock_session
+        with patch.object(ssh_tunnel, "_authenticate") as mock_auth:
+            ssh_tunnel.connect()
+            mock_auth.assert_called_once()
+
+    def test_check_connect_when_not_connected(self, ssh_tunnel):
+        """Test _check_connect calls connect() when not connected (line 231)."""
+        ssh_tunnel.session = None
+        with patch.object(ssh_tunnel, "connect") as mock_connect:
+            # set session after connect is called
+            mock_connect.side_effect = lambda: setattr(
+                ssh_tunnel, "session", MagicMock(is_connected=True)
+            )
+            ssh_tunnel._check_connect()
+            mock_connect.assert_called_once()
+
+    def test_put_raises_after_exhausting_retries(self, ssh_tunnel):
+        """Test put() raises last exception after retries exhausted (lines 272-273)."""
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        mock_session.put.side_effect = OSError("Connection refused")
+
+        with (
+            patch("nemo_run.core.tunnel.client.time.sleep"),
+            patch.object(ssh_tunnel, "connect"),
+            pytest.raises(OSError, match="Connection refused"),
+        ):
+            ssh_tunnel.put("/local/file", "/remote/file")
+
+    def test_get_raises_after_exhausting_retries(self, ssh_tunnel):
+        """Test get() raises last exception after retries exhausted (lines 292-293)."""
+        mock_session = MagicMock()
+        ssh_tunnel.session = mock_session
+        ssh_tunnel.session.is_connected = True
+        mock_session.get.side_effect = OSError("Connection refused")
+
+        with (
+            patch("nemo_run.core.tunnel.client.time.sleep"),
+            patch.object(ssh_tunnel, "connect"),
+            pytest.raises(OSError, match="Connection refused"),
+        ):
+            ssh_tunnel.get("/remote/file", "/local/file")
+
+    def test_cleanup_with_no_session(self, ssh_tunnel):
+        """Test cleanup does nothing when session is None (line 296)."""
+        ssh_tunnel.session = None
+        # Should not raise
+        ssh_tunnel.cleanup()
+
+    @patch("nemo_run.core.tunnel.client.Connection")
+    @patch("nemo_run.core.tunnel.client.Config")
+    def test_authenticate_password_fallback_on_bad_auth_type(self, mock_config, mock_connection):
+        """Test _authenticate falls back to auth_password on BadAuthenticationType (lines 338-342)."""
+        mock_config_instance = MagicMock()
+        mock_config.return_value = mock_config_instance
+
+        mock_session = MagicMock()
+        mock_connection.return_value = mock_session
+        mock_session.is_connected = False
+        mock_session.user = "test_user"
+
+        transport = MagicMock()
+        mock_session.client.get_transport.return_value = transport
+        transport.auth_interactive_dumb.side_effect = paramiko.ssh_exception.BadAuthenticationType(
+            "bad auth", ["password"]
+        )
+
+        def set_connected(*args, **kwargs):
+            mock_session.is_connected = True
+
+        transport.auth_password.side_effect = set_connected
+
+        tunnel = SSHTunnel(host="test.host", user="test_user", job_dir="/remote/job")
+        tunnel.fallback_auth_handler = MagicMock(return_value="password123")
+
+        tunnel.connect()
+
+        transport.auth_password.assert_called_once()
+
+    @patch("nemo_run.core.tunnel.client.Connection")
+    @patch("nemo_run.core.tunnel.client.Config")
+    def test_authenticate_exception_in_auth_is_logged(self, mock_config, mock_connection):
+        """Test _authenticate logs debug on auth exception and raises ConnectionError (lines 345-346)."""
+        mock_config_instance = MagicMock()
+        mock_config.return_value = mock_config_instance
+
+        mock_session = MagicMock()
+        mock_connection.return_value = mock_session
+        mock_session.is_connected = False
+        mock_session.user = "test_user"
+
+        # Make get_transport raise exception to trigger the except handler
+        mock_session.client.get_transport.side_effect = Exception("transport error")
+
+        tunnel = SSHTunnel(host="test.host", user="test_user", job_dir="/remote/job")
+
+        with pytest.raises(ConnectionError, match="test.host"):
+            tunnel.connect()
+
+
+class TestSSHConfigFileAdditional:
+    """Additional tests for SSHConfigFile missing lines."""
+
+    def test_remove_entry_no_config_file(self, tmp_path):
+        """Test remove_entry when config file doesn't exist (line 409->exit)."""
+        config_file_path = str(tmp_path / "nonexistent_config")
+        # File does not exist
+        config_file = SSHConfigFile(config_path=config_file_path)
+        # Should not raise - just returns when file doesn't exist
+        config_file.remove_entry("myhost")
+
+    def test_remove_entry_prints_message_when_found(self, tmp_path, capsys):
+        """Test remove_entry prints message after removing entry (lines 414-429)."""
+        config_content = "Host tunnel.myhost\n  User test_user\n  HostName test.host\n  Port 22\n"
+        config_file_path = str(tmp_path / "ssh_config")
+        with open(config_file_path, "w") as f:
+            f.write(config_content)
+
+        config_file = SSHConfigFile(config_path=config_file_path)
+        config_file.remove_entry("myhost")
+
+        captured = capsys.readouterr()
+        assert "Removed SSH config entry for tunnel.myhost" in captured.out
+
+        # Verify the entry was removed from the file
+        with open(config_file_path) as f:
+            content = f.read()
+        assert "tunnel.myhost" not in content
+
+    def test_remove_entry_not_found_still_prints(self, tmp_path, capsys):
+        """Test remove_entry prints message even when entry is not found (line 415->414 path)."""
+        config_file_path = str(tmp_path / "ssh_config")
+        with open(config_file_path, "w") as f:
+            f.write("Host other.host\n  User other\n")
+
+        config_file = SSHConfigFile(config_path=config_file_path)
+        config_file.remove_entry("nonexistent")
+
+        captured = capsys.readouterr()
+        # print is called after the if block regardless
+        assert "Removed SSH config entry for tunnel.nonexistent" in captured.out

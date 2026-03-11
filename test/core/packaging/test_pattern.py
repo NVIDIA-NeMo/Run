@@ -21,6 +21,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from nemo_run.core.packaging.pattern import PatternPackager
 from test.conftest import MockContext
 
@@ -80,3 +82,45 @@ def test_package_with_multi_include_pattern_rel_path(tmpdir):
         )
         assert cmp.left_list == cmp.right_list
         assert not cmp.diff_files
+
+
+@patch("nemo_run.core.packaging.pattern.Context", MockContext)
+def test_pattern_packager_cached_output(tmpdir):
+    """Second call returns cached result without reprocessing."""
+    (tmpdir / "extra").mkdir()
+    with open(tmpdir / "extra" / "file.txt", "w") as f:
+        f.write("content")
+
+    packager = PatternPackager(include_pattern=str(tmpdir / "extra/*"), relative_path=str(tmpdir))
+    with tempfile.TemporaryDirectory() as job_dir:
+        output1 = packager.package(Path(tmpdir), job_dir, "cached")
+        output2 = packager.package(Path(tmpdir), job_dir, "cached")
+        assert output1 == output2
+
+
+@patch("nemo_run.core.packaging.pattern.Context", MockContext)
+def test_pattern_packager_length_mismatch(tmpdir):
+    """Mismatched include_pattern and relative_path lengths raise ValueError."""
+    packager = PatternPackager(
+        include_pattern=["pat1", "pat2"],
+        relative_path=[str(tmpdir)],  # Length mismatch
+    )
+    with tempfile.TemporaryDirectory() as job_dir:
+        with pytest.raises(ValueError, match="same length"):
+            packager.package(Path(tmpdir), job_dir, "mismatch")
+
+
+@patch("nemo_run.core.packaging.pattern.Context", MockContext)
+def test_pattern_packager_empty_pattern_skipped(tmpdir):
+    """Empty string pattern entries are skipped."""
+    (tmpdir / "extra").mkdir()
+    with open(tmpdir / "extra" / "file.txt", "w") as f:
+        f.write("content")
+
+    packager = PatternPackager(
+        include_pattern=["", str(tmpdir / "extra/*")],
+        relative_path=[str(tmpdir), str(tmpdir)],
+    )
+    with tempfile.TemporaryDirectory() as job_dir:
+        output = packager.package(Path(tmpdir), job_dir, "empty_pat")
+        assert os.path.exists(output)
