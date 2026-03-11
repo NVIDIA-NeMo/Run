@@ -228,7 +228,11 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         self.tunnel.run(f"scancel {app_id}", hide=False)
 
     def describe(self, app_id: str) -> Optional[DescribeAppResponse]:
-        job_dirs = _get_job_dirs()
+        try:
+            job_dirs = _get_job_dirs()
+        except OSError as e:
+            log.warning(f"Could not read job dirs file, returning UNKNOWN status for {app_id}: {e}")
+            return DescribeAppResponse(app_id=app_id, state=AppState.UNKNOWN)
         if app_id in job_dirs:
             _, tunnel_cfg, _ = job_dirs[app_id]
             self._initialize_tunnel(tunnel_cfg)
@@ -445,8 +449,7 @@ def _get_job_dirs(
     retries: int = 5, initial_delay: float = 1
 ) -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
     last_exc: OSError | None = None
-    delay = initial_delay
-    for _ in range(retries):
+    for attempt in range(retries):
         try:
             with open(SLURM_JOB_DIRS, "rt") as f:
                 lines = f.readlines()
@@ -455,13 +458,17 @@ def _get_job_dirs(
             return {}
         except OSError as e:
             last_exc = e
+            delay = min(initial_delay * 2**attempt, 60)
+            log.warning(
+                f"OSError reading {SLURM_JOB_DIRS} (attempt {attempt + 1}/{retries}): {e}. "
+                f"Retrying in {delay}s..."
+            )
             time.sleep(delay)
-            delay = min(delay * 2, 60)
     else:
         if last_exc is not None:
             raise last_exc
-        raise OSError(
-            f"Failed to read SLURM job dirs from {SLURM_JOB_DIRS} after {retries} retries"
+        raise RuntimeError(
+            f"Failed to read {SLURM_JOB_DIRS} after {retries} retries, but no OSError was captured."
         )
 
     out = {}
