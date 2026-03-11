@@ -377,7 +377,11 @@ mkdir -p {self.pvc_job_dir}/logs
             return None
 
         r_json = response.json()
-        return DGXCloudState(r_json["phase"])
+        phase = r_json.get("actualPhase") or r_json.get("phase")
+        if not phase:
+            logger.warning(f"No phase field in status response for job {job_id}: {r_json}")
+            return None
+        return DGXCloudState(phase)
 
     def fetch_logs(
         self,

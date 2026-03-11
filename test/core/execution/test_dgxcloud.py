@@ -877,7 +877,7 @@ class TestDGXCloudExecutor:
     def test_status(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"phase": "Running"}
+        mock_response.json.return_value = {"actualPhase": "Running"}
         mock_get.return_value = mock_response
 
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
@@ -903,7 +903,7 @@ class TestDGXCloudExecutor:
     def test_status_distributed(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"phase": "Running"}
+        mock_response.json.return_value = {"actualPhase": "Running"}
         mock_get.return_value = mock_response
 
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
