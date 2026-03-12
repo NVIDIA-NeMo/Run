@@ -380,6 +380,27 @@ def test_describe_returns_unknown_on_persistent_permission_error(slurm_scheduler
     assert result.state == AppState.UNKNOWN
 
 
+def test_describe_returns_unknown_on_sacct_exception(slurm_scheduler, mocker):
+    """Regression: transient sacct failure (e.g. after hours of polling) must not
+    propagate an exception and kill the wait loop. describe() should return UNKNOWN
+    (non-terminal) so polling continues until the job completes."""
+    from torchx.specs import AppState
+
+    job_dirs = {"12345": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        return_value=job_dirs,
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+
+    slurm_scheduler.tunnel = mock.MagicMock()
+    slurm_scheduler.tunnel.run.side_effect = Exception("sacct: command failed")
+
+    result = slurm_scheduler.describe("12345")
+    assert result is not None
+    assert result.state == AppState.UNKNOWN
+
+
 def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
     mock_request = mock.MagicMock()
     mock_request.cmd = ["sbatch", "--requeue", "--parsable"]

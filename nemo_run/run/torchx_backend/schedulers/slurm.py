@@ -240,9 +240,15 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             return None
 
         assert self.tunnel, "Tunnel is None."
-        p = self.tunnel.run(
-            f"sacct --parsable2 -j {app_id}",
-        )
+        try:
+            p = self.tunnel.run(
+                f"sacct --parsable2 -j {app_id}",
+            )
+        except Exception as e:
+            log.warning(
+                f"Failed to query sacct for job {app_id}: {e}. Treating as transient."
+            )
+            return DescribeAppResponse(app_id=app_id, state=AppState.UNKNOWN)
         output = p.stdout.strip().split("\n")
 
         if len(output) <= 1:
