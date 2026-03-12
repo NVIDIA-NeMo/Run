@@ -245,9 +245,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
                 f"sacct --parsable2 -j {app_id}",
             )
         except Exception as e:
-            log.warning(
-                f"Failed to query sacct for job {app_id}: {e}. Treating as transient."
-            )
+            log.warning(f"Failed to query sacct for job {app_id}: {e}. Treating as transient.")
             return DescribeAppResponse(app_id=app_id, state=AppState.UNKNOWN)
         output = p.stdout.strip().split("\n")
 
