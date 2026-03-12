@@ -44,7 +44,7 @@ class TestPyTorchJobExecutor:
     def test_executor_defaults(self, executor):
         assert executor.namespace == "default"
         assert executor.restart_policy == "OnFailure"
-        assert executor.nprocs_per_node == 1
+        assert executor.nproc_per_node == 1
 
     def test_kubeconfig_fallback_to_incluster(self):
         with (
@@ -77,8 +77,8 @@ class TestPyTorchJobExecutor:
         assert executor.nnodes() == 3  # 1 Master + 2 Workers
 
     def test_nproc_per_node(self, mock_k8s_clients):
-        e = PyTorchJobExecutor(image="test:latest", nprocs_per_node=4)
-        assert e.nproc_per_node() == 4
+        e = PyTorchJobExecutor(image="test:latest", nproc_per_node=4)
+        assert e.nproc_per_node == 4
 
     def test_assign(self, executor):
         executor.assign("exp-1", "/tmp/exp", "task-0", "task-0")
@@ -199,7 +199,7 @@ class TestPyTorchJobExecutor:
             image="nvcr.io/nvidian/nemo:nightly",
             namespace="runai-nemo-ci",
             num_workers=2,
-            nprocs_per_node=8,
+            nproc_per_node=8,
             gpus_per_node=8,
             cpu_requests="16",
             memory_requests="64Gi",

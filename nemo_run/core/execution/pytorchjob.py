@@ -56,7 +56,7 @@ class PyTorchJobExecutor(Executor):
     namespace: str = "default"
     image: str = ""
     num_workers: int = 1
-    nprocs_per_node: int = 1
+    nproc_per_node: int = 1
     gpus_per_node: Optional[int] = None
     cpu_requests: Optional[str] = None
     memory_requests: Optional[str] = None
@@ -96,9 +96,6 @@ class PyTorchJobExecutor(Executor):
 
     def nnodes(self) -> int:
         return 1 + self.num_workers
-
-    def nproc_per_node(self) -> int:
-        return self.nprocs_per_node
 
     def get_job_body(self, name: str, command: list[str]) -> dict:
         """Build the PyTorchJob CRD manifest dict."""
@@ -157,7 +154,7 @@ class PyTorchJobExecutor(Executor):
         }
 
         spec: dict[str, Any] = {
-            "nprocPerNode": str(self.nprocs_per_node),
+            "nprocPerNode": str(self.nproc_per_node),
             "pytorchReplicaSpecs": {
                 "Master": {
                     "replicas": 1,
