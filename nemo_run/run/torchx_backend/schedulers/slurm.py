@@ -59,9 +59,12 @@ from nemo_run.config import (
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor, SlurmJobDetails
 from nemo_run.core.tunnel.client import LocalTunnel, PackagingJob, SSHTunnel, Tunnel
+from nemo_run.exceptions import PersistentSacctFailure
 from nemo_run.run import experiment as run_experiment
 from nemo_run.run.ray.slurm import SlurmRayRequest
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
+
+MAX_CONSECUTIVE_SACCT_FAILURES = 30
 
 log: logging.Logger = logging.getLogger(__name__)
 SLURM_JOB_DIRS = os.path.join(get_nemorun_home(), ".slurm_jobs")
@@ -74,6 +77,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         self.tunnel: Optional[Tunnel] = None
         super().__init__(session_name)
         self.experiment = experiment
+        self._consecutive_sacct_failures: dict[str, int] = {}
 
     # TODO: Move this into the SlurmExecutor
     def _initialize_tunnel(self, tunnel: SSHTunnel | LocalTunnel):
@@ -245,8 +249,18 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
                 f"sacct --parsable2 -j {app_id}",
             )
         except Exception as e:
-            log.warning(f"Failed to query sacct for job {app_id}: {e}. Treating as transient.")
+            count = self._consecutive_sacct_failures.get(app_id, 0) + 1
+            self._consecutive_sacct_failures[app_id] = count
+            if count >= MAX_CONSECUTIVE_SACCT_FAILURES:
+                raise PersistentSacctFailure(
+                    f"sacct failed {count} consecutive times for job {app_id}: {e}"
+                ) from e
+            log.warning(
+                f"Failed to query sacct for job {app_id} ({count}/{MAX_CONSECUTIVE_SACCT_FAILURES}): "
+                f"{e}. Treating as transient."
+            )
             return DescribeAppResponse(app_id=app_id, state=AppState.UNKNOWN)
+        self._consecutive_sacct_failures.pop(app_id, None)
         output = p.stdout.strip().split("\n")
 
         if len(output) <= 1:
