@@ -53,6 +53,7 @@ The packager support matrix is described below:
 | SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | DGXCloudExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | LeptonExecutor   | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| PyTorchJobExecutor | run.Packager |
 
 `run.Packager` is a passthrough base packager.
 
@@ -292,6 +293,34 @@ def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
 ```
 
 For a complete end-to-end example using DGX Cloud with NeMo, refer to the [NVIDIA DGX Cloud NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
+
+#### PyTorchJobExecutor
+
+The `PyTorchJobExecutor` integrates with the [Kubeflow Training Operator](https://github.com/kubeflow/training-operator) to run distributed PyTorchJobs on any Kubernetes cluster. It submits PyTorchJob CRDs directly via the Kubernetes API — no `kubectl` or separate tooling required for job submission.
+
+Kubernetes configuration is loaded automatically: local kubeconfig is tried first, falling back to in-cluster config when running inside a pod.
+
+Here's an example configuration:
+
+```python
+executor = run.PyTorchJobExecutor(
+    namespace="runai-nemo-ci",
+    image="nvcr.io/nvidian/nemo:nightly",
+    num_workers=2,         # Worker replicas; a Master replica is always added
+    nprocs_per_node=8,     # Maps to spec.nprocPerNode
+    gpus_per_node=8,
+    cpu_requests="16",
+    memory_requests="64Gi",
+    volumes=[
+        {"name": "model-cache", "persistentVolumeClaim": {"claimName": "nemo-ci-datasets-project-nkf5l"}}
+    ],
+    volume_mounts=[{"name": "model-cache", "mountPath": "/nemo-workspace"}],
+    labels={"app": "nemo-ci-training"},
+    env_vars={"NCCL_DEBUG": "INFO"},
+)
+```
+
+`cancel(wait=True)` polls until both the PyTorchJob CR and all associated pods are fully terminated before returning.
 
 #### LeptonExecutor
 

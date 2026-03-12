@@ -24,6 +24,7 @@ from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor, ExecutorMacros, import_executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
+from nemo_run.core.execution.pytorchjob import PyTorchJobExecutor
 from nemo_run.core.execution.launcher import FaultTolerance, SlurmRay, SlurmTemplate, Torchrun
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
@@ -66,6 +67,7 @@ __all__ = [
     "Packager",
     "Partial",
     "Plugin",
+    "PyTorchJobExecutor",
     "run",
     "Script",
     "SkypilotExecutor",

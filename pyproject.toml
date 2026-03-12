@@ -48,6 +48,7 @@ docker_persistent = "nemo_run.run.torchx_backend.schedulers.docker:create_schedu
 dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
 lepton = "nemo_run.run.torchx_backend.schedulers.lepton:create_scheduler"
 skypilot_jobs = "nemo_run.run.torchx_backend.schedulers.skypilot_jobs:create_scheduler"
+pytorchjob = "nemo_run.run.torchx_backend.schedulers.pytorchjob:create_scheduler"
 
 [project.optional-dependencies]
 skypilot = [
