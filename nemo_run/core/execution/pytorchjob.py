@@ -180,7 +180,14 @@ class PyTorchJobExecutor(Executor):
             "spec": spec,
         }
 
-    def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
+    def launch(
+        self,
+        name: str,
+        cmd: list[str],
+        wait: bool = False,
+        timeout: int = 300,
+        poll_interval: int = 10,
+    ) -> tuple[str, PyTorchJobState]:
         name = name.replace("_", "-").replace(".", "-").lower()
         job_body = self.get_job_body(name, cmd)
         try:
@@ -197,7 +204,23 @@ class PyTorchJobExecutor(Executor):
                     f"PyTorchJob {name} already exists in namespace {self.namespace}"
                 ) from e
             raise
-        return name, PyTorchJobState.CREATED.value
+
+        if not wait:
+            return name, PyTorchJobState.CREATED
+
+        deadline = time.time() + timeout
+        state = PyTorchJobState.CREATED
+        while time.time() < deadline:
+            state = self.status(name) or PyTorchJobState.UNKNOWN
+            if state == PyTorchJobState.RUNNING:
+                return name, state
+            if state in (PyTorchJobState.SUCCEEDED, PyTorchJobState.FAILED):
+                return name, state
+            time.sleep(poll_interval)
+
+        raise RuntimeError(
+            f"PyTorchJob {name} did not reach RUNNING within {timeout}s, last state: {state}"
+        )
 
     def status(self, job_name: str) -> Optional[PyTorchJobState]:
         try:
@@ -245,11 +268,21 @@ class PyTorchJobExecutor(Executor):
         ]
         if stream:
             cmd.append("-f")
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-            return result.stdout.splitlines()
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, bufsize=1)
+            try:
+                for line in iter(proc.stdout.readline, ""):
+                    if line:
+                        yield line
+                    if proc.poll() is not None:
+                        break
+            except Exception as e:
+                logger.error("Error streaming logs: %s", e)
+            finally:
+                proc.terminate()
+                proc.wait(timeout=2)
         else:
-            output = subprocess.check_output(cmd, text=True, timeout=timeout)
-            return output.splitlines()
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            yield from result.stdout.splitlines()
 
     def cancel(
         self,

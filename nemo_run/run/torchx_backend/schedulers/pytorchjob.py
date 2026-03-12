@@ -115,7 +115,7 @@ class PyTorchJobScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: i
         experiment_id = getattr(executor, "experiment_id", "pytorchjob_experiment")
         app_id = f"{experiment_id}___{role_name}___{job_name}"
 
-        _save_job_dir(app_id, job_status=status, executor=executor, job_name=job_name)
+        _save_job_dir(app_id, job_status=status.value, executor=executor, job_name=job_name)
         return app_id
 
     def describe(self, app_id: str) -> Optional[DescribeAppResponse]:

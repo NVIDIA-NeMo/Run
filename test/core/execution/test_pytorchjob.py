@@ -234,8 +234,33 @@ class TestPyTorchJobExecutor:
 
         job_name, state = executor.launch("test-job", ["/bin/bash", "-c", "echo hi"])
         assert job_name == "test-job"
-        assert state == PyTorchJobState.CREATED.value
+        assert state == PyTorchJobState.CREATED
         mock_custom.create_namespaced_custom_object.assert_called_once()
+
+    def test_launch_wait_until_running(self, executor, mock_k8s_clients):
+        mock_custom, _ = mock_k8s_clients
+        mock_custom.create_namespaced_custom_object.return_value = {}
+        mock_custom.get_namespaced_custom_object.side_effect = [
+            {"status": {"conditions": [{"type": "Created", "status": "True"}]}},
+            {"status": {"conditions": [{"type": "Running", "status": "True"}]}},
+        ]
+
+        with patch("time.sleep"):
+            job_name, state = executor.launch(
+                "test-job", ["/bin/bash", "-c", "echo hi"], wait=True, timeout=30
+            )
+        assert state == PyTorchJobState.RUNNING
+
+    def test_launch_wait_timeout(self, executor, mock_k8s_clients):
+        mock_custom, _ = mock_k8s_clients
+        mock_custom.create_namespaced_custom_object.return_value = {}
+        mock_custom.get_namespaced_custom_object.return_value = {
+            "status": {"conditions": [{"type": "Created", "status": "True"}]}
+        }
+
+        with patch("time.sleep"):
+            with pytest.raises(RuntimeError, match="did not reach RUNNING"):
+                executor.launch("test-job", ["echo"], wait=True, timeout=-1)
 
     def test_launch_conflict(self, executor, mock_k8s_clients):
         mock_custom, _ = mock_k8s_clients
@@ -327,21 +352,30 @@ class TestPyTorchJobExecutor:
     # ── Logs ─────────────────────────────────────────────────────────────────────
 
     def test_fetch_logs_no_follow(self, executor, mock_k8s_clients):
-        with patch("subprocess.check_output") as mock_check:
-            mock_check.return_value = "line1\nline2\n"
-            executor.fetch_logs("my-job", stream=False, lines=50)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="line1\nline2\n")
+            lines = list(executor.fetch_logs("my-job", stream=False, lines=50))
 
-        called_cmd = mock_check.call_args[0][0]
+        mock_run.assert_called_once()
+        called_cmd = mock_run.call_args[0][0]
         assert "--tail" in called_cmd
         assert "50" in called_cmd
         label_arg = " ".join(called_cmd)
         assert "training.kubeflow.org/job-name=my-job" in label_arg
+        assert "-f" not in called_cmd
+        assert lines == ["line1", "line2"]
 
     def test_fetch_logs_follow(self, executor, mock_k8s_clients):
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="line1\nline2\n")
-            executor.fetch_logs("my-job", stream=True, lines=100)
+        import io
 
-        mock_run.assert_called_once()
-        called_cmd = mock_run.call_args[0][0]
+        mock_proc = MagicMock()
+        mock_proc.stdout = io.StringIO("line1\nline2\n")
+        mock_proc.poll.return_value = None  # still running; loop exits when readline() hits EOF
+
+        with patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
+            lines = list(executor.fetch_logs("my-job", stream=True, lines=100))
+
+        mock_popen.assert_called_once()
+        called_cmd = mock_popen.call_args[0][0]
         assert "-f" in called_cmd
+        assert lines == ["line1\n", "line2\n"]

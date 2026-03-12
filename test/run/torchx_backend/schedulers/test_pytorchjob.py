@@ -95,7 +95,7 @@ def test_schedule(scheduler, mock_app_def, executor):
         mock.patch.object(PyTorchJobExecutor, "launch") as mock_launch,
     ):
         mock_pkg.return_value = None
-        mock_launch.return_value = ("test-job", "Created")
+        mock_launch.return_value = ("test-job", PyTorchJobState.CREATED)
 
         dryrun_info = scheduler._submit_dryrun(mock_app_def, executor)
         app_id = scheduler.schedule(dryrun_info)
