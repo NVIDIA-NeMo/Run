@@ -23,7 +23,7 @@ from torchx.schedulers.api import Stream
 from torchx.specs import AppDef, AppStatus
 
 from nemo_run.core.execution.base import Executor
-from nemo_run.exceptions import UnknownStatusError
+from nemo_run.exceptions import PersistentSacctFailure, UnknownStatusError
 from nemo_run.run.logs import get_logs
 from nemo_run.run.torchx_backend.launcher import ContextThread, launch, wait_and_exit
 
@@ -229,6 +229,17 @@ def test_wait_and_exit_other_runtime_error_propagates(mock_runner):
 
     with pytest.raises(RuntimeError, match="some other error"):
         wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
+
+
+def test_wait_and_exit_cancels_job_on_persistent_sacct_failure(mock_runner):
+    """PersistentSacctFailure must cancel the job and raise UnknownStatusError."""
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    mock_runner.wait.side_effect = PersistentSacctFailure("sacct failed 30 times for 12345")
+
+    with pytest.raises(UnknownStatusError):
+        wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
+
+    mock_runner.cancel.assert_called_once_with(mock_app_handle)
 
 
 @patch("threading.Thread.run")

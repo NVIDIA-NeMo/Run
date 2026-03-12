@@ -26,7 +26,9 @@ from torchx.specs import AppDef, AppState, Role
 
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor
 from nemo_run.core.tunnel.client import LocalTunnel
+from nemo_run.exceptions import PersistentSacctFailure
 from nemo_run.run.torchx_backend.schedulers.slurm import (
+    MAX_CONSECUTIVE_SACCT_FAILURES,
     SlurmTunnelScheduler,
     TunnelLogIterator,
     _get_job_dirs,
@@ -399,6 +401,62 @@ def test_describe_returns_unknown_on_sacct_exception(slurm_scheduler, mocker):
     result = slurm_scheduler.describe("12345")
     assert result is not None
     assert result.state == AppState.UNKNOWN
+
+
+def test_describe_raises_persistent_sacct_failure_after_threshold(slurm_scheduler, mocker):
+    """After MAX_CONSECUTIVE_SACCT_FAILURES consecutive sacct exceptions, describe() must
+    raise PersistentSacctFailure so the caller can cancel the job instead of spinning forever."""
+    job_dirs = {"12345": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        return_value=job_dirs,
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+
+    slurm_scheduler.tunnel = mock.MagicMock()
+    slurm_scheduler.tunnel.run.side_effect = Exception("sacct: command failed")
+
+    for _ in range(MAX_CONSECUTIVE_SACCT_FAILURES - 1):
+        result = slurm_scheduler.describe("12345")
+        assert result.state == AppState.UNKNOWN
+
+    with pytest.raises(PersistentSacctFailure, match="12345"):
+        slurm_scheduler.describe("12345")
+
+
+def test_describe_resets_sacct_failure_counter_on_success(slurm_scheduler, mocker):
+    """A successful sacct call must reset the consecutive failure counter so that
+    subsequent transient failures start fresh."""
+    job_dirs = {"12345": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        return_value=job_dirs,
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+
+    slurm_scheduler.tunnel = mock.MagicMock()
+
+    # Fail just below the threshold
+    slurm_scheduler.tunnel.run.side_effect = Exception("sacct: command failed")
+    for _ in range(MAX_CONSECUTIVE_SACCT_FAILURES - 1):
+        slurm_scheduler.describe("12345")
+
+    # Recover — sacct returns valid output
+    header = "JobID|JobName|State|ExitCode"
+    row = "12345|exp.master|RUNNING|0:0"
+    success_result = mock.MagicMock()
+    success_result.stdout = f"{header}\n{row}"
+    slurm_scheduler.tunnel.run.side_effect = None
+    slurm_scheduler.tunnel.run.return_value = success_result
+    slurm_scheduler.describe("12345")
+
+    assert slurm_scheduler._consecutive_sacct_failures.get("12345", 0) == 0
+
+    # Fail again — counter should restart from 1, not trigger threshold immediately
+    slurm_scheduler.tunnel.run.side_effect = Exception("sacct: command failed")
+    result = slurm_scheduler.describe("12345")
+    assert result.state == AppState.UNKNOWN
+    assert slurm_scheduler._consecutive_sacct_failures["12345"] == 1
 
 
 def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
