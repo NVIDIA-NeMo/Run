@@ -136,16 +136,6 @@ class KubeflowScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         job_info = stored_data.get(app_id)
         parts = app_id.split("___")
         role_name = parts[1] if len(parts) > 1 else app_id
-        roles = [Role(name=role_name, image="", num_replicas=1)]
-        roles_statuses = [
-            RoleStatus(
-                role_name,
-                replicas=[
-                    ReplicaStatus(id=0, role=role_name, state=AppState.SUBMITTED, hostname="")
-                ],
-            )
-        ]
-
         if not job_info:
             return None
 
@@ -157,7 +147,18 @@ class KubeflowScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         job_name = job_info.get("job_name") or parts[-1]
         kf_state = executor.status(job_name)
         app_state = KUBEFLOW_STATES.get(kf_state, AppState.PENDING)
-        roles_statuses[0].replicas[0].state = app_state
+
+        num_replicas = executor.nnodes()
+        roles = [Role(name=role_name, image="", num_replicas=num_replicas)]
+        roles_statuses = [
+            RoleStatus(
+                role_name,
+                replicas=[
+                    ReplicaStatus(id=i, role=role_name, state=app_state, hostname="")
+                    for i in range(num_replicas)
+                ],
+            )
+        ]
 
         return DescribeAppResponse(
             app_id=app_id,

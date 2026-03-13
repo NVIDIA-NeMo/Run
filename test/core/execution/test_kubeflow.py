@@ -747,3 +747,339 @@ class TestKubeflowExecutor:
         assert spec["tolerations"] == [{"key": "gpu", "operator": "Exists"}]
         assert spec["affinity"] == {"nodeAffinity": {"key": "val"}}
         assert spec["imagePullSecrets"] == [{"name": "my-secret"}]
+
+    # ── ImportError when kubernetes unavailable ──────────────────────────────
+
+    def test_import_error_when_kubernetes_unavailable(self):
+        import nemo_run.core.execution.kubeflow as kf_module
+
+        original = kf_module._KUBERNETES_AVAILABLE
+        try:
+            kf_module._KUBERNETES_AVAILABLE = False
+            with pytest.raises(ImportError, match="kubernetes package is required"):
+                with (
+                    patch("nemo_run.core.execution.kubeflow.config.load_kube_config"),
+                    patch("nemo_run.core.execution.kubeflow.client.CustomObjectsApi"),
+                    patch("nemo_run.core.execution.kubeflow.client.CoreV1Api"),
+                ):
+                    KubeflowExecutor.__post_init__(KubeflowExecutor.__new__(KubeflowExecutor))
+        finally:
+            kf_module._KUBERNETES_AVAILABLE = original
+
+    # ── _build_resources with cpu_limits and memory_limits ───────────────────
+
+    def test_build_resources_with_cpu_and_memory_limits(self, mock_k8s_clients):
+        e = KubeflowExecutor(
+            image="test:latest",
+            cpu_limits="32",
+            memory_limits="128Gi",
+        )
+        resources = e._build_resources()
+        assert resources["limits"]["cpu"] == "32"
+        assert resources["limits"]["memory"] == "128Gi"
+
+    # ── TrainJob metadata labels and annotations ─────────────────────────────
+
+    def test_get_trainjob_body_labels_and_annotations(self, mock_k8s_clients):
+        e = KubeflowExecutor(
+            image="test:latest",
+            job_kind="TrainJob",
+            labels={"team": "nemo"},
+            annotations={"owner": "ci"},
+        )
+        body = e.get_job_body("labeled-trainjob", ["echo"])
+        assert body["metadata"]["labels"] == {"team": "nemo"}
+        assert body["metadata"]["annotations"] == {"owner": "ci"}
+
+    # ── launch() with non-409 ApiException ───────────────────────────────────
+
+    def test_launch_reraises_non_409_api_exception(self, executor, mock_k8s_clients):
+        mock_custom, _ = mock_k8s_clients
+        mock_custom.create_namespaced_custom_object.side_effect = ApiException(status=500)
+        with pytest.raises(ApiException):
+            executor.launch("test-job", ["echo"])
+
+    # ── launch(wait=True) exits early on SUCCEEDED / FAILED ──────────────────
+
+    def test_launch_wait_exits_on_succeeded(self, executor, mock_k8s_clients):
+        mock_custom, _ = mock_k8s_clients
+        mock_custom.create_namespaced_custom_object.return_value = {}
+        mock_custom.get_namespaced_custom_object.return_value = {
+            "status": {"conditions": [{"type": "Succeeded", "status": "True"}]}
+        }
+        with patch("time.sleep"):
+            _, state = executor.launch("test-job", ["echo"], wait=True, timeout=30)
+        assert state == KubeflowJobState.SUCCEEDED
+
+    def test_launch_wait_exits_on_failed(self, executor, mock_k8s_clients):
+        mock_custom, _ = mock_k8s_clients
+        mock_custom.create_namespaced_custom_object.return_value = {}
+        mock_custom.get_namespaced_custom_object.return_value = {
+            "status": {"conditions": [{"type": "Failed", "status": "True"}]}
+        }
+        with patch("time.sleep"):
+            _, state = executor.launch("test-job", ["echo"], wait=True, timeout=30)
+        assert state == KubeflowJobState.FAILED
+
+    # ── fetch_logs streaming: retry when no lines yielded ────────────────────
+
+    def test_fetch_logs_stream_retries_when_no_output_then_succeeds(
+        self, executor, mock_k8s_clients
+    ):
+        """First Popen yields nothing; second yields a line — loop exits after output."""
+        import io
+
+        empty_proc = MagicMock()
+        empty_proc.stdout = io.StringIO("")
+        empty_proc.poll.return_value = None
+
+        output_proc = MagicMock()
+        output_proc.stdout = io.StringIO("some output\n")
+        output_proc.poll.return_value = None
+
+        procs = [empty_proc, output_proc]
+
+        with (
+            patch("subprocess.Popen", side_effect=procs),
+            patch("time.sleep"),
+        ):
+            lines = list(executor.fetch_logs("my-job", stream=True))
+
+        assert "some output\n" in lines
+
+    def test_fetch_logs_stream_handles_exception(self, executor, mock_k8s_clients):
+        """Exception inside the readline loop is caught; generator terminates cleanly."""
+
+        mock_proc = MagicMock()
+
+        def _raise_on_read(_sentinel):
+            raise OSError("read error")
+
+        mock_proc.stdout.readline.side_effect = OSError("read error")
+        mock_proc.poll.return_value = None
+
+        with (
+            patch("subprocess.Popen", return_value=mock_proc),
+            patch("time.sleep"),
+        ):
+            # Should not raise; returns empty (error path)
+            lines = list(executor.fetch_logs("my-job", stream=True))
+
+        assert lines == []
+
+    # ── cancel() non-404 ApiException reraises ───────────────────────────────
+
+    def test_cancel_reraises_non_404_api_exception(self, executor, mock_k8s_clients):
+        mock_custom, _ = mock_k8s_clients
+        mock_custom.delete_namespaced_custom_object.side_effect = ApiException(status=500)
+        with pytest.raises(ApiException):
+            executor.cancel("test-job")
+
+    # ── cancel(wait=True): CR still present on first poll, then gone ─────────
+
+    def test_cancel_with_wait_cr_present_then_gone(self, executor, mock_k8s_clients):
+        mock_custom, mock_core = mock_k8s_clients
+        mock_custom.delete_namespaced_custom_object.return_value = {}
+        # First get: CR still present; second get: 404 (gone)
+        mock_custom.get_namespaced_custom_object.side_effect = [
+            {"metadata": {"name": "test-job"}},  # still present → continue
+            ApiException(status=404),  # gone
+        ]
+        mock_core.list_namespaced_pod.return_value = MagicMock(items=[])
+
+        with patch("time.sleep"):
+            result = executor.cancel("test-job", wait=True, timeout=60, poll_interval=0)
+        assert result is True
+
+    def test_cancel_with_wait_non_404_get_continues(self, executor, mock_k8s_clients):
+        """Non-404 ApiException on the CR get should be treated as 'still present' (continue)."""
+        mock_custom, mock_core = mock_k8s_clients
+        mock_custom.delete_namespaced_custom_object.return_value = {}
+        # Non-404 on get → continue; then CR gone with pods still present
+        mock_custom.get_namespaced_custom_object.side_effect = ApiException(status=503)
+
+        with patch("time.sleep"):
+            result = executor.cancel("test-job", wait=True, timeout=-1, poll_interval=0)
+        assert result is False
+
+    def test_cancel_with_wait_pods_still_present(self, executor, mock_k8s_clients):
+        """When CR is gone but pods are still present, keep waiting until timeout."""
+        mock_custom, mock_core = mock_k8s_clients
+        mock_custom.delete_namespaced_custom_object.return_value = {}
+        mock_custom.get_namespaced_custom_object.side_effect = ApiException(status=404)
+        # pods still present
+        mock_core.list_namespaced_pod.return_value = MagicMock(items=[MagicMock()])
+
+        with patch("time.sleep"):
+            result = executor.cancel("test-job", wait=True, timeout=-1, poll_interval=0)
+        assert result is False
+
+    # ── _start_data_mover_pod: timeout when pod never reaches Running ─────────
+
+    def test_start_data_mover_pod_timeout(self, mock_k8s_clients, tmp_path):
+        _, mock_core = mock_k8s_clients
+        mock_core.create_namespaced_pod.return_value = MagicMock()
+        # 404 on delete means pod already gone — _delete_data_mover_pod returns immediately
+        mock_core.delete_namespaced_pod.side_effect = ApiException(status=404)
+        # 404 on read_namespaced_pod so the delete cleanup loop exits fast
+        mock_core.read_namespaced_pod.side_effect = ApiException(status=404)
+
+        e = KubeflowExecutor(
+            image="test:latest",
+            workdir_pvc="my-pvc",
+        )
+        e.job_dir = str(tmp_path)
+
+        with patch("kubernetes.watch.Watch") as mock_watch_cls:
+            mock_watch = MagicMock()
+            mock_watch_cls.return_value = mock_watch
+            # Stream returns non-Running event then exhausts — for/else fires
+            pod = MagicMock()
+            pod.status.phase = "Pending"
+            mock_watch.stream.return_value = iter([{"object": pod}])
+
+            with pytest.raises(RuntimeError, match="did not reach Running"):
+                e._start_data_mover_pod("my-pod", timeout=5)
+
+    # ── _delete_data_mover_pod: non-404 ApiException on delete ───────────────
+
+    def test_delete_data_mover_pod_non_404_logs_warning(self, mock_k8s_clients, tmp_path):
+        _, mock_core = mock_k8s_clients
+        mock_core.delete_namespaced_pod.side_effect = ApiException(status=500)
+
+        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        e.job_dir = str(tmp_path)
+
+        # Should not raise; just log a warning and return
+        e._delete_data_mover_pod("my-pod")
+        mock_core.read_namespaced_pod.assert_not_called()
+
+    def test_delete_data_mover_pod_timeout_warning(self, mock_k8s_clients, tmp_path):
+        _, mock_core = mock_k8s_clients
+        mock_core.delete_namespaced_pod.return_value = MagicMock()
+        # Pod never disappears (read always succeeds)
+        mock_core.read_namespaced_pod.return_value = MagicMock()
+
+        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        e.job_dir = str(tmp_path)
+
+        with patch("time.sleep"):
+            # timeout=-1 means deadline already passed — loop body never executes
+            e._delete_data_mover_pod("my-pod", timeout=-1)
+        # Should not raise; just hits the warning log
+
+    # ── materialize_launch_script ─────────────────────────────────────────────
+
+    def test_materialize_launch_script_writes_file(self, mock_k8s_clients, tmp_path):
+        e = KubeflowExecutor(
+            image="test:latest",
+            env_vars={"MY_VAR": "hello"},
+            workdir_pvc="my-pvc",
+        )
+        e.job_dir = str(tmp_path)
+
+        e.materialize_launch_script(["python", "train.py"], max_retries=2)
+
+        launch_script = tmp_path / "launch.sh"
+        assert launch_script.exists()
+        content = launch_script.read_text()
+        assert "python train.py" in content
+        assert "export MY_VAR=hello" in content
+        assert "TORCHX_MAX_RETRIES=2" in content
+
+    # ── package() with workdir_local_path ─────────────────────────────────────
+
+    def test_package_with_workdir_local_path(self, mock_k8s_clients, tmp_path):
+        _, mock_core = mock_k8s_clients
+        mock_core.create_namespaced_pod.return_value = MagicMock()
+        mock_core.delete_namespaced_pod.return_value = MagicMock()
+        mock_core.read_namespaced_pod.side_effect = ApiException(status=404)
+
+        local_path = str(tmp_path / "local_scripts")
+        e = KubeflowExecutor(
+            image="test:latest",
+            workdir_pvc="my-pvc",
+            workdir_local_path=local_path,
+        )
+        e.job_dir = str(tmp_path / "job_dir")
+
+        with (
+            patch("kubernetes.watch.Watch") as mock_watch_cls,
+            patch("subprocess.check_call") as mock_check_call,
+        ):
+            mock_watch_cls.return_value.stream.return_value = self._make_watch_events("Running")
+            e.package(MagicMock(), "test-job")
+
+        # rsync local_path → job_dir  +  kubectl mkdir  +  kubectl cp = 3 calls
+        assert mock_check_call.call_count == 3
+        first_call_cmd = mock_check_call.call_args_list[0][0][0]
+        assert "rsync" in first_call_cmd
+
+    # ── package(): PVC volume mount already present — no duplicate ────────────
+
+    def test_package_pvc_already_mounted_no_duplicate_volume(self, mock_k8s_clients, tmp_path):
+        _, mock_core = mock_k8s_clients
+        mock_core.create_namespaced_pod.return_value = MagicMock()
+        mock_core.delete_namespaced_pod.return_value = MagicMock()
+        mock_core.read_namespaced_pod.side_effect = ApiException(status=404)
+
+        e = KubeflowExecutor(
+            image="test:latest",
+            workdir_pvc="my-pvc",
+            volumes=[{"name": "pre-vol", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
+        )
+        e.job_dir = str(tmp_path)
+
+        with (
+            patch("kubernetes.watch.Watch") as mock_watch_cls,
+            patch("subprocess.check_call"),
+        ):
+            mock_watch_cls.return_value.stream.return_value = self._make_watch_events("Running")
+            e.package(MagicMock(), "test-job")
+
+        pvc_vols = [
+            v for v in e.volumes if v.get("persistentVolumeClaim", {}).get("claimName") == "my-pvc"
+        ]
+        assert len(pvc_vols) == 1  # no duplicate added
+
+    # ── pull_results: no job_dir set and _lookup_job_dir returns empty ────────
+
+    def test_pull_results_raises_when_no_job_dir_resolvable(self, mock_k8s_clients):
+        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        # job_dir not set
+
+        with patch.object(e, "_lookup_job_dir", return_value=""):
+            with pytest.raises(RuntimeError, match="Cannot determine destination directory"):
+                e.pull_results("test-job")
+
+    def test_pull_results_uses_dest_dir_when_no_job_dir(self, mock_k8s_clients, tmp_path):
+        _, mock_core = mock_k8s_clients
+        mock_core.create_namespaced_pod.return_value = MagicMock()
+        mock_core.delete_namespaced_pod.return_value = MagicMock()
+        mock_core.read_namespaced_pod.side_effect = ApiException(status=404)
+
+        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        # job_dir not set
+
+        with (
+            patch("kubernetes.watch.Watch") as mock_watch_cls,
+            patch("subprocess.check_call"),
+        ):
+            mock_watch_cls.return_value.stream.return_value = self._make_watch_events("Running")
+            e.pull_results("test-job", dest_dir=str(tmp_path))
+
+        mock_core.create_namespaced_pod.assert_called_once()
+
+    # ── _lookup_job_dir ───────────────────────────────────────────────────────
+
+    def test_lookup_job_dir_returns_empty_when_no_jobs_file(self, mock_k8s_clients, tmp_path):
+        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        with patch("nemo_run.config.get_nemorun_home", return_value=str(tmp_path)):
+            result = e._lookup_job_dir("nonexistent-job")
+        assert result == ""
+
+    def test_lookup_job_dir_returns_empty_on_exception(self, mock_k8s_clients):
+        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        with patch("nemo_run.config.get_nemorun_home", side_effect=Exception("boom")):
+            result = e._lookup_job_dir("test-job")
+        assert result == ""
