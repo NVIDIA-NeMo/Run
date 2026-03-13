@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import getpass
 import logging
 import os
 import subprocess
@@ -153,6 +154,15 @@ class KubeflowExecutor(Executor):
 
     def nnodes(self) -> int:
         return self.num_nodes
+
+    @property
+    def code_dir(self) -> str:
+        """Subdirectory on the PVC where user code (launch.sh, scripts) is synced.
+
+        Scoped to ``<workdir_pvc_path>/<username>/code`` so multiple users sharing
+        the same PVC never clobber each other's files.
+        """
+        return f"{self.workdir_pvc_path.rstrip('/')}/{getpass.getuser()}/code"
 
     def nproc_per_node(self) -> int:
         if self.nprocs_per_node is not None:
@@ -641,6 +651,7 @@ class KubeflowExecutor(Executor):
             training_command=" ".join(cmd),
             env_vars=env_var_lines,
             max_retries=max_retries,
+            code_dir=self.code_dir,
         )
         os.makedirs(self.job_dir, exist_ok=True)
         launch_script_path = os.path.join(self.job_dir, "launch.sh")
@@ -652,7 +663,7 @@ class KubeflowExecutor(Executor):
         if not self.workdir_pvc:
             return
         # Merge extra local files (e.g. training scripts) into job_dir so they
-        # get synced to the pod alongside generated files like launch.sh.
+        # are included alongside generated files like launch.sh.
         if self.workdir_local_path:
             os.makedirs(self.job_dir, exist_ok=True)
             subprocess.check_call(
@@ -664,21 +675,31 @@ class KubeflowExecutor(Executor):
                 ]
             )
             logger.info("Merged '%s' into job_dir '%s'", self.workdir_local_path, self.job_dir)
-        # Auto-add workdir PVC to volumes/volume_mounts so training pods can access it
-        vol_name = "nemo-run-workdir"
-        if not any(v.get("name") == vol_name for v in self.volumes):
-            self.volumes.append(
-                {"name": vol_name, "persistentVolumeClaim": {"claimName": self.workdir_pvc}}
-            )
-        if not any(vm.get("mountPath") == self.workdir_pvc_path for vm in self.volume_mounts):
-            self.volume_mounts.append({"name": vol_name, "mountPath": self.workdir_pvc_path})
 
+        # Sync job_dir to <workdir_pvc_path>/<username>/code on the PVC via a
+        # throw-away data-mover pod.  Scoping to a user subdirectory means we
+        # never clobber other data already on the shared volume.
         pod_name = self._data_mover_pod_name(job_name)
         self._start_data_mover_pod(pod_name)
         try:
-            self._rsync_to_pod(pod_name, self.job_dir, self.workdir_pvc_path)
+            self._rsync_to_pod(pod_name, self.job_dir, self.code_dir)
         finally:
             self._delete_data_mover_pod(pod_name)
+
+        # Mount the PVC so the training container can reach code_dir.
+        # If the PVC is already declared (e.g. explicitly by the caller for data),
+        # reuse that existing volume rather than adding a duplicate entry.
+        already_mounted = any(
+            v.get("persistentVolumeClaim", {}).get("claimName") == self.workdir_pvc
+            for v in self.volumes
+        )
+        if not already_mounted:
+            vol_name = "nemo-run-workdir"
+            self.volumes.append(
+                {"name": vol_name, "persistentVolumeClaim": {"claimName": self.workdir_pvc}}
+            )
+            if not any(vm.get("mountPath") == self.workdir_pvc_path for vm in self.volume_mounts):
+                self.volume_mounts.append({"name": vol_name, "mountPath": self.workdir_pvc_path})
 
     def pull_results(self, job_name: str, dest_dir: Optional[str] = None) -> None:
         """Sync workdir_pvc_path back to a local directory after the job completes.
@@ -707,7 +728,7 @@ class KubeflowExecutor(Executor):
         pod_name = self._data_mover_pod_name(job_name)
         self._start_data_mover_pod(pod_name)
         try:
-            self._rsync_from_pod(pod_name, self.workdir_pvc_path, local_path)
+            self._rsync_from_pod(pod_name, self.code_dir, local_path)
         finally:
             self._delete_data_mover_pod(pod_name)
 

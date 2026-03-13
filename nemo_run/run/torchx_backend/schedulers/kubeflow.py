@@ -99,15 +99,13 @@ class KubeflowScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         # Jinja2 template (env vars + training command) and point the job at
         # it so torchrun / launcher details stay out of the manifest.
         if executor.workdir_pvc and getattr(executor, "job_dir", None):
-            # Rewrite any local workdir_local_path references in the cmd to
-            # their pod-side equivalents under workdir_pvc_path, so users can
-            # pass run.Script(path=<local_path>) and the pod sees the synced path.
+            # Rewrite any local workdir_local_path references in the cmd.
             if executor.workdir_local_path:
                 local_prefix = executor.workdir_local_path.rstrip(os.sep)
-                pod_prefix = executor.workdir_pvc_path.rstrip("/")
+                pod_prefix = executor.code_dir.rstrip("/")
                 cmd = [c.replace(local_prefix, pod_prefix) for c in cmd]
             executor.materialize_launch_script(cmd)
-            cmd = ["/bin/bash", f"{executor.workdir_pvc_path}/launch.sh"]
+            cmd = ["/bin/bash", f"{executor.code_dir}/launch.sh"]
 
         req = KubeflowJobRequest(app=app, executor=executor, cmd=cmd, name=role.name)
 

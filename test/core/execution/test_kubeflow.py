@@ -709,7 +709,7 @@ class TestKubeflowExecutor:
         # kubectl cp <ns>/<pod>:<remote> <local>
         assert "kubectl" in cp_args
         assert "cp" in cp_args
-        assert "test-job-data-mover:/nemo_run" in cp_args
+        assert f"test-job-data-mover:{workdir_executor.code_dir}" in cp_args
 
     def test_pull_results_noop_without_workdir_pvc(self, mock_k8s_clients):
         e = KubeflowExecutor(image="test:latest")
