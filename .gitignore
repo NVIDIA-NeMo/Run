@@ -183,3 +183,4 @@ _version.py
 
 # NeMo Run
 .nemo_run/
+local/

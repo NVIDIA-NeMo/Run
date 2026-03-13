@@ -495,6 +495,7 @@ class Script(ConfigurableMixin):
                     )
                 with open(filename, "w") as f:
                     f.write("#!/usr/bin/bash\n" + inline_content)
+                os.chmod(filename, os.stat(filename).st_mode | 0o755)
 
                 if is_local:
                     cmd = [filename]
