@@ -53,6 +53,7 @@ The packager support matrix is described below:
 | SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | DGXCloudExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | LeptonExecutor   | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| KubeflowExecutor | run.Packager |
 
 `run.Packager` is a passthrough base packager.
 
@@ -292,6 +293,49 @@ def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
 ```
 
 For a complete end-to-end example using DGX Cloud with NeMo, refer to the [NVIDIA DGX Cloud NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
+
+#### KubeflowExecutor
+
+The `KubeflowExecutor` integrates with the [Kubeflow Training Operator](https://github.com/kubeflow/training-operator) to run distributed training jobs on any Kubernetes cluster. It submits CRDs directly via the Kubernetes API — no `kubectl` required.
+
+Two job kinds are supported via the `job_kind` parameter:
+
+- **`"PyTorchJob"`** (default) — Training Operator v1 (`kubeflow.org/v1`)
+- **`"TrainJob"`** — Training Operator v2 (`trainer.kubeflow.org/v1alpha1`)
+
+Kubernetes configuration is loaded automatically: local kubeconfig is tried first, falling back to in-cluster config when running inside a pod.
+
+Here's an example configuration:
+
+```python
+# PyTorchJob (default)
+executor = run.KubeflowExecutor(
+    namespace="runai-nemo-ci",
+    image="nvcr.io/nvidian/nemo:nightly",
+    num_nodes=3,          # total pods: 1 Master + (num_nodes-1) Workers
+    gpus_per_node=8,      # also sets nproc_per_node unless overridden explicitly
+    cpu_requests="16",
+    memory_requests="64Gi",
+    volumes=[
+        {"name": "model-cache", "persistentVolumeClaim": {"claimName": "nemo-ci-datasets-project-nkf5l"}}
+    ],
+    volume_mounts=[{"name": "model-cache", "mountPath": "/nemo-workspace"}],
+    labels={"app": "nemo-ci-training"},
+    env_vars={"NCCL_DEBUG": "INFO"},
+)
+
+# TrainJob (Training Operator v2)
+executor = run.KubeflowExecutor(
+    job_kind="TrainJob",
+    runtime_ref="torch-distributed",  # name of the ClusterTrainingRuntime
+    namespace="runai-nemo-ci",
+    image="nvcr.io/nvidian/nemo:nightly",
+    num_nodes=3,
+    gpus_per_node=8,
+)
+```
+
+`cancel(wait=True)` polls until both the CR and all associated pods are fully terminated before returning.
 
 #### LeptonExecutor
 
