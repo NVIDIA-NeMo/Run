@@ -640,7 +640,9 @@ class KubeflowExecutor(Executor):
     def materialize_launch_script(self, cmd: list[str], max_retries: int = 0) -> None:
         """Render kubeflow.sh.j2 with *cmd* as the training command and write
         it to ``{job_dir}/launch.sh`` so it can be synced to the pod."""
-        env = Environment(
+        # Shell-script template: autoescape is intentionally disabled for non-HTML/XML
+        # extensions (.sh, .j2).  There is no XSS risk — output is executed locally.
+        env = Environment(  # noqa: S701
             loader=PackageLoader("nemo_run", "core/execution/templates"),
             keep_trailing_newline=True,
             autoescape=select_autoescape(["html", "xml"]),

@@ -751,8 +751,9 @@ class TestKubeflowExecutor:
     # ── ImportError when kubernetes unavailable ──────────────────────────────
 
     def test_import_error_when_kubernetes_unavailable(self):
-        import nemo_run.core.execution.kubeflow as kf_module
+        import sys
 
+        kf_module = sys.modules["nemo_run.core.execution.kubeflow"]
         original = kf_module._KUBERNETES_AVAILABLE
         try:
             kf_module._KUBERNETES_AVAILABLE = False
@@ -851,9 +852,6 @@ class TestKubeflowExecutor:
         """Exception inside the readline loop is caught; generator terminates cleanly."""
 
         mock_proc = MagicMock()
-
-        def _raise_on_read(_sentinel):
-            raise OSError("read error")
 
         mock_proc.stdout.readline.side_effect = OSError("read error")
         mock_proc.poll.return_value = None
