@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import tempfile
+import threading
 from unittest import mock
 
 import pytest
@@ -143,6 +144,7 @@ def test_schedule(slurm_scheduler, slurm_executor):
     with (
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
         mock.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir"),
+        mock.patch.object(SlurmTunnelScheduler, "_poll_job_start_time"),
     ):
         # Create a fresh mock tunnel for each test to avoid interference
         mock_tunnel = mock.MagicMock()
@@ -473,6 +475,7 @@ def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
         mock.patch.object(SlurmExecutor, "parse_deps", return_value=["54321"]),
         mock.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir"),
+        mock.patch.object(SlurmTunnelScheduler, "_poll_job_start_time"),
     ):
         # Create a fresh mock tunnel for testing
         mock_tunnel = mock.MagicMock()
@@ -726,3 +729,215 @@ def test_non_heterogeneous_ray_cluster(slurm_scheduler, temp_dir):
         # Verify run_as_group was NOT set
         assert not hasattr(executor, "run_as_group") or not executor.run_as_group
         assert isinstance(dryrun_info.request, SlurmRayRequest)
+
+
+# ---------------------------------------------------------------------------
+# Tests for start-time polling feature
+# ---------------------------------------------------------------------------
+
+
+def test_poll_job_start_time_prints_while_pending(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = f"{job_id}|2026-03-14T15:30:00|PENDING\n"
+    mock_tunnel.run.return_value.return_code = 0
+
+    mock_print = mocker.patch("builtins.print")
+
+    # Stop after first iteration by setting the event inside wait
+    def wait_once(timeout=None):
+        stop_event.set()
+        return True
+
+    stop_event.wait = wait_once
+
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+    mock_print.assert_called_once()
+    printed = mock_print.call_args[0][0]
+    assert job_id in printed
+    assert "PENDING" in printed
+    assert "2026-03-14T15:30:00" in printed
+
+
+def test_poll_job_start_time_stops_when_job_starts(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = f"{job_id}|2026-03-14T15:30:00|RUNNING\n"
+    mock_tunnel.run.return_value.return_code = 0
+
+    mocker.patch("builtins.print")
+    wait_called = []
+    original_wait = stop_event.wait
+    stop_event.wait = lambda t=None: wait_called.append(t) or original_wait(0)
+
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+    assert len(wait_called) == 0  # returned immediately, no wait
+
+
+def test_poll_job_start_time_stops_when_queue_empty(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = ""
+    mock_tunnel.run.return_value.return_code = 0
+
+    mock_print = mocker.patch("builtins.print")
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+
+    mock_print.assert_called_once()
+    assert "no longer pending" in mock_print.call_args[0][0]
+
+
+def test_poll_job_start_time_continues_on_exception(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    # First call raises, second call returns empty to stop the loop
+    second_result = mock.MagicMock()
+    second_result.stdout = ""
+    mock_tunnel.run.side_effect = [
+        Exception("squeue failed"),
+        second_result,
+    ]
+
+    mocker.patch("builtins.print")
+    # Patch wait so the inter-poll sleep doesn't block the test (edge case #1)
+    stop_event.wait = mock.MagicMock(return_value=False)
+
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+    assert mock_tunnel.run.call_count == 2
+    stop_event.wait.assert_called_once_with(30)
+
+
+def test_poll_job_start_time_handles_none_stdout(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = None
+
+    mock_print = mocker.patch("builtins.print")
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+
+    mock_print.assert_called_once()
+    assert "no longer pending" in mock_print.call_args[0][0]
+
+
+def test_poll_job_start_time_skips_nonzero_return_code(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = "slurm_load_jobs error: Invalid job id specified"
+    mock_tunnel.run.return_value.return_code = 1
+
+    mock_print = mocker.patch("builtins.print")
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+
+    mock_print.assert_called_once()
+    assert "no longer pending" in mock_print.call_args[0][0]
+
+
+def test_poll_job_start_time_deduplicates_array_job_lines(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = (
+        f"{job_id}_1|2026-03-14T15:30:00|PENDING\n{job_id}_2|2026-03-14T15:30:00|PENDING\n"
+    )
+    mock_tunnel.run.return_value.return_code = 0
+
+    mock_print = mocker.patch("builtins.print")
+
+    def wait_once(timeout=None):
+        stop_event.set()
+        return True
+
+    stop_event.wait = wait_once
+
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+    assert mock_print.call_count == 1
+
+
+def test_schedule_starts_start_time_polling_thread(slurm_scheduler, mocker):
+    job_id = "99999"
+    dryrun_info = mock.MagicMock()
+
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = job_id
+    slurm_scheduler.tunnel = mock_tunnel
+
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir")
+
+    # Block the polling thread so is_alive() is True when we check
+    started = threading.Event()
+
+    def blocking_poll(poll_job_id, poll_tunnel, stop_event):
+        started.set()
+        stop_event.wait()
+
+    mocker.patch.object(SlurmTunnelScheduler, "_poll_job_start_time", side_effect=blocking_poll)
+
+    slurm_scheduler.schedule(dryrun_info)
+
+    started.wait(timeout=2)
+    assert job_id in slurm_scheduler._start_time_threads
+    thread = slurm_scheduler._start_time_threads[job_id]
+    assert thread.daemon
+    assert thread.is_alive()
+    assert job_id in slurm_scheduler._start_time_stop_events
+
+    # Cleanup
+    slurm_scheduler._start_time_stop_events[job_id].set()
+
+
+def test_schedule_stops_existing_thread_on_duplicate_job_id(slurm_scheduler, mocker):
+    job_id = "99999"
+    old_ev = threading.Event()
+    slurm_scheduler._start_time_stop_events[job_id] = old_ev
+    slurm_scheduler._start_time_threads[job_id] = mock.MagicMock()
+
+    dryrun_info = mock.MagicMock()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = job_id
+    slurm_scheduler.tunnel = mock_tunnel
+
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir")
+    mocker.patch.object(SlurmTunnelScheduler, "_poll_job_start_time")
+
+    slurm_scheduler.schedule(dryrun_info)
+
+    assert old_ev.is_set()
+    assert slurm_scheduler._start_time_stop_events[job_id] is not old_ev  # new event
+
+    # Cleanup
+    slurm_scheduler._start_time_stop_events[job_id].set()
+
+
+def test_close_stops_all_polling_threads(slurm_scheduler):
+    ev1, ev2 = threading.Event(), threading.Event()
+    slurm_scheduler._start_time_stop_events = {"1": ev1, "2": ev2}
+    slurm_scheduler.close()
+    assert ev1.is_set()
+    assert ev2.is_set()
+    assert slurm_scheduler._start_time_threads == {}
+    assert slurm_scheduler._start_time_stop_events == {}
+
+
+def test_cancel_stops_polling_thread_for_job(slurm_scheduler, mocker):
+    job_id = "12345"
+    ev = threading.Event()
+    slurm_scheduler._start_time_stop_events[job_id] = ev
+    slurm_scheduler._start_time_threads[job_id] = mock.MagicMock()
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        return_value={job_id: ("dir", mock.MagicMock(), "")},
+    )
+    slurm_scheduler.tunnel = mock.MagicMock()
+
+    slurm_scheduler._cancel_existing(job_id)
+
+    assert ev.is_set()
+    assert job_id not in slurm_scheduler._start_time_stop_events
