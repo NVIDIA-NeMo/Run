@@ -726,3 +726,38 @@ def test_non_heterogeneous_ray_cluster(slurm_scheduler, temp_dir):
         # Verify run_as_group was NOT set
         assert not hasattr(executor, "run_as_group") or not executor.run_as_group
         assert isinstance(dryrun_info.request, SlurmRayRequest)
+
+
+@mock.patch("nemo_run.core.execution.slurm.fill_template")
+def test_submit_dryrun_print_script(
+    mock_fill_template, slurm_scheduler, mock_app_def, slurm_executor, capsys
+):
+    """When print_script=True, sbatch script is printed to stdout."""
+    mock_fill_template.return_value = "#!/bin/bash\n# Mock script content"
+    slurm_executor.print_script = True
+
+    with mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"):
+        slurm_scheduler.tunnel = mock.MagicMock()
+        with mock.patch.object(SlurmExecutor, "package"):
+            with mock.patch("builtins.open", mock.mock_open()):
+                slurm_scheduler._submit_dryrun(mock_app_def, slurm_executor)
+
+    captured = capsys.readouterr()
+    assert "#!/bin/bash" in captured.out
+
+
+@mock.patch("nemo_run.core.execution.slurm.fill_template")
+def test_submit_dryrun_no_print_by_default(
+    mock_fill_template, slurm_scheduler, mock_app_def, slurm_executor, capsys
+):
+    """By default (print_script=False), nothing is printed to stdout."""
+    mock_fill_template.return_value = "#!/bin/bash\n# Mock script content"
+
+    with mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"):
+        slurm_scheduler.tunnel = mock.MagicMock()
+        with mock.patch.object(SlurmExecutor, "package"):
+            with mock.patch("builtins.open", mock.mock_open()):
+                slurm_scheduler._submit_dryrun(mock_app_def, slurm_executor)
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
