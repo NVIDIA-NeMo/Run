@@ -185,6 +185,9 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         path = os.path.join(sbatch_dir, f"{executor.job_name}_sbatch.sh")
         script = req.materialize()
 
+        if executor.print_script:
+            print(script)
+
         with open(path, "w") as f:
             f.write(script)
 

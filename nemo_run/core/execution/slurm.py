@@ -347,6 +347,9 @@ class SlurmExecutor(Executor):
     #: Template name to use for Ray jobs (e.g., "ray.sub.j2" or "ray_enroot.sub.j2")
     ray_template: str = "ray.sub.j2"
 
+    print_script: bool = False
+    """If True, print the generated sbatch script to stdout before submission."""
+
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")
     stderr_to_stdout: bool = field(init=False, default=True)
