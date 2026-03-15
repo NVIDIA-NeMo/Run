@@ -183,3 +183,11 @@ _version.py
 
 # NeMo Run
 .nemo_run/
+
+# Local dev artifacts
+configs/
+local/
+scripts/
+log.txt
+torchrun_job.sh
+test/run/core/
