@@ -263,9 +263,16 @@ def _get_job_dirs() -> dict[str, dict[str, Any]]:
     for app in data.values():
         try:
             cfg = serializer.deserialize(app["executor"])
-            # Backwards compat: drop removed field job_kind (PyTorchJob was removed).
+            # Backwards compat: drop/migrate fields removed or renamed in past versions.
+            for removed in ("job_kind",):
+                try:
+                    delattr(cfg, removed)
+                except AttributeError:
+                    pass
+            # nproc_per_node was renamed to nprocs_per_node; migrate if present.
             try:
-                del cfg.job_kind
+                cfg.nprocs_per_node = cfg.nproc_per_node
+                del cfg.nproc_per_node
             except AttributeError:
                 pass
             app["executor"] = fdl.build(cfg)
