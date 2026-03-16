@@ -99,6 +99,12 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         basename = Path(executor.job_dir).name
         app_id = make_unique(basename)
         req = DockerJobRequest(id=app_id, executor=executor, containers=containers)
+
+        if executor.experiment_dir:
+            path = os.path.join(executor.experiment_dir, f"{executor.job_name}.yaml")
+            with open(path, "w") as f:
+                f.write(str(req))
+
         return AppDryRunInfo(req, repr)
 
     def schedule(self, dryrun_info: AppDryRunInfo[DockerJobRequest]) -> str:  # type: ignore
