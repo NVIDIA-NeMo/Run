@@ -78,7 +78,8 @@ def test_submit_dryrun_writes_script(lepton_scheduler, mock_app_def, lepton_exec
             lepton_scheduler._submit_dryrun(mock_app_def, lepton_executor)
         script = os.path.join(exp_dir, "test-job.sh")
         assert os.path.isfile(script)
-        content = open(script).read()
+        with open(script) as f:
+            content = f.read()
         assert "#!/bin/bash" in content
 
 

@@ -66,7 +66,8 @@ def test_submit_dryrun_writes_script(local_scheduler, mock_app_def, local_execut
         local_scheduler._submit_dryrun(mock_app_def, local_executor)
         script = os.path.join(exp_dir, f"{mock_app_def.name}.sh")
         assert os.path.isfile(script)
-        content = open(script).read()
+        with open(script) as f:
+            content = f.read()
         assert "#!/bin/bash" in content
         assert oct(os.stat(script).st_mode)[-3:] == "700"
 
