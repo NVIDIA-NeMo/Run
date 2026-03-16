@@ -210,8 +210,9 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
                     parts = line.strip().split("|")
                     if len(parts) >= 3:
                         _, start_time, state = parts[0].strip(), parts[1].strip(), parts[2].strip()
+                        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         print(
-                            f"[SLURM] Job {job_id} - State: {state}, Estimated start: {start_time}",
+                            f"[SLURM] Job {job_id} - State: {state}, Estimated start: {start_time}, Current time: {now}",
                             flush=True,
                         )
                         if state.upper() not in ("PENDING", "CF", "CONFIGURING"):

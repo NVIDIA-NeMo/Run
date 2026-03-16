@@ -758,6 +758,7 @@ def test_poll_job_start_time_prints_while_pending(slurm_scheduler, mocker):
     assert job_id in printed
     assert "PENDING" in printed
     assert "2026-03-14T15:30:00" in printed
+    assert "Current time:" in printed
 
 
 def test_poll_job_start_time_stops_when_job_starts(slurm_scheduler, mocker):
