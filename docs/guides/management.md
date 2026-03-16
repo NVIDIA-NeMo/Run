@@ -138,3 +138,50 @@ nemorun experiment cancel experiment_with_scripts_1720556256 0
 This information is specific to each experiment on how to manage it.
 
 See [this notebook](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/hello-world/hello_experiments.ipynb) for more details and a playable experience.
+
+---
+
+## Putting it all together
+
+This end-to-end example combines configuration, a remote executor, and management into a single workflow.
+
+```python
+import nemo_run as run
+
+# 1. Define the task as a shell script
+task = run.Script("python train.py --lr=3e-4 --max-steps=1000")
+
+# 2. Configure a remote executor (Slurm shown; swap for any other executor)
+executor = run.SlurmExecutor(
+    account="my-account",
+    partition="a100",
+    nodes=1,
+    ntasks_per_node=8,
+    gpus_per_node=8,
+    container_image="nvcr.io/nvidia/pytorch:24.05-py3",
+    time="02:00:00",
+    tunnel=run.SSHTunnel(
+        host="login.my-cluster.com",
+        user="myuser",
+        job_dir="/scratch/myuser/nemo-runs",
+    ),
+)
+
+# 3. Launch the experiment and detach (returns after scheduling)
+with run.Experiment("pretrain-run") as exp:
+    exp.add(task, executor=executor, name="training")
+    exp.run(detach=True)
+
+# 4. Reconnect at any later time using the printed experiment ID
+experiment = run.Experiment.from_id("pretrain-run_<id>")
+experiment.status()          # overall status
+experiment.logs("training")  # stream logs
+# experiment.cancel("training")  # cancel if needed
+```
+
+```bash
+# The same operations from the CLI:
+nemorun experiment status pretrain-run_<id>
+nemorun experiment logs pretrain-run_<id> 0
+nemorun experiment cancel pretrain-run_<id> 0
+```
