@@ -196,6 +196,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
     def _poll_job_start_time(
         self, job_id: str, tunnel: Tunnel, stop_event: threading.Event
     ) -> None:
+        attempt = 0
         while not stop_event.is_set():
             try:
                 result = tunnel.run(
@@ -223,7 +224,9 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             except Exception as e:
                 log.debug(f"Failed to poll start time for job {job_id}: {e}")
 
-            stop_event.wait(30)
+            delay = min(30 * (2**attempt), 900)
+            attempt += 1
+            stop_event.wait(delay)
 
     def schedule(self, dryrun_info: AppDryRunInfo[SlurmBatchRequest | SlurmRayRequest]) -> str:  # type: ignore
         # Setup
