@@ -18,11 +18,11 @@ import logging
 import os
 import subprocess
 import time
-
-from jinja2 import Environment, PackageLoader, select_autoescape
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Iterable, Optional
+
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 try:
     from kubernetes import client, config, watch
@@ -77,7 +77,7 @@ class KubeflowExecutor(Executor):
     runtime_ref: str = "torch-distributed"
     namespace: str = "default"
     image: str = ""
-    num_nodes: int = 2
+    num_nodes: int = 1
     nprocs_per_node: Optional[int] = None  # defaults to gpus_per_node when not set
     gpus_per_node: Optional[int] = None
     cpu_requests: Optional[str] = None
