@@ -1395,11 +1395,19 @@ def _write_submit_script(out: Path, title: str, jobs: list) -> None:
     ]
 
     for job in jobs:
-        job_list = job.jobs if isinstance(job, JobGroup) else [job]
-        for j in job_list:
-            executor_type = type(j.executor).__name__
+        if isinstance(job, JobGroup):
+            executors = [job.executors] if isinstance(job.executors, Executor) else job.executors
+            executor_type = type(executors[0]).__name__
             cmd = _SUBMIT_CMDS.get(executor_type, "bash")
-            scripts = sorted(out.glob(f"{j.id}*"))
+            scripts = sorted(out.glob(f"{job.id}*"))
+            for s in scripts:
+                if s.name == "submit_all.sh":
+                    continue
+                lines.append(f'{cmd} "$SCRIPT_DIR/{s.name}"')
+        else:
+            executor_type = type(job.executor).__name__
+            cmd = _SUBMIT_CMDS.get(executor_type, "bash")
+            scripts = sorted(out.glob(f"{job.id}*"))
             for s in scripts:
                 if s.name == "submit_all.sh":
                     continue
@@ -1407,7 +1415,7 @@ def _write_submit_script(out: Path, title: str, jobs: list) -> None:
 
     submit = out / "submit_all.sh"
     submit.write_text("\n".join(lines) + "\n")
-    submit.chmod(0o750)
+    submit.chmod(0o700)
 
 
 def maybe_load_external_main(exp_dir: str):

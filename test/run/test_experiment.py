@@ -1580,3 +1580,26 @@ def test_experiment_export_multiple_jobs(temp_dir):
     submit_content = Path(os.path.join(output_dir, "submit_all.sh")).read_text()
     for script in sh_scripts:
         assert script in submit_content, f"{script} not referenced in submit_all.sh"
+
+
+def test_experiment_export_job_group(temp_dir):
+    """export() with a JobGroup redirects all executors and writes scripts."""
+    output_dir = os.path.join(temp_dir, "group_export")
+
+    with patch(
+        "nemo_run.run.job.JobGroup.SUPPORTED_EXECUTORS", new_callable=PropertyMock
+    ) as mock_supported:
+        mock_supported.return_value = {LocalExecutor}
+
+        with Experiment("test-exp") as exp:
+            from typing import Sequence
+
+            tasks: Sequence[run.Partial] = [
+                run.Partial(dummy_function, x=1, y=2),
+                run.Partial(dummy_function, x=3, y=4),
+            ]
+            exp.add(tasks, name="group-job")  # type: ignore
+            exp.export(output_dir)
+
+    files = os.listdir(output_dir)
+    assert "submit_all.sh" in files

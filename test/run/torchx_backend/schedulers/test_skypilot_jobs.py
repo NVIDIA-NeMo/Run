@@ -73,6 +73,16 @@ def test_submit_dryrun(skypilot_jobs_scheduler, mock_app_def, skypilot_jobs_exec
         assert dryrun_info.request is not None
 
 
+def test_submit_dryrun_writes_yaml(skypilot_jobs_scheduler, mock_app_def, skypilot_jobs_executor):
+    with tempfile.TemporaryDirectory() as exp_dir:
+        skypilot_jobs_executor.job_name = "test-job"
+        skypilot_jobs_executor.experiment_dir = exp_dir
+        with mock.patch.object(SkypilotJobsExecutor, "package"):
+            skypilot_jobs_scheduler._submit_dryrun(mock_app_def, skypilot_jobs_executor)
+        yaml_file = os.path.join(exp_dir, "test-job.yaml")
+        assert os.path.isfile(yaml_file)
+
+
 def test_schedule(skypilot_jobs_scheduler, mock_app_def, skypilot_jobs_executor):
     class MockHandle:
         def get_cluster_name(self):

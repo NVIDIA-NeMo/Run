@@ -110,7 +110,7 @@ class LeptonScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ignor
             lines.append(" ".join(shlex.quote(p) for p in cmd))
             with open(path, "w") as f:
                 f.write("\n".join(lines) + "\n")
-            os.chmod(path, 0o750)
+            os.chmod(path, 0o700)
 
         return AppDryRunInfo(
             LeptonRequest(app=app, executor=executor, cmd=cmd, name=role.name),
