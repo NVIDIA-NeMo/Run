@@ -263,6 +263,11 @@ def _get_job_dirs() -> dict[str, dict[str, Any]]:
     for app in data.values():
         try:
             cfg = serializer.deserialize(app["executor"])
+            # Backwards compat: drop removed field job_kind (PyTorchJob was removed).
+            try:
+                del cfg.job_kind
+            except AttributeError:
+                pass
             app["executor"] = fdl.build(cfg)
         except Exception as e:
             log.debug("Failed to deserialize executor: %s", e)
