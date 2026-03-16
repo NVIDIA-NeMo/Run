@@ -120,11 +120,11 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         )
 
         # Write and copy sbatch script
-        path = os.path.join(executor.experiment_dir, f"{executor.job_name}_torchrun_job.sh")
         script = req.materialize()
-
-        with open(path, "w") as f:
-            f.write(script)
+        if executor.experiment_dir:
+            path = os.path.join(executor.experiment_dir, f"{executor.job_name}_torchrun_job.sh")
+            with open(path, "w") as f:
+                f.write(script)
 
         return AppDryRunInfo(
             DGXRequest(app=app, executor=executor, cmd=cmd, name=role.name),
