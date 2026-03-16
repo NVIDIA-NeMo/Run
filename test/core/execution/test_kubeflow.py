@@ -34,7 +34,7 @@ class TestKubeflowExecutor:
     @pytest.fixture
     def executor(self, mock_k8s_clients):
         return KubeflowExecutor(
-            image="nvcr.io/nvidian/nemo:nightly",
+            image="nvcr.io/nvidia/nemo:26.02",
             num_nodes=3,
             gpus_per_node=8,
         )
@@ -209,7 +209,7 @@ class TestKubeflowExecutor:
 
     def test_get_job_body_artifact(self, mock_k8s_clients):
         e = KubeflowExecutor(
-            image="nvcr.io/nvidian/nemo:nightly",
+            image="nvcr.io/nvidia/nemo:26.02",
             namespace="runai-nemo-ci",
             num_nodes=3,
             nprocs_per_node=8,
@@ -234,7 +234,7 @@ class TestKubeflowExecutor:
         assert worker["replicas"] == 2
         for replica in [master, worker]:
             container = replica["template"]["spec"]["containers"][0]
-            assert container["image"] == "nvcr.io/nvidian/nemo:nightly"
+            assert container["image"] == "nvcr.io/nvidia/nemo:26.02"
             assert container["resources"]["limits"]["nvidia.com/gpu"] == "8"
             assert container["resources"]["requests"]["cpu"] == "16"
             assert container["resources"]["requests"]["memory"] == "64Gi"
@@ -243,7 +243,7 @@ class TestKubeflowExecutor:
 
     def test_get_trainjob_body_structure(self, mock_k8s_clients):
         e = KubeflowExecutor(
-            image="nvcr.io/nvidian/nemo:nightly",
+            image="nvcr.io/nvidia/nemo:26.02",
             job_kind="TrainJob",
             num_nodes=2,
             gpus_per_node=8,
@@ -257,7 +257,7 @@ class TestKubeflowExecutor:
         trainer = spec["trainer"]
         assert trainer["numNodes"] == 2
         assert trainer["numProcPerNode"] == 8  # defaults to gpus_per_node, int not str
-        assert trainer["image"] == "nvcr.io/nvidian/nemo:nightly"
+        assert trainer["image"] == "nvcr.io/nvidia/nemo:26.02"
         assert trainer["command"] == ["python", "train.py"]
 
     def test_get_trainjob_body_resources(self, mock_k8s_clients):

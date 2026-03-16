@@ -311,13 +311,13 @@ Here's an example configuration:
 # PyTorchJob (default)
 executor = run.KubeflowExecutor(
     namespace="runai-nemo-ci",
-    image="nvcr.io/nvidian/nemo:nightly",
+    image="nvcr.io/nvidia/nemo:26.02",
     num_nodes=3,          # total pods: 1 Master + (num_nodes-1) Workers
     gpus_per_node=8,      # also sets nproc_per_node unless overridden explicitly
     cpu_requests="16",
     memory_requests="64Gi",
     volumes=[
-        {"name": "model-cache", "persistentVolumeClaim": {"claimName": "nemo-ci-datasets-project-nkf5l"}}
+        {"name": "model-cache", "persistentVolumeClaim": {"claimName": "data-pvc"}}
     ],
     volume_mounts=[{"name": "model-cache", "mountPath": "/nemo-workspace"}],
     labels={"app": "nemo-ci-training"},
@@ -329,13 +329,17 @@ executor = run.KubeflowExecutor(
     job_kind="TrainJob",
     runtime_ref="torch-distributed",  # name of the ClusterTrainingRuntime
     namespace="runai-nemo-ci",
-    image="nvcr.io/nvidian/nemo:nightly",
+    image="nvcr.io/nvidia/nemo:26.02",
     num_nodes=3,
     gpus_per_node=8,
 )
 ```
 
 `cancel(wait=True)` polls until both the CR and all associated pods are fully terminated before returning.
+
+##### Limitations
+
+Attributes like `resourceClaims` are not [supported](https://github.com/kubeflow/trainer/issues/3264) and must be injected in different ways, like by Mutating Webhooks.
 
 #### LeptonExecutor
 

@@ -41,7 +41,7 @@ def mock_k8s():
 @pytest.fixture
 def executor(mock_k8s, tmp_path):
     e = KubeflowExecutor(
-        image="nvcr.io/nvidian/nemo:nightly",
+        image="nvcr.io/nvidia/nemo:26.02",
         num_nodes=3,
         gpus_per_node=8,
     )
@@ -64,7 +64,7 @@ def mock_app_def():
         roles=[
             Role(
                 name="test_role",
-                image="nvcr.io/nvidian/nemo:nightly",
+                image="nvcr.io/nvidia/nemo:26.02",
                 entrypoint="python",
                 args=["train.py"],
             )
@@ -315,7 +315,7 @@ def test_submit_dryrun_applies_macro_values(scheduler, mock_app_def, executor):
 def test_submit_dryrun_with_workdir_pvc_and_local_path(scheduler, mock_app_def, mock_k8s, tmp_path):
     local_path = str(tmp_path / "scripts")
     e = KubeflowExecutor(
-        image="nvcr.io/nvidian/nemo:nightly",
+        image="nvcr.io/nvidia/nemo:26.02",
         workdir_pvc="my-pvc",
         workdir_local_path=local_path,
     )
@@ -346,7 +346,7 @@ def test_submit_dryrun_with_workdir_pvc_and_local_path(scheduler, mock_app_def, 
 
 def test_submit_dryrun_with_workdir_pvc_no_local_path(scheduler, mock_app_def, mock_k8s, tmp_path):
     e = KubeflowExecutor(
-        image="nvcr.io/nvidian/nemo:nightly",
+        image="nvcr.io/nvidia/nemo:26.02",
         workdir_pvc="my-pvc",
     )
     e.experiment_id = "test_exp"
