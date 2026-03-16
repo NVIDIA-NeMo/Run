@@ -96,6 +96,7 @@ class KubeflowExecutor(Executor):
     # pod_spec_overrides merges extra fields into the pod spec (PyTorchJob) or
     # podTemplateOverrides[].spec (TrainJob) — e.g. {"resourceClaims": [...]}.
     pod_spec_overrides: dict[str, Any] = field(default_factory=dict)
+    data_mover_image: str = "alpine:3.19"
     restart_policy: str = "OnFailure"
     image_pull_secrets: list[str] = field(default_factory=list)
     spec_kwargs: dict[str, Any] = field(default_factory=dict)
@@ -538,7 +539,7 @@ class KubeflowExecutor(Executor):
             "containers": [
                 {
                     "name": "mover",
-                    "image": "alpine:3.19",
+                    "image": self.data_mover_image,
                     "command": ["sleep", "infinity"],
                     "volumeMounts": [{"name": vol_name, "mountPath": self.workdir_pvc_path}],
                 }
