@@ -45,11 +45,6 @@ class TestKubeflowExecutor:
         assert executor.namespace == "default"
         assert executor.restart_policy == "OnFailure"
         assert executor.nprocs_per_node is None  # unset; resolved at manifest build time
-        assert executor.job_kind == "PyTorchJob"
-
-    def test_invalid_job_kind(self, mock_k8s_clients):
-        with pytest.raises(ValueError, match="job_kind must be"):
-            KubeflowExecutor(image="test:latest", job_kind="InvalidKind")
 
     def test_kubeconfig_fallback_to_incluster(self):
         with (
@@ -99,152 +94,11 @@ class TestKubeflowExecutor:
         assert executor.experiment_dir == "/tmp/exp"
         assert executor.job_dir == "/tmp/exp/task-0"
 
-    # ── PyTorchJob manifest generation ──────────────────────────────────────────
-
-    def test_get_job_body_structure(self, executor):
-        body = executor.get_job_body("my-job", ["/bin/bash", "-c", "echo hi"])
-        assert body["apiVersion"] == "kubeflow.org/v1"
-        assert body["kind"] == "PyTorchJob"
-        assert body["metadata"]["name"] == "my-job"
-        spec = body["spec"]
-        assert spec["nprocPerNode"] == "8"  # defaults to gpus_per_node
-        assert "Master" in spec["pytorchReplicaSpecs"]
-        assert "Worker" in spec["pytorchReplicaSpecs"]
-        assert spec["pytorchReplicaSpecs"]["Master"]["replicas"] == 1
-        assert spec["pytorchReplicaSpecs"]["Worker"]["replicas"] == 2
-
-    def test_get_job_body_resources(self, executor):
-        executor.cpu_requests = "16"
-        executor.memory_requests = "64Gi"
-        body = executor.get_job_body("my-job", ["python", "train.py"])
-        container = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["spec"]["containers"][
-            0
-        ]
-        resources = container["resources"]
-        assert resources["limits"]["nvidia.com/gpu"] == "8"
-        assert resources["requests"]["cpu"] == "16"
-        assert resources["requests"]["memory"] == "64Gi"
-
-    def test_get_job_body_no_gpu(self, mock_k8s_clients):
-        e = KubeflowExecutor(image="test:latest", gpus_per_node=None)
-        body = e.get_job_body("cpu-job", ["python", "train.py"])
-        container = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["spec"]["containers"][
-            0
-        ]
-        resources = container.get("resources", {})
-        limits = resources.get("limits", {})
-        requests = resources.get("requests", {})
-        assert "nvidia.com/gpu" not in limits
-        assert "nvidia.com/gpu" not in requests
-
-    def test_get_job_body_volumes(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="test:latest",
-            volumes=[{"name": "data", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
-            volume_mounts=[{"name": "data", "mountPath": "/data"}],
-        )
-        body = e.get_job_body("vol-job", ["echo", "hi"])
-        spec = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["spec"]
-        assert spec["volumes"] == [
-            {"name": "data", "persistentVolumeClaim": {"claimName": "my-pvc"}}
-        ]
-        container = spec["containers"][0]
-        assert container["volumeMounts"] == [{"name": "data", "mountPath": "/data"}]
-
-    def test_get_job_body_env_vars(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="test:latest",
-            env_vars={"MY_VAR": "hello", "OTHER": "world"},
-        )
-        body = e.get_job_body("env-job", ["echo"])
-        container = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["spec"]["containers"][
-            0
-        ]
-        env_names = {item["name"]: item["value"] for item in container["env"]}
-        assert env_names["MY_VAR"] == "hello"
-        assert env_names["OTHER"] == "world"
-
-    def test_get_job_body_labels_annotations(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="test:latest",
-            labels={"app": "my-app"},
-            annotations={"note": "test"},
-        )
-        body = e.get_job_body("labeled-job", ["echo"])
-        assert body["metadata"]["labels"] == {"app": "my-app"}
-        assert body["metadata"]["annotations"] == {"note": "test"}
-        pod_meta = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["metadata"]
-        assert pod_meta["labels"] == {"app": "my-app"}
-
-    def test_get_job_body_image_pull_secrets(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="test:latest",
-            image_pull_secrets=["my-secret", "other-secret"],
-        )
-        body = e.get_job_body("secret-job", ["echo"])
-        pod_spec = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["spec"]
-        assert pod_spec["imagePullSecrets"] == [
-            {"name": "my-secret"},
-            {"name": "other-secret"},
-        ]
-
-    def test_get_job_body_spec_kwargs(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="test:latest",
-            spec_kwargs={"elasticPolicy": {"maxRestarts": 3}},
-        )
-        body = e.get_job_body("spec-job", ["echo"])
-        assert body["spec"]["elasticPolicy"] == {"maxRestarts": 3}
-
-    def test_get_job_body_container_kwargs(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="test:latest",
-            container_kwargs={"securityContext": {"runAsUser": 1000}},
-        )
-        body = e.get_job_body("ckwargs-job", ["echo"])
-        container = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["spec"]["containers"][
-            0
-        ]
-        assert container["securityContext"] == {"runAsUser": 1000}
-
-    def test_get_job_body_artifact(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="nvcr.io/nvidia/nemo:26.02",
-            namespace="runai-nemo-ci",
-            num_nodes=3,
-            nprocs_per_node=8,
-            gpus_per_node=8,
-            cpu_requests="16",
-            memory_requests="64Gi",
-            volumes=[{"name": "model-cache", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
-            volume_mounts=[{"name": "model-cache", "mountPath": "/nemo-workspace"}],
-            labels={"app": "nemo-ci-training"},
-        )
-        body = e.get_job_body("nemo-ci-training", ["/bin/bash", "-c", "echo hi"])
-
-        assert body["apiVersion"] == "kubeflow.org/v1"
-        assert body["kind"] == "PyTorchJob"
-        assert body["metadata"]["name"] == "nemo-ci-training"
-        assert body["metadata"]["namespace"] == "runai-nemo-ci"
-        spec = body["spec"]
-        assert spec["nprocPerNode"] == "8"
-        master = spec["pytorchReplicaSpecs"]["Master"]
-        worker = spec["pytorchReplicaSpecs"]["Worker"]
-        assert master["replicas"] == 1
-        assert worker["replicas"] == 2
-        for replica in [master, worker]:
-            container = replica["template"]["spec"]["containers"][0]
-            assert container["image"] == "nvcr.io/nvidia/nemo:26.02"
-            assert container["resources"]["limits"]["nvidia.com/gpu"] == "8"
-            assert container["resources"]["requests"]["cpu"] == "16"
-            assert container["resources"]["requests"]["memory"] == "64Gi"
-
     # ── TrainJob manifest generation ─────────────────────────────────────────────
 
     def test_get_trainjob_body_structure(self, mock_k8s_clients):
         e = KubeflowExecutor(
             image="nvcr.io/nvidia/nemo:26.02",
-            job_kind="TrainJob",
             num_nodes=2,
             gpus_per_node=8,
         )
@@ -263,7 +117,6 @@ class TestKubeflowExecutor:
     def test_get_trainjob_body_resources(self, mock_k8s_clients):
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             gpus_per_node=4,
             cpu_requests="8",
             memory_requests="32Gi",
@@ -277,21 +130,19 @@ class TestKubeflowExecutor:
     def test_get_trainjob_body_custom_runtime_ref(self, mock_k8s_clients):
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             runtime_ref="my-custom-runtime",
         )
         body = e.get_job_body("rt-job", ["echo"])
         assert body["spec"]["runtimeRef"] == {"name": "my-custom-runtime"}
 
     def test_get_trainjob_body_no_resources_when_no_gpu(self, mock_k8s_clients):
-        e = KubeflowExecutor(image="test:latest", job_kind="TrainJob")
+        e = KubeflowExecutor(image="test:latest")
         body = e.get_job_body("cpu-job", ["echo"])
         assert "resourcesPerNode" not in body["spec"]["trainer"]
 
     def test_get_trainjob_body_volumes_via_pod_template_overrides(self, mock_k8s_clients):
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             volumes=[{"name": "data", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
             volume_mounts=[{"name": "data", "mountPath": "/data"}],
         )
@@ -312,7 +163,6 @@ class TestKubeflowExecutor:
     ):
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             image_pull_secrets=["my-secret"],
         )
         body = e.get_job_body("secret-job", ["echo"])
@@ -320,14 +170,13 @@ class TestKubeflowExecutor:
         assert pod_spec["imagePullSecrets"] == [{"name": "my-secret"}]
 
     def test_get_trainjob_body_no_overrides_when_no_volumes(self, mock_k8s_clients):
-        e = KubeflowExecutor(image="test:latest", job_kind="TrainJob")
+        e = KubeflowExecutor(image="test:latest")
         body = e.get_job_body("plain-job", ["echo"])
         assert "podTemplateOverrides" not in body["spec"]
 
     def test_get_trainjob_body_tolerations_and_affinity(self, mock_k8s_clients):
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             tolerations=[{"key": "nvidia.com/gpu", "operator": "Exists", "effect": "NoSchedule"}],
             affinity={"nodeAffinity": {"requiredDuringSchedulingIgnoredDuringExecution": {}}},
         )
@@ -341,7 +190,6 @@ class TestKubeflowExecutor:
     def test_get_trainjob_body_env_list(self, mock_k8s_clients):
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             env_vars={"SIMPLE": "value"},
             env_list=[
                 {
@@ -359,7 +207,6 @@ class TestKubeflowExecutor:
     def test_get_trainjob_body_pod_spec_overrides(self, mock_k8s_clients):
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             pod_spec_overrides={
                 "resourceClaims": [
                     {"name": "imex-channel", "resourceClaimTemplateName": "my-template"}
@@ -375,7 +222,6 @@ class TestKubeflowExecutor:
         # must all land in ONE podTemplateOverrides entry, not multiple.
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             volumes=[{"name": "data", "emptyDir": {}}],
             tolerations=[{"key": "gpu", "operator": "Exists"}],
             image_pull_secrets=["my-secret"],
@@ -389,34 +235,6 @@ class TestKubeflowExecutor:
         assert "tolerations" in pod_spec
         assert "imagePullSecrets" in pod_spec
         assert "resourceClaims" in pod_spec
-
-    def test_get_pytorchjob_body_tolerations_and_affinity(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="test:latest",
-            tolerations=[{"key": "nvidia.com/gpu", "operator": "Exists"}],
-            affinity={"nodeAffinity": {}},
-        )
-        body = e.get_job_body("tol-job", ["echo"])
-        pod_spec = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["spec"]
-        assert pod_spec["tolerations"] == [{"key": "nvidia.com/gpu", "operator": "Exists"}]
-        assert "nodeAffinity" in pod_spec["affinity"]
-
-    def test_get_pytorchjob_body_env_list(self, mock_k8s_clients):
-        e = KubeflowExecutor(
-            image="test:latest",
-            env_list=[
-                {
-                    "name": "SECRET",
-                    "valueFrom": {"secretKeyRef": {"name": "s", "key": "k"}},
-                }
-            ],
-        )
-        body = e.get_job_body("env-job", ["echo"])
-        container = body["spec"]["pytorchReplicaSpecs"]["Master"]["template"]["spec"]["containers"][
-            0
-        ]
-        env_by_name = {e["name"]: e for e in container["env"]}
-        assert "valueFrom" in env_by_name["SECRET"]
 
     # ── Launch / status / cancel ─────────────────────────────────────────────────
 
@@ -433,8 +251,8 @@ class TestKubeflowExecutor:
         mock_custom, _ = mock_k8s_clients
         mock_custom.create_namespaced_custom_object.return_value = {}
         mock_custom.get_namespaced_custom_object.side_effect = [
-            {"status": {"conditions": [{"type": "Created", "status": "True"}]}},
-            {"status": {"conditions": [{"type": "Running", "status": "True"}]}},
+            {"status": {"jobsStatus": [{"active": 0, "ready": 0, "succeeded": 0, "failed": 0}]}},
+            {"status": {"jobsStatus": [{"active": 2, "ready": 2, "succeeded": 0, "failed": 0}]}},
         ]
 
         with patch("time.sleep"):
@@ -447,7 +265,7 @@ class TestKubeflowExecutor:
         mock_custom, _ = mock_k8s_clients
         mock_custom.create_namespaced_custom_object.return_value = {}
         mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {"conditions": [{"type": "Created", "status": "True"}]}
+            "status": {"jobsStatus": [{"active": 0, "ready": 0, "succeeded": 0, "failed": 0}]}
         }
 
         with patch("time.sleep"):
@@ -464,36 +282,21 @@ class TestKubeflowExecutor:
     def test_status_running(self, executor, mock_k8s_clients):
         mock_custom, _ = mock_k8s_clients
         mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {
-                "conditions": [
-                    {"type": "Created", "status": "True"},
-                    {"type": "Running", "status": "True"},
-                ]
-            }
+            "status": {"jobsStatus": [{"active": 2, "ready": 2, "succeeded": 0, "failed": 0}]}
         }
         assert executor.status("test-job") == KubeflowJobState.RUNNING
 
     def test_status_succeeded(self, executor, mock_k8s_clients):
         mock_custom, _ = mock_k8s_clients
         mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {
-                "conditions": [
-                    {"type": "Running", "status": "False"},
-                    {"type": "Succeeded", "status": "True"},
-                ]
-            }
+            "status": {"jobsStatus": [{"active": 0, "ready": 0, "succeeded": 3, "failed": 0}]}
         }
         assert executor.status("test-job") == KubeflowJobState.SUCCEEDED
 
     def test_status_failed(self, executor, mock_k8s_clients):
         mock_custom, _ = mock_k8s_clients
         mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {
-                "conditions": [
-                    {"type": "Running", "status": "False"},
-                    {"type": "Failed", "status": "True"},
-                ]
-            }
+            "status": {"jobsStatus": [{"active": 0, "ready": 0, "succeeded": 0, "failed": 1}]}
         }
         assert executor.status("test-job") == KubeflowJobState.FAILED
 
@@ -553,7 +356,7 @@ class TestKubeflowExecutor:
         assert "--tail" in called_cmd
         assert "50" in called_cmd
         label_arg = " ".join(called_cmd)
-        assert "training.kubeflow.org/job-name=my-job" in label_arg
+        assert "jobset.sigs.k8s.io/jobset-name=my-job" in label_arg
         assert "-f" not in called_cmd
         assert lines == ["line1", "line2"]
 
@@ -572,45 +375,9 @@ class TestKubeflowExecutor:
         assert "-f" in called_cmd
         assert lines == ["line1\n", "line2\n"]
 
-    def test_fetch_logs_trainjob_label_selector(self, mock_k8s_clients):
-        e = KubeflowExecutor(image="test:latest", job_kind="TrainJob")
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="")
-            list(e.fetch_logs("my-trainjob", stream=False))
-
-        called_cmd = mock_run.call_args[0][0]
-        label_arg = " ".join(called_cmd)
-        assert "jobset.sigs.k8s.io/jobset-name=my-trainjob" in label_arg
-
-    # ── TrainJob status (jobsStatus-based) ────────────────────────────────────
-
-    def test_trainjob_status_running(self, mock_k8s_clients):
+    def test_status_unknown_when_empty(self, mock_k8s_clients):
         mock_custom, _ = mock_k8s_clients
-        e = KubeflowExecutor(image="test:latest", job_kind="TrainJob")
-        mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {"jobsStatus": [{"active": 2, "ready": 2, "succeeded": 0, "failed": 0}]}
-        }
-        assert e.status("test-job") == KubeflowJobState.RUNNING
-
-    def test_trainjob_status_succeeded(self, mock_k8s_clients):
-        mock_custom, _ = mock_k8s_clients
-        e = KubeflowExecutor(image="test:latest", job_kind="TrainJob")
-        mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {"jobsStatus": [{"active": 0, "ready": 0, "succeeded": 3, "failed": 0}]}
-        }
-        assert e.status("test-job") == KubeflowJobState.SUCCEEDED
-
-    def test_trainjob_status_failed(self, mock_k8s_clients):
-        mock_custom, _ = mock_k8s_clients
-        e = KubeflowExecutor(image="test:latest", job_kind="TrainJob")
-        mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {"jobsStatus": [{"active": 0, "ready": 0, "succeeded": 0, "failed": 1}]}
-        }
-        assert e.status("test-job") == KubeflowJobState.FAILED
-
-    def test_trainjob_status_unknown_when_empty(self, mock_k8s_clients):
-        mock_custom, _ = mock_k8s_clients
-        e = KubeflowExecutor(image="test:latest", job_kind="TrainJob")
+        e = KubeflowExecutor(image="test:latest")
         mock_custom.get_namespaced_custom_object.return_value = {"status": {}}
         assert e.status("test-job") == KubeflowJobState.UNKNOWN
 
@@ -784,7 +551,6 @@ class TestKubeflowExecutor:
     def test_get_trainjob_body_labels_and_annotations(self, mock_k8s_clients):
         e = KubeflowExecutor(
             image="test:latest",
-            job_kind="TrainJob",
             labels={"team": "nemo"},
             annotations={"owner": "ci"},
         )
@@ -806,7 +572,7 @@ class TestKubeflowExecutor:
         mock_custom, _ = mock_k8s_clients
         mock_custom.create_namespaced_custom_object.return_value = {}
         mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {"conditions": [{"type": "Succeeded", "status": "True"}]}
+            "status": {"jobsStatus": [{"active": 0, "ready": 0, "succeeded": 3, "failed": 0}]}
         }
         with patch("time.sleep"):
             _, state = executor.launch("test-job", ["echo"], wait=True, timeout=30)
@@ -816,7 +582,7 @@ class TestKubeflowExecutor:
         mock_custom, _ = mock_k8s_clients
         mock_custom.create_namespaced_custom_object.return_value = {}
         mock_custom.get_namespaced_custom_object.return_value = {
-            "status": {"conditions": [{"type": "Failed", "status": "True"}]}
+            "status": {"jobsStatus": [{"active": 0, "ready": 0, "succeeded": 0, "failed": 1}]}
         }
         with patch("time.sleep"):
             _, state = executor.launch("test-job", ["echo"], wait=True, timeout=30)

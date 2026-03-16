@@ -263,14 +263,6 @@ def _get_job_dirs() -> dict[str, dict[str, Any]]:
     for app in data.values():
         try:
             cfg = serializer.deserialize(app["executor"])
-            # Backwards compat: migrate renamed field nproc_per_node → nprocs_per_node.
-            # AttributeError means the field doesn't exist so no migration is needed.
-            try:
-                val = cfg.nproc_per_node
-                del cfg.nproc_per_node
-                cfg.nprocs_per_node = val
-            except AttributeError:
-                pass  # field absent — already using the new name, nothing to migrate
             app["executor"] = fdl.build(cfg)
         except Exception as e:
             log.debug("Failed to deserialize executor: %s", e)

@@ -37,12 +37,6 @@ from nemo_run.core.packaging.base import Packager
 
 logger = logging.getLogger(__name__)
 
-# PyTorchJob (Kubeflow Training Operator v1)
-_PYTORCHJOB_GROUP = "kubeflow.org"
-_PYTORCHJOB_VERSION = "v1"
-_PYTORCHJOB_PLURAL = "pytorchjobs"
-_PYTORCHJOB_KIND = "PyTorchJob"
-
 # TrainJob (Kubeflow Training Operator v2)
 _TRAINJOB_GROUP = "trainer.kubeflow.org"
 _TRAINJOB_VERSION = "v1alpha1"
@@ -63,17 +57,13 @@ class KubeflowExecutor(Executor):
     """
     Dataclass to configure a Kubeflow Executor for the Kubeflow Training Operator on Kubernetes.
 
-    Supports both PyTorchJob (Training Operator v1) and TrainJob (Training Operator v2) via
-    the ``job_kind`` parameter. Kubernetes configuration is loaded automatically (local kubeconfig
-    with in-cluster fallback).
+    Uses TrainJob (Training Operator v2). Kubernetes configuration is loaded automatically
+    (local kubeconfig with in-cluster fallback).
 
     Args:
-        job_kind: ``"PyTorchJob"`` (default) or ``"TrainJob"``.
         runtime_ref: ``ClusterTrainingRuntime`` name used by TrainJob (e.g. ``"torch-distributed"``).
-            Ignored for PyTorchJob.
     """
 
-    job_kind: str = "PyTorchJob"
     runtime_ref: str = "torch-distributed"
     namespace: str = "default"
     image: str = ""
@@ -93,8 +83,7 @@ class KubeflowExecutor(Executor):
     # env_list accepts full env var dicts (e.g. valueFrom/secretKeyRef).
     # Simple key=value pairs should use the inherited env_vars dict instead.
     env_list: list[dict[str, Any]] = field(default_factory=list)
-    # pod_spec_overrides merges extra fields into the pod spec (PyTorchJob) or
-    # podTemplateOverrides[].spec (TrainJob) — e.g. {"resourceClaims": [...]}.
+    # pod_spec_overrides merges extra fields into podTemplateOverrides[].spec — e.g. {"resourceClaims": [...]}.
     pod_spec_overrides: dict[str, Any] = field(default_factory=dict)
     data_mover_image: str = "alpine:3.19"
     restart_policy: str = "OnFailure"
@@ -116,8 +105,6 @@ class KubeflowExecutor(Executor):
                 "kubernetes package is required for KubeflowExecutor. "
                 "Install it with: pip install nemo-run[kubeflow]"
             )
-        if self.job_kind not in (_PYTORCHJOB_KIND, _TRAINJOB_KIND):
-            raise ValueError(f"job_kind must be 'PyTorchJob' or 'TrainJob', got {self.job_kind!r}")
         try:
             config.load_kube_config()
         except Exception as original_exc:
@@ -128,32 +115,17 @@ class KubeflowExecutor(Executor):
         self._custom_objects_api = client.CustomObjectsApi()
         self._core_v1_api = client.CoreV1Api()
 
-    # ── K8s API coordinates ───────────────────────────────────────────────────
-
-    def _group(self) -> str:
-        return _PYTORCHJOB_GROUP if self.job_kind == _PYTORCHJOB_KIND else _TRAINJOB_GROUP
-
-    def _version(self) -> str:
-        return _PYTORCHJOB_VERSION if self.job_kind == _PYTORCHJOB_KIND else _TRAINJOB_VERSION
-
-    def _plural(self) -> str:
-        return _PYTORCHJOB_PLURAL if self.job_kind == _PYTORCHJOB_KIND else _TRAINJOB_PLURAL
-
-    def _pod_label_selector(self, job_name: str) -> str:
-        if self.job_kind == _PYTORCHJOB_KIND:
-            return f"training.kubeflow.org/job-name={job_name}"
-        # TrainJob delegates to JobSet; pods carry the jobset label
-        return f"jobset.sigs.k8s.io/jobset-name={job_name}"
-
     # ── Executor interface ────────────────────────────────────────────────────
 
     def assign(self, exp_id: str, exp_dir: str, task_id: str, task_dir: str) -> None:
+        """Bind this executor to a specific experiment task, setting job identity and directories."""
         self.experiment_id = exp_id
         self.experiment_dir = exp_dir
         self.job_name = task_id
         self.job_dir = os.path.join(exp_dir, task_dir)
 
     def nnodes(self) -> int:
+        """Return the total number of nodes requested."""
         return self.num_nodes
 
     @property
@@ -166,6 +138,7 @@ class KubeflowExecutor(Executor):
         return f"{self.workdir_pvc_path.rstrip('/')}/{getpass.getuser()}/code"
 
     def nproc_per_node(self) -> int:
+        """Return processes per node: nprocs_per_node → gpus_per_node → 1."""
         if self.nprocs_per_node is not None:
             return self.nprocs_per_node
         if self.gpus_per_node is not None:
@@ -173,12 +146,6 @@ class KubeflowExecutor(Executor):
         return 1
 
     # ── Manifest builders ─────────────────────────────────────────────────────
-
-    def get_job_body(self, name: str, command: list[str]) -> dict:
-        """Build the CRD manifest dict for the configured ``job_kind``."""
-        if self.job_kind == _PYTORCHJOB_KIND:
-            return self._get_pytorchjob_body(name, command)
-        return self._get_trainjob_body(name, command)
 
     def _build_resources(self) -> dict[str, Any]:
         limits: dict[str, Any] = {}
@@ -201,69 +168,8 @@ class KubeflowExecutor(Executor):
             resources["requests"] = requests
         return resources
 
-    def _get_pytorchjob_body(self, name: str, command: list[str]) -> dict:
-        resources = self._build_resources()
-        env = [{"name": k, "value": v} for k, v in self.env_vars.items()] + self.env_list
-
-        container: dict[str, Any] = {
-            "name": "pytorch",
-            "image": self.image,
-            "command": command,
-            "env": env,
-        }
-        if self.volume_mounts:
-            container["volumeMounts"] = self.volume_mounts
-        if resources:
-            container["resources"] = resources
-        container.update(self.container_kwargs)
-
-        pod_spec: dict[str, Any] = {"containers": [container]}
-        if self.volumes:
-            pod_spec["volumes"] = self.volumes
-        if self.image_pull_secrets:
-            pod_spec["imagePullSecrets"] = [{"name": s} for s in self.image_pull_secrets]
-        if self.tolerations:
-            pod_spec["tolerations"] = self.tolerations
-        if self.affinity:
-            pod_spec["affinity"] = self.affinity
-        pod_spec.update(self.pod_spec_overrides)
-
-        template_metadata: dict[str, Any] = {}
-        if self.labels:
-            template_metadata["labels"] = self.labels
-        if self.annotations:
-            template_metadata["annotations"] = self.annotations
-
-        replica_spec: dict[str, Any] = {
-            "restartPolicy": self.restart_policy,
-            "template": {
-                "metadata": template_metadata,
-                "spec": pod_spec,
-            },
-        }
-
-        spec: dict[str, Any] = {
-            "nprocPerNode": str(self.nproc_per_node()),
-            "pytorchReplicaSpecs": {
-                "Master": {"replicas": 1, **replica_spec},
-                "Worker": {"replicas": self.num_nodes - 1, **replica_spec},
-            },
-            **self.spec_kwargs,
-        }
-
-        return {
-            "apiVersion": f"{_PYTORCHJOB_GROUP}/{_PYTORCHJOB_VERSION}",
-            "kind": _PYTORCHJOB_KIND,
-            "metadata": {
-                "name": name,
-                "namespace": self.namespace,
-                "labels": self.labels,
-                "annotations": self.annotations,
-            },
-            "spec": spec,
-        }
-
-    def _get_trainjob_body(self, name: str, command: list[str]) -> dict:
+    def get_job_body(self, name: str, command: list[str]) -> dict:
+        """Build and return the TrainJob CRD manifest dict."""
         resources = self._build_resources()
         env = [{"name": k, "value": v} for k, v in self.env_vars.items()] + self.env_list
 
@@ -332,24 +238,30 @@ class KubeflowExecutor(Executor):
         timeout: int = 300,
         poll_interval: int = 10,
     ) -> tuple[str, KubeflowJobState]:
+        """Submit a TrainJob and optionally wait until it reaches a terminal or running state.
+
+        Returns ``(job_name, state)`` where state is ``CREATED`` when not waiting, or the
+        observed ``RUNNING``, ``SUCCEEDED``, or ``FAILED`` state when *wait* is ``True``.
+        Raises ``RuntimeError`` if the job already exists or *timeout* expires.
+        """
         name = name.replace("_", "-").replace(".", "-").lower()
         job_body = self.get_job_body(name, cmd)
         try:
             self._custom_objects_api.create_namespaced_custom_object(
-                group=self._group(),
-                version=self._version(),
+                group=_TRAINJOB_GROUP,
+                version=_TRAINJOB_VERSION,
                 namespace=self.namespace,
-                plural=self._plural(),
+                plural=_TRAINJOB_PLURAL,
                 body=job_body,
             )
         except ApiException as e:
             if e.status == 409:
                 raise RuntimeError(
-                    f"{self.job_kind} {name} already exists in namespace {self.namespace}"
+                    f"{_TRAINJOB_KIND} {name} already exists in namespace {self.namespace}"
                 ) from e
             raise
 
-        logger.info("Submitted %s %s to namespace %s", self.job_kind, name, self.namespace)
+        logger.info("Submitted %s %s to namespace %s", _TRAINJOB_KIND, name, self.namespace)
 
         if not wait:
             return name, KubeflowJobState.CREATED
@@ -360,7 +272,7 @@ class KubeflowExecutor(Executor):
         while time.time() < deadline:
             state = self.status(name) or KubeflowJobState.UNKNOWN
             if state != last_logged_state:
-                logger.info("%s %s: %s", self.job_kind, name, state.value)
+                logger.info("%s %s: %s", _TRAINJOB_KIND, name, state.value)
                 last_logged_state = state
             if state == KubeflowJobState.RUNNING:
                 return name, state
@@ -369,16 +281,17 @@ class KubeflowExecutor(Executor):
             time.sleep(poll_interval)
 
         raise RuntimeError(
-            f"{self.job_kind} {name} did not reach RUNNING within {timeout}s, last state: {state}"
+            f"{_TRAINJOB_KIND} {name} did not reach RUNNING within {timeout}s, last state: {state}"
         )
 
     def status(self, job_name: str) -> Optional[KubeflowJobState]:
+        """Return the current state of *job_name*, or ``None`` if it no longer exists."""
         try:
             resp = self._custom_objects_api.get_namespaced_custom_object(
-                group=self._group(),
-                version=self._version(),
+                group=_TRAINJOB_GROUP,
+                version=_TRAINJOB_VERSION,
                 namespace=self.namespace,
-                plural=self._plural(),
+                plural=_TRAINJOB_PLURAL,
                 name=job_name,
             )
         except ApiException as e:
@@ -389,29 +302,16 @@ class KubeflowExecutor(Executor):
 
         job_status = resp.get("status", {})
 
-        if self.job_kind == _TRAINJOB_KIND:
-            # TrainJob (v2) uses status.jobsStatus[].{active,ready,succeeded,failed}
-            jobs_status = job_status.get("jobsStatus", [])
-            if any(js.get("failed", 0) > 0 for js in jobs_status):
-                return KubeflowJobState.FAILED
-            if jobs_status and all(
-                js.get("succeeded", 0) > 0 and js.get("active", 0) == 0 for js in jobs_status
-            ):
-                return KubeflowJobState.SUCCEEDED
-            if any(js.get("active", 0) > 0 or js.get("ready", 0) > 0 for js in jobs_status):
-                return KubeflowJobState.RUNNING
-            return KubeflowJobState.UNKNOWN
-
-        # PyTorchJob (v1) uses status.conditions[].{type,status}
-        conditions = job_status.get("conditions", [])
-        state_map = {
-            "Running": KubeflowJobState.RUNNING,
-            "Succeeded": KubeflowJobState.SUCCEEDED,
-            "Failed": KubeflowJobState.FAILED,
-        }
-        for cond in reversed(conditions):
-            if cond.get("status") == "True" and cond.get("type") in state_map:
-                return state_map[cond["type"]]
+        # TrainJob (v2) uses status.jobsStatus[].{active,ready,succeeded,failed}
+        jobs_status = job_status.get("jobsStatus", [])
+        if any(js.get("failed", 0) > 0 for js in jobs_status):
+            return KubeflowJobState.FAILED
+        if jobs_status and all(
+            js.get("succeeded", 0) > 0 and js.get("active", 0) == 0 for js in jobs_status
+        ):
+            return KubeflowJobState.SUCCEEDED
+        if any(js.get("active", 0) > 0 or js.get("ready", 0) > 0 for js in jobs_status):
+            return KubeflowJobState.RUNNING
         return KubeflowJobState.UNKNOWN
 
     def fetch_logs(
@@ -421,7 +321,13 @@ class KubeflowExecutor(Executor):
         lines: int = 100,
         timeout: int = 60,
     ) -> Iterable[str]:
-        label_selector = self._pod_label_selector(job_name)
+        """Yield log lines from all pods of *job_name* via ``kubectl logs``.
+
+        When *stream* is ``True`` the method follows the log stream and retries
+        until pods are running (up to 10 minutes).  Otherwise it returns the last
+        *lines* lines from a single ``kubectl logs`` call.
+        """
+        label_selector = f"jobset.sigs.k8s.io/jobset-name={job_name}"
         cmd = [
             "kubectl",
             "logs",
@@ -473,24 +379,30 @@ class KubeflowExecutor(Executor):
         timeout: int = 300,
         poll_interval: int = 5,
     ) -> Optional[bool]:
+        """Delete *job_name* from the cluster.
+
+        When *wait* is ``True``, blocks until both the CR and its pods are gone,
+        returning ``True`` on success or ``False`` if *timeout* expires.
+        Returns ``None`` when not waiting or when the job was already absent.
+        """
         try:
             self._custom_objects_api.delete_namespaced_custom_object(
-                group=self._group(),
-                version=self._version(),
+                group=_TRAINJOB_GROUP,
+                version=_TRAINJOB_VERSION,
                 namespace=self.namespace,
-                plural=self._plural(),
+                plural=_TRAINJOB_PLURAL,
                 name=job_name,
             )
         except ApiException as e:
             if e.status == 404:
-                logger.info("%s %s already deleted", self.job_kind, job_name)
+                logger.info("%s %s already deleted", _TRAINJOB_KIND, job_name)
                 return None
             raise
 
         if not wait:
             return None
 
-        label_selector = self._pod_label_selector(job_name)
+        label_selector = f"jobset.sigs.k8s.io/jobset-name={job_name}"
         deadline = time.time() + timeout
 
         while time.time() < deadline:
@@ -499,10 +411,10 @@ class KubeflowExecutor(Executor):
             # Check if CR is gone
             try:
                 self._custom_objects_api.get_namespaced_custom_object(
-                    group=self._group(),
-                    version=self._version(),
+                    group=_TRAINJOB_GROUP,
+                    version=_TRAINJOB_VERSION,
                     namespace=self.namespace,
-                    plural=self._plural(),
+                    plural=_TRAINJOB_PLURAL,
                     name=job_name,
                 )
                 continue  # CR still present
@@ -663,6 +575,12 @@ class KubeflowExecutor(Executor):
         logger.info("Wrote launch script to %s", launch_script_path)
 
     def package(self, packager: Packager, job_name: str) -> None:
+        """Sync job_dir to the workdir PVC via a temporary data-mover pod before launch.
+
+        Does nothing when ``workdir_pvc`` is unset.  If ``workdir_local_path`` is set,
+        its contents are first rsynced into ``job_dir`` so hand-written scripts are
+        included alongside generated files such as ``launch.sh``.
+        """
         if not self.workdir_pvc:
             return
         # Merge extra local files (e.g. training scripts) into job_dir so they
@@ -767,6 +685,7 @@ class KubeflowExecutor(Executor):
         return ""
 
     def macro_values(self) -> Optional[ExecutorMacros]:
+        """Return the torchrun environment variable names injected by the Training Operator."""
         return ExecutorMacros(
             head_node_ip_var="PET_MASTER_ADDR",
             nproc_per_node_var="PET_NPROC_PER_NODE",
