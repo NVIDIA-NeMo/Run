@@ -114,7 +114,7 @@ class PersistentLocalScheduler(SchedulerMixin, LocalScheduler):  # type: ignore
                 lines.append(" ".join(shlex.quote(p) for p in cmd_parts))
             with open(path, "w") as f:
                 f.write("\n".join(lines) + "\n")
-            os.chmod(path, 0o755)
+            os.chmod(path, 0o750)
 
         return AppDryRunInfo(request, lambda p: pprint.pformat(asdict(p), indent=2, width=80))
 

@@ -1407,7 +1407,7 @@ def _write_submit_script(out: Path, title: str, jobs: list) -> None:
 
     submit = out / "submit_all.sh"
     submit.write_text("\n".join(lines) + "\n")
-    submit.chmod(0o755)
+    submit.chmod(0o750)
 
 
 def maybe_load_external_main(exp_dir: str):
