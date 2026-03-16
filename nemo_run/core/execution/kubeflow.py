@@ -337,6 +337,8 @@ class KubeflowExecutor(Executor):
             self.namespace,
             "--tail",
             str(lines),
+            "--max-log-requests",
+            str(self.num_nodes),
         ]
         if stream:
             cmd.append("-f")
