@@ -588,45 +588,51 @@ class TestKubeflowExecutor:
             _, state = executor.launch("test-job", ["echo"], wait=True, timeout=30)
         assert state == KubeflowJobState.FAILED
 
-    # ── fetch_logs streaming: retry when no lines yielded ────────────────────
+    # ── fetch_logs streaming: retry until terminal state ─────────────────────
 
-    def test_fetch_logs_stream_retries_when_no_output_then_succeeds(
+    def test_fetch_logs_stream_retries_until_terminal_state(
         self, executor, mock_k8s_clients
     ):
-        """First Popen yields nothing; second yields a line — loop exits after output."""
+        """First Popen yields nothing and job is RUNNING; second yields a line and job is
+        SUCCEEDED — loop exits on terminal status."""
         import io
 
         empty_proc = MagicMock()
         empty_proc.stdout = io.StringIO("")
         empty_proc.poll.return_value = None
+        empty_proc.returncode = 1
 
         output_proc = MagicMock()
         output_proc.stdout = io.StringIO("some output\n")
         output_proc.poll.return_value = None
-
-        procs = [empty_proc, output_proc]
+        output_proc.returncode = 0
 
         with (
-            patch("subprocess.Popen", side_effect=procs),
+            patch("subprocess.Popen", side_effect=[empty_proc, output_proc]),
             patch("time.sleep"),
+            patch.object(
+                executor,
+                "status",
+                side_effect=[KubeflowJobState.RUNNING, KubeflowJobState.SUCCEEDED],
+            ),
         ):
             lines = list(executor.fetch_logs("my-job", stream=True))
 
         assert "some output\n" in lines
 
     def test_fetch_logs_stream_handles_exception(self, executor, mock_k8s_clients):
-        """Exception inside the readline loop is caught; generator terminates cleanly."""
+        """Exception inside the readline loop is caught; loop exits when job is terminal."""
 
         mock_proc = MagicMock()
-
         mock_proc.stdout.readline.side_effect = OSError("read error")
         mock_proc.poll.return_value = None
+        mock_proc.returncode = 1
 
         with (
             patch("subprocess.Popen", return_value=mock_proc),
             patch("time.sleep"),
+            patch.object(executor, "status", return_value=KubeflowJobState.FAILED),
         ):
-            # Should not raise; returns empty (error path)
             lines = list(executor.fetch_logs("my-job", stream=True))
 
         assert lines == []

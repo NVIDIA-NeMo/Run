@@ -342,10 +342,9 @@ class KubeflowExecutor(Executor):
         ]
         if stream:
             cmd.append("-f")
-            # Pods may not be running yet when the log thread starts.  Retry
-            # kubectl logs -f until we get output (or 10 minutes pass).
-            deadline = time.time() + 600
-            while time.time() < deadline:
+            # Retry kubectl logs -f until the job reaches a terminal state.
+            # This handles both pods not yet running and transient mid-stream failures.
+            while True:
                 proc = subprocess.Popen(
                     cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1
                 )
@@ -362,14 +361,20 @@ class KubeflowExecutor(Executor):
                                     yield remaining
                             break
                 except Exception as e:
-                    logger.error("Error streaming logs: %s", e)
-                    break
+                    logger.warning("Error streaming logs: %s; retrying", e)
                 finally:
                     proc.terminate()
                     proc.wait(timeout=2)
-                if lines_yielded > 0:
-                    break  # kubectl exited after producing output — job done
-                time.sleep(5)  # no pods running yet, retry
+                state = self.status(job_name)
+                if state in (KubeflowJobState.SUCCEEDED, KubeflowJobState.FAILED):
+                    break  # job reached a terminal state, stop streaming
+                logger.warning(
+                    "kubectl logs exited (rc=%d, lines=%d, state=%s); retrying",
+                    proc.returncode,
+                    lines_yielded,
+                    state,
+                )
+                time.sleep(5)
         else:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             yield from result.stdout.splitlines()
