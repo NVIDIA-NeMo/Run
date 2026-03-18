@@ -590,9 +590,7 @@ class TestKubeflowExecutor:
 
     # ── fetch_logs streaming: retry until terminal state ─────────────────────
 
-    def test_fetch_logs_stream_retries_until_terminal_state(
-        self, executor, mock_k8s_clients
-    ):
+    def test_fetch_logs_stream_retries_until_terminal_state(self, executor, mock_k8s_clients):
         """First Popen yields nothing and job is RUNNING; second yields a line and job is
         SUCCEEDED — loop exits on terminal status."""
         import io
