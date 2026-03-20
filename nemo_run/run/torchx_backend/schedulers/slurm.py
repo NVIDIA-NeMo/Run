@@ -257,21 +257,22 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         # Save metadata
         _save_job_dir(job_id, job_dir, tunnel, slurm_executor.job_details.ls_term)
 
-        # Stop any existing polling thread for this job_id (retry scenario)
-        if job_id in self._start_time_stop_events:
-            self._start_time_stop_events.pop(job_id).set()
-            self._start_time_threads.pop(job_id, None)
+        if slurm_executor.poll_estimated_start_time:
+            # Stop any existing polling thread for this job_id (retry scenario)
+            if job_id in self._start_time_stop_events:
+                self._start_time_stop_events.pop(job_id).set()
+                self._start_time_threads.pop(job_id, None)
 
-        stop_event = threading.Event()
-        self._start_time_stop_events[job_id] = stop_event
-        thread = threading.Thread(
-            target=self._poll_job_start_time,
-            args=(job_id, self.tunnel, stop_event),
-            daemon=True,
-            name=f"slurm-start-time-{job_id}",
-        )
-        self._start_time_threads[job_id] = thread
-        thread.start()
+            stop_event = threading.Event()
+            self._start_time_stop_events[job_id] = stop_event
+            thread = threading.Thread(
+                target=self._poll_job_start_time,
+                args=(job_id, self.tunnel, stop_event),
+                daemon=True,
+                name=f"slurm-start-time-{job_id}",
+            )
+            self._start_time_threads[job_id] = thread
+            thread.start()
 
         return job_id
 

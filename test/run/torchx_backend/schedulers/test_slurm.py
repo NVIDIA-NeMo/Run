@@ -942,3 +942,29 @@ def test_cancel_stops_polling_thread_for_job(slurm_scheduler, mocker):
 
     assert ev.is_set()
     assert job_id not in slurm_scheduler._start_time_stop_events
+
+
+def test_schedule_skips_polling_thread_when_disabled(slurm_scheduler, mocker):
+    """When poll_estimated_start_time=False on the executor, no thread is started."""
+    job_id = "88888"
+    dryrun_info = mock.MagicMock()
+    dryrun_info.request.executor.poll_estimated_start_time = False
+    dryrun_info.request.executor.job_dir = "/tmp/test"
+    dryrun_info.request.executor.tunnel = mock.MagicMock()
+    dryrun_info.request.executor.dependencies = []
+    dryrun_info.request.executor.job_name = "test-job"
+    dryrun_info.request.executor.job_details.ls_term = ""
+
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = job_id
+    slurm_scheduler.tunnel = mock_tunnel
+
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir")
+    poll_mock = mocker.patch.object(SlurmTunnelScheduler, "_poll_job_start_time")
+
+    slurm_scheduler.schedule(dryrun_info)
+
+    poll_mock.assert_not_called()
+    assert job_id not in slurm_scheduler._start_time_threads
+    assert job_id not in slurm_scheduler._start_time_stop_events
