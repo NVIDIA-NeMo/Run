@@ -22,7 +22,7 @@ if pre := Version(__version__).pre:
     _PRE_RELEASE = "".join(map(str, pre))
 else:
     _PRE_RELEASE = ""
-PRE_RELEASE = _PRE_RELEASE
+PRE_RELEASE = ""
 DEV = Version(__version__).dev
 
 __package_name__ = "nemo_run"
