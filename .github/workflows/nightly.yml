@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [format, lint, test]
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
 
         - name: Create nightly tag
-          uses: actions/github-script@v7
+          uses: actions/github-script@v8
           with:
             script: |
                 // Delete existing nightly tag if it exists
