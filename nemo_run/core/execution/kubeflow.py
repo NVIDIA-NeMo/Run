@@ -74,6 +74,8 @@ class KubeflowExecutor(Executor):
     memory_requests: Optional[str] = None
     cpu_limits: Optional[str] = None
     memory_limits: Optional[str] = None
+    extra_resource_requests: dict[str, str] = field(default_factory=dict)
+    extra_resource_limits: dict[str, str] = field(default_factory=dict)
     volume_mounts: list[dict[str, Any]] = field(default_factory=list)
     volumes: list[dict[str, Any]] = field(default_factory=list)
     labels: dict[str, Any] = field(default_factory=dict)
@@ -161,6 +163,8 @@ class KubeflowExecutor(Executor):
         if self.gpus_per_node is not None:
             limits["nvidia.com/gpu"] = str(self.gpus_per_node)
             requests["nvidia.com/gpu"] = str(self.gpus_per_node)
+        requests.update(self.extra_resource_requests)
+        limits.update(self.extra_resource_limits)
         resources: dict[str, Any] = {}
         if limits:
             resources["limits"] = limits
