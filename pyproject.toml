@@ -98,8 +98,8 @@ docs = [
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["nemo_run"]
+[tool.setuptools.packages.find]
+include = ["nemo_run*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "nemo_run.package_info.__version__" }
