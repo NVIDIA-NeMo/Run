@@ -11,19 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from packaging.version import Version
 
-__version__ = "0.10.0rc0.dev0"
+MAJOR = 0
+MINOR = 10
+PATCH = 0
+PRE_RELEASE = ""
 
-MAJOR = Version(__version__).major
-MINOR = Version(__version__).minor
-PATCH = Version(__version__).micro
-if pre := Version(__version__).pre:
-    _PRE_RELEASE = "".join(map(str, pre))
-else:
-    _PRE_RELEASE = ""
-PRE_RELEASE = _PRE_RELEASE
-DEV = Version(__version__).dev
+# Use the following formatting: (major, minor, patch, pre-release)
+VERSION = (MAJOR, MINOR, PATCH, PRE_RELEASE)
+
+__shortversion__ = ".".join(map(str, VERSION[:3]))
+__version__ = ".".join(map(str, VERSION[:3])) + "".join(VERSION[3:])
+
+import os as _os
+import subprocess as _subprocess
+
+
+if not int(_os.getenv("NO_VCS_VERSION", "0")):
+    try:
+        _git = _subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            cwd=_os.path.dirname(_os.path.abspath(__file__)),
+            check=True,
+            universal_newlines=True,
+        )
+    except (_subprocess.CalledProcessError, OSError):
+        pass
+    else:
+        __version__ += f"+{_git.stdout.strip()}"
 
 __package_name__ = "nemo_run"
 __contact_names__ = "NVIDIA"

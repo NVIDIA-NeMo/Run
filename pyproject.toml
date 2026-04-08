@@ -30,7 +30,6 @@ dependencies = [
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
     "leptonai>=0.26.6",
-    "packaging",
     "toml",
 ]
 readme = "README.md"
@@ -96,8 +95,14 @@ docs = [
 ]
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["nemo_run"]
+
+[tool.setuptools.dynamic]
+version = { attr = "nemo_run.package_info.__version__" }
 
 [tool.uv]
 managed = true
@@ -150,14 +155,6 @@ ignore_errors = true
 [tool.coverage.html]
 directory = "coverage_html_report"
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["nemo_run"]
-
-[tool.hatch.version]
-path  = "nemo_run/package_info.py"
 
 [tool.ruff]
 line-length = 100
