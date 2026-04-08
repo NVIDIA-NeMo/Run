@@ -23,8 +23,8 @@ VERSION = (MAJOR, MINOR, PATCH, PRE_RELEASE)
 __shortversion__ = ".".join(map(str, VERSION[:3]))
 __version__ = ".".join(map(str, VERSION[:3])) + "".join(VERSION[3:])
 
-import os as _os  # noqa: I001
-import subprocess as _subprocess
+import os as _os  # noqa: E402, I001
+import subprocess as _subprocess  # noqa: E402
 
 
 if not int(_os.getenv("NO_VCS_VERSION", "0")):
