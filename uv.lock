@@ -3316,7 +3316,7 @@ wheels = [
 
 [[package]]
 name = "ibm-cloud-sdk-core"
-version = "3.18.0"
+version = "3.24.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyjwt" },
@@ -3324,7 +3324,10 @@ dependencies = [
     { name = "requests" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/82/5fa378337357b0cdcc1f290b6b78457549939054e24f32e54ad378e0d663/ibm-cloud-sdk-core-3.18.0.tar.gz", hash = "sha256:bf2b6940761970c14b53fc8fc135af567c58b9709db3214be403a383dd51cabb", size = 57929, upload-time = "2023-11-15T18:07:51.467Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/e5/5de9646a57209bd59ee504ea11b9d83fab0e273c648d5cb9ec529c2dfb21/ibm_cloud_sdk_core-3.24.1.tar.gz", hash = "sha256:96b4b4deefc7b72874ef44545362e63ee3a7d6a4c82e68f36c482c8033683ab3", size = 76252, upload-time = "2025-05-30T15:47:12.802Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/a9/7356d14186089da1290a77d9e6e737f4cb62ab75e0cbe405ba6be7d3b322/ibm_cloud_sdk_core-3.24.1-py3-none-any.whl", hash = "sha256:28eb70379977bac15318a07634e4b56d9de671186090d8accec180b77ffb7969", size = 75783, upload-time = "2025-05-30T15:47:11.686Z" },
+]
 
 [[package]]
 name = "ibm-cos-sdk"
@@ -4506,7 +4509,6 @@ dependencies = [
     { name = "leptonai" },
     { name = "networkx" },
     { name = "omegaconf" },
-    { name = "packaging" },
     { name = "rich" },
     { name = "toml" },
     { name = "torchx" },
@@ -4569,7 +4571,6 @@ requires-dist = [
     { name = "leptonai", specifier = ">=0.26.6" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "omegaconf", specifier = ">=2.3.0" },
-    { name = "packaging" },
     { name = "ray", extras = ["default"], marker = "extra == 'ray'", specifier = ">=2.49.2" },
     { name = "rich", specifier = ">=13.7.1" },
     { name = "skypilot", extras = ["all"], marker = "extra == 'skypilot-all'", specifier = ">=0.10.0" },
@@ -4578,7 +4579,7 @@ requires-dist = [
     { name = "torchx", specifier = ">=0.7.0" },
     { name = "typer", specifier = ">=0.12.3" },
 ]
-provides-extras = ["kubeflow", "ray", "skypilot", "skypilot-all"]
+provides-extras = ["skypilot", "skypilot-all", "ray", "kubeflow"]
 
 [package.metadata.requires-dev]
 dev = [
