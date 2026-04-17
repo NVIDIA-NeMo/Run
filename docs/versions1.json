@@ -4,8 +4,12 @@
         "url": "http://docs.nvidia.com/nemo/run/nightly/"
     },
     {
-        "name": "0.8.0 (latest)",
+        "name": "0.9.0 (latest)",
         "preferred": true,
+        "version": "0.9.0",
+        "url": "http://docs.nvidia.com/nemo/run/0.9.0"
+    },
+    {
         "version": "0.8.0",
         "url": "http://docs.nvidia.com/nemo/run/0.8.0"
     },
