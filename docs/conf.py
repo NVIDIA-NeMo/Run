@@ -29,7 +29,7 @@ sys.path.append(str(Path("../../examples").resolve()))
 project = "NeMo-Run"
 copyright = "2026, NVIDIA"
 author = "NVIDIA"
-release = "nightly"
+release = "0.9.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
