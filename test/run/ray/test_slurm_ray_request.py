@@ -285,8 +285,11 @@ class TestSlurmRayRequest:
 
         # Should use cluster_dir as default workdir
         assert "--container-workdir=/tmp/test_jobs/test-ray-cluster" in script
-        # Should not contain container-image flag when none specified
-        assert "--container-image" not in script
+        # The main Ray cluster script should not contain a container-image flag
+        # when none is specified on the executor. Ignore the optional sandbox
+        # stanza, which may carry its own container-image placeholder.
+        pre_sandbox_script = script.split("# Run sandbox", 1)[0]
+        assert "--container-image" not in pre_sandbox_script
 
     def test_special_mount_handling(self):
         """Test materialize handles special RUNDIR_SPECIAL_NAME mounts."""

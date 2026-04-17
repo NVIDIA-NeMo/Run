@@ -306,6 +306,33 @@ while true; do
   elapsed_time=$((elapsed_time + 2))
 done
 
+# Run sandbox in parallel on the head node (overlap) when explicitly configured.
+if [[ -n "${SANDBOX_CONTAINER:-}" ]] && [[ -n "${SANDBOX_COMMAND:-}" ]]; then
+  SANDBOX_PORTS_DIR="${SANDBOX_PORTS_DIR:-$LOG_DIR/sandbox}"
+  mkdir -p "$SANDBOX_PORTS_DIR"
+  echo "[INFO] Starting sandbox on head node in parallel (ports_dir=$SANDBOX_PORTS_DIR)..."
+  srun --output "$LOG_DIR/sandbox.log" \
+    --error "$LOG_DIR/sandbox.log" \
+    --container-image="$SANDBOX_CONTAINER" \
+    --container-mounts="$SANDBOX_PORTS_DIR:$SANDBOX_PORTS_DIR" \
+    --container-env=SANDBOX_PORTS_DIR,LISTEN_PORT,NGINX_PORT \
+    --no-container-mount-home \
+    --mpi=pmix \
+    -A "$SLURM_JOB_ACCOUNT" \
+    -p "$SLURM_JOB_PARTITION" \
+    --wait=60 \
+    --kill-on-bad-exit=1 \
+    --overlap \
+    --nodes="$SLURM_JOB_NUM_NODES" \
+    --ntasks-per-node=1 \
+    --export=ALL,SANDBOX_PORTS_DIR=$SANDBOX_PORTS_DIR,LISTEN_PORT=${SANDBOX_PORT:-6000},NGINX_PORT=${SANDBOX_PORT:-6000} \
+    bash -c "$SANDBOX_COMMAND" &
+  SRUN_PIDS["sandbox"]=$!
+  echo "[INFO] Sandbox started in background (PID: ${SRUN_PIDS["sandbox"]})"
+else
+  echo "[INFO] SANDBOX_CONTAINER or SANDBOX_COMMAND not defined, skipping sandbox startup"
+fi
+
 NUM_ACTORS=$((gpus_per_node * SLURM_JOB_NUM_NODES))
 
 # Start Ray worker nodes
