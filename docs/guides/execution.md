@@ -375,7 +375,12 @@ def your_lepton_executor(nodes: int, gpus_per_node: int, container_image: str):
         # pre_launch_commands=["nvidia-smi"],
         # Optional: Specify image pull secrets for authenticating with container registries
         # image_pull_secrets=["my-image-pull-secret"],
-        # packager=run.GitArchivePackager() # Choose appropriate packager
+        # Optional: Enable preemption scheduling
+        # can_be_preempted=True,    # job yields nodes to higher-priority jobs
+        # can_preempt=True,         # job can evict lower-priority jobs
+        # queue_priority="mid-4000", # required when either preemption flag is set
+        # Choose appropriate packager
+        # packager=run.GitArchivePackager()
     )
     return executor
 

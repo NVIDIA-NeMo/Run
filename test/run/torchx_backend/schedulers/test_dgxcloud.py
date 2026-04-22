@@ -41,8 +41,8 @@ def dgx_cloud_executor():
     return DGXCloudExecutor(
         base_url="https://dgx.example.com",
         kube_apiserver_url="https://127.0.0.1:443",
-        app_id="test_app_id",
-        app_secret="test_secret",
+        client_id="test_app_id",
+        client_secret="test_secret",
         project_name="test_project",
         container_image="nvcr.io/nvidia/test:latest",
         pvc_nemo_run_dir="/workspace/nemo_run",
@@ -153,8 +153,8 @@ def test_save_and_get_job_dirs():
         executor = DGXCloudExecutor(
             base_url="https://test.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_id",
-            app_secret="test_secret",
+            client_id="test_id",
+            client_secret="test_secret",
             project_name="test_project",
             container_image="test:latest",
             job_dir=temp_dir,
