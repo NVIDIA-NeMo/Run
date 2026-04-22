@@ -351,6 +351,8 @@ executor = KubeflowExecutor(
 
 `cancel(wait=True)` polls until both the CR and all associated pods are fully terminated before returning.
 
+A self-contained end-to-end example — including volume setup, secret injection, and workdir PVC sync — is available at [`examples/kubeflow/hello_kubeflow.py`](../../examples/kubeflow/hello_kubeflow.py).
+
 ##### Advanced options
 
 | Parameter | Purpose |
