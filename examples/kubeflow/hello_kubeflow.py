@@ -30,16 +30,20 @@ Usage
         --pvc model-cache
 
 The job runs ``nvidia-smi`` and a quick PyTorch device check on every worker,
-then exits.  Swap the ``inline`` script for your real training command.
+streams logs back to your terminal, and cancels cleanly on SIGINT/SIGTERM.
+Swap the ``inline`` script for your real training command.
 """
 
 import argparse
 import logging
+import signal
+import sys
 
 import nemo_run as run
 from nemo_run.core.execution.kubeflow import KubeflowExecutor
 
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
@@ -55,6 +59,8 @@ parser.add_argument(
     help="ClusterTrainingRuntime name in your cluster",
 )
 args = parser.parse_args()
+
+JOB_NAME = "hello-kubeflow"
 
 # ── Executor ──────────────────────────────────────────────────────────────────
 
@@ -115,7 +121,7 @@ executor = KubeflowExecutor(
     workdir_pvc=args.pvc,
     workdir_pvc_path="/nemo-workspace",
 
-    labels={"app": "hello-kubeflow"},
+    labels={"app": JOB_NAME},
 )
 
 # ── Task ──────────────────────────────────────────────────────────────────────
@@ -133,6 +139,27 @@ PY
 """
 )
 
+# ── Signal handling ───────────────────────────────────────────────────────────
+
+# Register SIGINT / SIGTERM handlers *before* submitting so that Ctrl-C or a
+# pod eviction during startup still triggers a clean TrainJob deletion.
+# executor.cancel() deletes the TrainJob CR and polls until all pods are gone.
+def _cancel(signum: int, frame: object) -> None:
+    log.info("Signal %d received — cancelling %s", signum, JOB_NAME)
+    try:
+        executor.cancel(JOB_NAME, wait=True)
+    except Exception as exc:
+        log.warning("Cancel failed: %s", exc)
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, _cancel)
+signal.signal(signal.SIGTERM, _cancel)
+
 # ── Launch ────────────────────────────────────────────────────────────────────
 
-run.run(script, executor=executor, name="hello-kubeflow")
+# run.Experiment gives direct control over log tailing.
+# detach=False blocks until the job finishes; tail_logs=True streams pod logs.
+with run.Experiment(JOB_NAME, executor=executor) as exp:
+    exp.add(script, name=JOB_NAME, tail_logs=False)
+    exp.run(detach=False, tail_logs=True)
