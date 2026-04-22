@@ -72,17 +72,14 @@ executor = KubeflowExecutor(
     image=args.image,
     num_nodes=args.num_nodes,
     gpus_per_node=args.gpus_per_node,
-
     # Resource requests — tune these to your node type
     cpu_requests="8",
     memory_requests="32Gi",
-
     # Simple key=value environment variables
     env_vars={
         "NCCL_DEBUG": "INFO",
         "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
     },
-
     # Full env var dicts — use for Kubernetes secrets, field references, etc.
     # Example: inject a W&B API key from a Kubernetes Secret named "my-secrets"
     env_list=[
@@ -91,12 +88,10 @@ executor = KubeflowExecutor(
         #     "valueFrom": {"secretKeyRef": {"name": "my-secrets", "key": "WANDB_API_KEY"}},
         # },
     ],
-
     # Toleration that allows scheduling on GPU-tainted nodes
     tolerations=[
         {"effect": "NoSchedule", "key": "nvidia.com/gpu", "operator": "Exists"},
     ],
-
     # Volumes: a memory-backed /dev/shm so PyTorch DataLoader workers have
     # enough shared memory (the default Kubernetes limit is only 64 MiB).
     volumes=[
@@ -109,18 +104,12 @@ executor = KubeflowExecutor(
     ],
     volume_mounts=[
         {"name": "dshm", "mountPath": "/dev/shm"},
-        *(
-            [{"name": "workdir", "mountPath": "/nemo-workspace"}]
-            if args.pvc
-            else []
-        ),
+        *([{"name": "workdir", "mountPath": "/nemo-workspace"}] if args.pvc else []),
     ],
-
     # Sync the generated launch script to the pod via PVC before launch.
     # Required whenever you use a custom launcher (e.g. run.Torchrun()).
     workdir_pvc=args.pvc,
     workdir_pvc_path="/nemo-workspace",
-
     labels={"app": JOB_NAME},
 )
 
@@ -140,6 +129,7 @@ PY
 )
 
 # ── Signal handling ───────────────────────────────────────────────────────────
+
 
 # Register SIGINT / SIGTERM handlers *before* submitting so that Ctrl-C or a
 # pod eviction during startup still triggers a clean TrainJob deletion.
