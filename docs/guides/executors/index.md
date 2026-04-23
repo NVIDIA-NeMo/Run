@@ -10,6 +10,7 @@ slurm
 skypilot
 dgxcloud
 lepton
+kubeflow
 kuberay
 :::
 
@@ -27,6 +28,7 @@ Pick the executor that matches your environment:
 | [SkypilotExecutor](skypilot.md) | Multi-cloud: AWS, GCP, Azure, Kubernetes | `pip install nemo_run[skypilot]` + cloud credentials |
 | [DGXCloudExecutor](dgxcloud.md) | NVIDIA DGX Cloud via Run:ai | Pod access + PVC on DGX Cloud |
 | [LeptonExecutor](lepton.md) | NVIDIA DGX Cloud Lepton (standard execution) | Lepton CLI installed & authenticated |
+| [KubeflowExecutor](kubeflow.md) | Distributed training via Kubeflow Training Operator v2 | kubectl + Kubeflow Training Operator v2 |
 | [KubeRayExecutor](kuberay.md) | Ray workloads on Kubernetes | kubectl + KubeRay operator |
 
 ## Packager support matrix
@@ -41,6 +43,7 @@ The packager controls how your code is bundled and sent to the execution environ
 | SkypilotExecutor | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
 | DGXCloudExecutor | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
 | LeptonExecutor | `run.Packager`, `run.GitArchivePackager`, `run.PatternPackager`, `run.HybridPackager` |
+| KubeflowExecutor | `run.Packager` |
 
 See [Execution — Packagers](../execution.md#packagers) for a description of each packager.
 

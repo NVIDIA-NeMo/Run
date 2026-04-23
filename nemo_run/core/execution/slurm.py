@@ -346,6 +346,9 @@ class SlurmExecutor(Executor):
     network: Optional[str] = None
     #: Template name to use for Ray jobs (e.g., "ray.sub.j2" or "ray_enroot.sub.j2")
     ray_template: str = "ray.sub.j2"
+    #: When True, a background thread polls squeue --start while the job is pending
+    #: and prints the estimated start time. Set to False to disable this behaviour.
+    poll_estimated_start_time: bool = True
 
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")

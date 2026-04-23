@@ -28,12 +28,12 @@ defaults:
 
 jobs:
   build-test-publish-wheel:
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_build_test_publish_wheel.yml@v0.77.1
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_build_test_publish_wheel.yml@v0.88.1
     with:
       dry-run: true
       python-package: nemo_run
       python-version: "3.10"
-      packaging: hatch
+      packaging: setuptools
     secrets:
       TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
       TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}

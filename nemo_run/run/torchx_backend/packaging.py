@@ -141,7 +141,13 @@ def package(
         )
         m = fn_or_script.path if fn_or_script.m else None
         no_python = fn_or_script.entrypoint != "python"
-        script = fn_or_script.path if not fn_or_script.m else None
+        if fn_or_script.m:
+            script = None
+        elif fn_or_script.inline and role_args:
+            # Inline scripts are written to a file; role_args[0] is the pod-side path
+            script = role_args[0]
+        else:
+            script = fn_or_script.path
         entrypoint = fn_or_script.entrypoint
 
         return role_args, args, m, no_python, script, entrypoint

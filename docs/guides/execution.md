@@ -53,6 +53,7 @@ The packager support matrix is described below:
 | SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | DGXCloudExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | LeptonExecutor   | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| KubeflowExecutor | run.Packager |
 
 `run.Packager` is a passthrough base packager.
 
@@ -132,6 +133,7 @@ For per-executor prerequisites, configuration reference, and end-to-end examples
 - [SkypilotExecutor](executors/skypilot.md)
 - [DGXCloudExecutor](executors/dgxcloud.md)
 - [LeptonExecutor](executors/lepton.md)
+- [KubeflowExecutor](executors/kubeflow.md)
 - [KubeRayExecutor](executors/kuberay.md)
 
 Defining executors in Python offers great flexibility — you can mix and match common environment variables, and the separation of tasks from executors lets you run the same `run.Script` on any supported backend.

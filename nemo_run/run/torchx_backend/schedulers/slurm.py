@@ -22,6 +22,7 @@ import csv
 import json
 import logging
 import os
+import threading
 import time
 from dataclasses import asdict
 from datetime import datetime
@@ -78,6 +79,8 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         super().__init__(session_name)
         self.experiment = experiment
         self._consecutive_sacct_failures: dict[str, int] = {}
+        self._start_time_threads: dict[str, threading.Thread] = {}
+        self._start_time_stop_events: dict[str, threading.Event] = {}
 
     # TODO: Move this into the SlurmExecutor
     def _initialize_tunnel(self, tunnel: SSHTunnel | LocalTunnel):
@@ -190,6 +193,41 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         return AppDryRunInfo(req, repr)
 
+    def _poll_job_start_time(
+        self, job_id: str, tunnel: Tunnel, stop_event: threading.Event
+    ) -> None:
+        attempt = 0
+        while not stop_event.is_set():
+            try:
+                result = tunnel.run(
+                    f"squeue --start --noheader -j {job_id} -o '%i|%S|%T'",
+                    warn=True,
+                    hide=True,
+                )
+                output = (result.stdout or "").strip()
+                if output and result.return_code == 0:
+                    # Array jobs produce one line per task — print only the first
+                    line = output.splitlines()[0]
+                    parts = line.strip().split("|")
+                    if len(parts) >= 3:
+                        _, start_time, state = parts[0].strip(), parts[1].strip(), parts[2].strip()
+                        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        print(
+                            f"[SLURM] Job {job_id} - State: {state}, Estimated start: {start_time}, Current time: {now}",
+                            flush=True,
+                        )
+                        if state.upper() not in ("PENDING", "CF", "CONFIGURING"):
+                            return
+                else:
+                    print(f"[SLURM] Job {job_id} is no longer pending.", flush=True)
+                    return
+            except Exception as e:
+                log.debug(f"Failed to poll start time for job {job_id}: {e}")
+
+            delay = min(30 * (2**attempt), 900)
+            attempt += 1
+            stop_event.wait(delay)
+
     def schedule(self, dryrun_info: AppDryRunInfo[SlurmBatchRequest | SlurmRayRequest]) -> str:  # type: ignore
         # Setup
         req = dryrun_info.request
@@ -218,6 +256,24 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         # Save metadata
         _save_job_dir(job_id, job_dir, tunnel, slurm_executor.job_details.ls_term)
+
+        if slurm_executor.poll_estimated_start_time:
+            # Stop any existing polling thread for this job_id (retry scenario)
+            if job_id in self._start_time_stop_events:
+                self._start_time_stop_events.pop(job_id).set()
+                self._start_time_threads.pop(job_id, None)
+
+            stop_event = threading.Event()
+            self._start_time_stop_events[job_id] = stop_event
+            thread = threading.Thread(
+                target=self._poll_job_start_time,
+                args=(job_id, self.tunnel, stop_event),
+                daemon=True,
+                name=f"slurm-start-time-{job_id}",
+            )
+            self._start_time_threads[job_id] = thread
+            thread.start()
+
         return job_id
 
     def _cancel_existing(self, app_id: str) -> None:
@@ -230,6 +286,10 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         assert self.tunnel, "Tunnel is None."
         self.tunnel.run(f"scancel {app_id}", hide=False)
+
+        if app_id in self._start_time_stop_events:
+            self._start_time_stop_events.pop(app_id).set()
+            self._start_time_threads.pop(app_id, None)
 
     def describe(self, app_id: str) -> Optional[DescribeAppResponse]:
         try:
@@ -366,7 +426,11 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         else:
             return [f"Failed getting logs for {app_id}"]
 
-    def close(self) -> None: ...
+    def close(self) -> None:
+        for stop_event in self._start_time_stop_events.values():
+            stop_event.set()
+        self._start_time_threads.clear()
+        self._start_time_stop_events.clear()
 
 
 class TunnelLogIterator(LogIterator):
