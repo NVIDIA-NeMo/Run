@@ -15,7 +15,7 @@ This is also the typical order Nemo Run users will follow to setup and launch ex
 To install the project, use the following command:
 
 ```bash
-ip install git+https://github.com/NVIDIA-NeMo/Run.git
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
 To install Skypilot with optional features, use one of the following commands:
