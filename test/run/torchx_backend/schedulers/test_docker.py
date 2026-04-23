@@ -67,6 +67,16 @@ def test_submit_dryrun(docker_scheduler, mock_app_def, docker_executor):
         assert dryrun_info.request is not None
 
 
+def test_submit_dryrun_writes_yaml(docker_scheduler, mock_app_def, docker_executor):
+    with tempfile.TemporaryDirectory() as exp_dir:
+        docker_executor.job_name = "test-job"
+        docker_executor.experiment_dir = exp_dir
+        with mock.patch.object(DockerExecutor, "package"):
+            docker_scheduler._submit_dryrun(mock_app_def, docker_executor)
+        yaml_file = os.path.join(exp_dir, "test-job.yaml")
+        assert os.path.isfile(yaml_file)
+
+
 def test_check_docker_version_success():
     with mock.patch("subprocess.check_output") as mock_check_output:
         mock_check_output.return_value = b"Docker version 20.10.0, build abcdef\n"
