@@ -77,4 +77,4 @@ Attributes like `resourceClaims` are not [supported](https://github.com/kubeflow
 
 ## End-to-end example
 
-A self-contained end-to-end example — including volume setup, secret injection, and workdir PVC sync — is available at [`examples/kubeflow/hello_kubeflow.py`](../../examples/kubeflow/hello_kubeflow.py).
+A self-contained end-to-end example — including volume setup, secret injection, and workdir PVC sync — is available at [`examples/kubeflow/hello_kubeflow.py`](https://github.com/NVIDIA-NeMo/Run/blob/main/examples/kubeflow/hello_kubeflow.py).
