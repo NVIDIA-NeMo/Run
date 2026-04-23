@@ -75,7 +75,7 @@ experiment.logs("training")
 
 ### SkypilotJobsExecutor (managed jobs)
 
-`SkypilotJobsExecutor` submits [SkyPilot Managed Jobs](https://skypilot.readthedocs.io/en/latest/running-jobs/managed-jobs.html), which survive controller failures and support spot instances with auto-recovery:
+`SkypilotJobsExecutor` submits [SkyPilot Managed Jobs](https://docs.skypilot.co/en/stable/examples/managed-jobs.html), which survive controller failures and support spot instances with auto-recovery:
 
 ```python
 from nemo_run.core.execution.skypilot import SkypilotJobsExecutor
