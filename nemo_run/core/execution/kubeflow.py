@@ -642,7 +642,7 @@ class KubeflowExecutor(Executor):
             )
             logger.info("Merged '%s' into job_dir '%s'", self.workdir_local_path, self.job_dir)
 
-        # Sync job_dir to <workdir_pvc_path>/<username>/code on the PVC via a
+        # Sync job_dir to ``code_dir`` on the PVC via a
         # throw-away data-mover pod.  Scoping to a user subdirectory means we
         # never clobber other data already on the shared volume.
         pod_name = self._data_mover_pod_name(job_name)
