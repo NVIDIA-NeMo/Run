@@ -22,7 +22,12 @@ from nemo_run.core.execution.kubeflow import KubeflowExecutor, KubeflowJobState
 
 # PVC workdir sync uses ``workdir_volume_mount`` plus a matching ``volumes`` entry.
 _WORKDIR_VOLUME = {"name": "work-vol", "persistentVolumeClaim": {"claimName": "my-pvc"}}
-_WORKDIR_MOUNT = {"name": "work-vol", "mountPath": "/nemo_run"}
+_WORKDIR_SUBPATH = "team-a"
+_WORKDIR_MOUNT = {
+    "name": "work-vol",
+    "mountPath": "/nemo_run",
+    "subPath": _WORKDIR_SUBPATH,
+}
 
 
 class TestKubeflowExecutor:
@@ -431,7 +436,15 @@ class TestKubeflowExecutor:
             v.get("persistentVolumeClaim", {}).get("claimName") == "my-pvc"
             for v in workdir_executor.volumes
         )
-        assert any(vm.get("mountPath") == "/nemo_run" for vm in workdir_executor.volume_mounts)
+        assert any(
+            vm.get("name") == "work-vol"
+            and vm.get("mountPath") == "/nemo_run"
+            and vm.get("subPath") == _WORKDIR_SUBPATH
+            for vm in workdir_executor.volume_mounts
+        )
+        pod_body = mock_core.create_namespaced_pod.call_args[1]["body"]
+        mover_mounts = pod_body["spec"]["containers"][0]["volumeMounts"]
+        assert mover_mounts == [dict(_WORKDIR_MOUNT)]
 
     def test_package_auto_add_volume_idempotent(self, workdir_executor, mock_k8s_clients):
         """Calling package() twice should not duplicate volumes."""
@@ -456,6 +469,46 @@ class TestKubeflowExecutor:
             if v.get("persistentVolumeClaim", {}).get("claimName") == "my-pvc"
         ]
         assert len(pvc_vols) == 1
+
+    def test_code_dir_uses_mount_path_only_when_subpath_set(self, mock_k8s_clients):
+        """``code_dir`` is under ``mountPath``; ``subPath`` scopes the backing volume only."""
+        with patch("nemo_run.core.execution.kubeflow.getpass.getuser", return_value="testuser"):
+            e = KubeflowExecutor(
+                image="test:latest",
+                volumes=[dict(_WORKDIR_VOLUME)],
+                workdir_volume_mount=dict(_WORKDIR_MOUNT),
+            )
+            code_dir = e.code_dir
+        assert code_dir == "/nemo_run/testuser/code"
+
+    def test_package_inserts_workdir_mount_when_existing_mountpath_lacks_subpath(
+        self, mock_k8s_clients, tmp_path
+    ):
+        """Volume-mount identity treats missing ``subPath`` differently from a set ``subPath``."""
+        _, mock_core = mock_k8s_clients
+        mock_core.create_namespaced_pod.return_value = MagicMock()
+        mock_core.delete_namespaced_pod.return_value = MagicMock()
+        mock_core.read_namespaced_pod.side_effect = ApiException(status=404)
+
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            volume_mounts=[{"name": "work-vol", "mountPath": "/nemo_run"}],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+        )
+        e.job_dir = str(tmp_path)
+
+        with (
+            patch("kubernetes.watch.Watch") as mock_watch_cls,
+            patch("subprocess.check_call"),
+        ):
+            mock_watch_cls.return_value.stream.return_value = self._make_watch_events("Running")
+            e.package(MagicMock(), "test-job")
+
+        at_run = [vm for vm in e.volume_mounts if vm.get("mountPath") == "/nemo_run"]
+        assert len(at_run) == 2
+        assert any(vm.get("subPath") == _WORKDIR_SUBPATH for vm in at_run)
+        assert any("subPath" not in vm for vm in at_run)
 
     def test_pull_results_syncs_from_pvc(self, workdir_executor, mock_k8s_clients):
         _, mock_core = mock_k8s_clients
@@ -517,6 +570,7 @@ class TestKubeflowExecutor:
         assert spec["tolerations"] == [{"key": "gpu", "operator": "Exists"}]
         assert spec["affinity"] == {"nodeAffinity": {"key": "val"}}
         assert spec["imagePullSecrets"] == [{"name": "my-secret"}]
+        assert spec["containers"][0]["volumeMounts"] == [dict(_WORKDIR_MOUNT)]
 
     # ── ImportError when kubernetes unavailable ──────────────────────────────
 
@@ -808,7 +862,11 @@ class TestKubeflowExecutor:
         e = KubeflowExecutor(
             image="test:latest",
             volumes=[{"name": "pre-vol", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
-            workdir_volume_mount={"name": "pre-vol", "mountPath": "/nemo_run"},
+            workdir_volume_mount={
+                "name": "pre-vol",
+                "mountPath": "/nemo_run",
+                "subPath": "tenant-a",
+            },
         )
         e.job_dir = str(tmp_path)
 

@@ -170,7 +170,7 @@ class KubeflowExecutor(Executor):
     def _volume_mount_identity(vm: dict[str, Any]) -> tuple[Any, ...]:
         """For checking if a volume mount is already in the list of volume mounts."""
         sp = vm.get("subPath")
-        return (vm.get("name"), vm.get("mountPath"), sp if sp else None)
+        return (vm.get("name"), vm.get("mountPath"), sp)
 
     def _append_volume_mount_if_missing(self, spec: dict[str, Any]) -> None:
         want = self._volume_mount_identity(spec)
