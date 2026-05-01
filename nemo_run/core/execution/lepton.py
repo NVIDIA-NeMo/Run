@@ -35,6 +35,7 @@ from leptonai.api.v1.types.deployment import (
     EnvValue,
     LeptonContainer,
     Mount,
+    QueueConfig,
 )
 from leptonai.api.v1.types.job import (
     LeptonJob,
@@ -83,6 +84,9 @@ class LeptonExecutor(Executor):
     pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
     head_resource_shape: Optional[str] = ""  # Only used for LeptonRayCluster
     ray_version: Optional[str] = None  # Only used for LeptonRayCluster
+    can_be_preempted: bool = False  # job yields nodes to higher-priority jobs
+    can_preempt: bool = False  # job can evict lower-priority jobs
+    queue_priority: Optional[str] = None  # e.g. "mid-4000"; required when either flag is set
 
     def stop_job(self, job_id: str):
         """
@@ -285,7 +289,13 @@ class LeptonExecutor(Executor):
             privileged=False,
             metrics=None,
             log=None,
-            queue_config=None,
+            queue_config=QueueConfig(
+                priority_class=self.queue_priority or "mid-4000",
+                can_be_preempted=self.can_be_preempted if self.can_be_preempted else None,
+                can_preempt=self.can_preempt if self.can_preempt else None,
+            )
+            if (self.can_be_preempted or self.can_preempt)
+            else None,
             stopped=None,
         )
 

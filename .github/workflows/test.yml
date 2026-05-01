@@ -54,3 +54,4 @@ jobs:
           files: coverage.xml
           verbose: true
           flags: cpu
+          base_sha: ${{ github.event.pull_request.base.sha }}

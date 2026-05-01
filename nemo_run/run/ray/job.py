@@ -17,9 +17,11 @@ from dataclasses import dataclass
 from typing import Any, Optional, Type
 
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import configure_logging
+from nemo_run.run.ray.dgxcloud import DGXCloudRayJob
 from nemo_run.run.ray.lepton import LeptonRayJob
 from nemo_run.run.ray.slurm import SlurmRayJob
 
@@ -51,6 +53,7 @@ class RayJob:
         backend_map: dict[Type[Executor], Type[Any]] = {
             LeptonExecutor: LeptonRayJob,
             SlurmExecutor: SlurmRayJob,
+            DGXCloudExecutor: DGXCloudRayJob,
         }
 
         if _KUBERAY_AVAILABLE and KubeRayExecutor is not None and KubeRayJob is not None:

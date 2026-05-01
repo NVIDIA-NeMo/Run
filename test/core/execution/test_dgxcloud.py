@@ -30,8 +30,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             nodes=2,
@@ -41,8 +41,8 @@ class TestDGXCloudExecutor:
         )
 
         assert executor.base_url == "https://dgxapi.example.com"
-        assert executor.app_id == "test_app_id"
-        assert executor.app_secret == "test_app_secret"
+        assert executor.client_id == "test_app_id"
+        assert executor.client_secret == "test_app_secret"
         assert executor.project_name == "test_project"
         assert executor.container_image == "nvcr.io/nvidia/test:latest"
         assert executor.nodes == 2
@@ -60,8 +60,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -73,9 +73,9 @@ class TestDGXCloudExecutor:
         mock_post.assert_called_once_with(
             "https://dgxapi.example.com/token",
             json={
-                "grantType": "app_token",
-                "appId": "test_app_id",
-                "appSecret": "test_app_secret",
+                "grantType": "client_credentials",
+                "clientId": "test_app_id",
+                "clientSecret": "test_app_secret",
             },
             headers=executor._default_headers(),
         )
@@ -90,8 +90,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -128,11 +128,12 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
+            launched_from_cluster=True,
             nodes=2,
         )
         executor.job_dir = "/nemo_home/experiments/exp1/task1"
@@ -179,11 +180,12 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
+            launched_from_cluster=True,
             nodes=1,
         )
         executor.job_dir = "/nemo_home/experiments/exp1/task1"
@@ -217,11 +219,12 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
+            launched_from_cluster=True,
             nodes=1,
         )
         executor.job_dir = "/nemo_home/experiments/exp1/task1"
@@ -273,11 +276,12 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
+            launched_from_cluster=True,
             nodes=2,  # Expecting 2 log files
         )
         executor.job_dir = "/nemo_home/experiments/exp1/task1"
@@ -298,8 +302,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -325,8 +329,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -346,8 +350,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -376,8 +380,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -387,37 +391,45 @@ class TestDGXCloudExecutor:
             executor.copy_directory_data_command(local_dir_path, dest_path)
 
     @patch("requests.post")
-    @patch.object(DGXCloudExecutor, "copy_directory_data_command")
-    def test_create_data_mover_workload_success(self, mock_command, mock_post):
-        mock_command.return_value = "sleep infinity"
+    @patch("requests.get")
+    @patch("requests.delete")
+    @patch("time.sleep")
+    def test_run_workspace_and_wait_success(self, mock_sleep, mock_delete, mock_get, mock_post):
+        mock_post_response = MagicMock()
+        mock_post_response.status_code = 200
+        mock_post_response.json.return_value = {"workloadId": "ws123"}
+        mock_post.return_value = mock_post_response
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = '{"status": "submitted"}'
-        mock_post.return_value = mock_response
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {"actualPhase": "Completed"}
+        mock_get.return_value = mock_get_response
+
+        mock_delete_response = MagicMock()
+        mock_delete_response.status_code = 200
+        mock_delete.return_value = mock_delete_response
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "workspace", "claimName": "test-claim"}],
         )
 
-        response = executor.create_data_mover_workload(
-            token="test_token",
-            project_id="proj_id",
-            cluster_id="cluster_id",
-        )
+        with patch.object(executor, "get_auth_token", return_value="test_token"):
+            executor._run_workspace_and_wait(
+                token="test_token",
+                project_id="proj_id",
+                cluster_id="cluster_id",
+                name="data-mover",
+                cmd="sleep infinity",
+            )
 
-        assert response == mock_response
-
-        # Check if the API call is made correctly
         mock_post.assert_called_once()
-        # The URL is the first argument to post
         args, kwargs = mock_post.call_args
         assert kwargs["json"]["projectId"] == "proj_id"
         assert kwargs["json"]["clusterId"] == "cluster_id"
@@ -434,8 +446,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -450,89 +462,81 @@ class TestDGXCloudExecutor:
             headers=executor._default_headers(token="test_token"),
         )
 
-    @patch("time.sleep")
-    @patch.object(DGXCloudExecutor, "create_data_mover_workload")
-    @patch.object(DGXCloudExecutor, "status")
-    @patch.object(DGXCloudExecutor, "delete_workload")
-    def test_move_data_success(self, mock_delete, mock_status, mock_create, mock_sleep):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"workloadId": "job123", "actualPhase": "Pending"}
-        mock_create.return_value = mock_response
-        mock_delete.return_value = mock_response
-
-        # Set up status to change after first check to avoid infinite loop
-        # First return PENDING, then return COMPLETED
-        mock_status.side_effect = [DGXCloudState.PENDING, DGXCloudState.COMPLETED]
+    @patch.object(DGXCloudExecutor, "_run_workspace_and_wait")
+    @patch.object(DGXCloudExecutor, "copy_directory_data_command")
+    def test_move_data_success(self, mock_copy_cmd, mock_run_ws):
+        mock_copy_cmd.return_value = "echo data | base64 -d > /dest/archive.tar.gz"
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "workspace", "claimName": "test-claim"}],
         )
+        executor.job_dir = "/local/job_dir"
+        executor.pvc_job_dir = "/workspace/nemo_run/job_dir"
 
         executor.move_data(token="test_token", project_id="proj_id", cluster_id="cluster_id")
 
-        # Verify all expected calls were made
-        mock_create.assert_called_once_with("test_token", "proj_id", "cluster_id")
-        mock_status.assert_called()
-        mock_delete.assert_called_once_with("test_token", "job123")
+        mock_copy_cmd.assert_called_once_with("/local/job_dir", "/workspace/nemo_run/job_dir")
+        mock_run_ws.assert_called_once_with(
+            "test_token",
+            "proj_id",
+            "cluster_id",
+            "data-mover",
+            "echo data | base64 -d > /dest/archive.tar.gz",
+            10,
+        )
 
-        # Verify time.sleep was called
-        mock_sleep.assert_called()
-
-    @patch("time.sleep")
-    @patch.object(DGXCloudExecutor, "create_data_mover_workload")
-    def test_move_data_data_mover_fail(self, mock_create, mock_sleep):
-        mock_response = MagicMock()
-        mock_response.status_code = 400
+    @patch.object(DGXCloudExecutor, "_run_workspace_and_wait")
+    @patch.object(DGXCloudExecutor, "copy_directory_data_command")
+    def test_move_data_data_mover_fail(self, mock_copy_cmd, mock_run_ws):
+        mock_copy_cmd.return_value = "echo data"
+        mock_run_ws.side_effect = RuntimeError("Workload 'data-mover' failed: 400")
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "workspace", "claimName": "test-claim"}],
         )
+        executor.job_dir = "/local/job_dir"
+        executor.pvc_job_dir = "/workspace/nemo_run/job_dir"
 
-        with pytest.raises(RuntimeError, match="Failed to create data mover workload"):
+        with pytest.raises(RuntimeError, match="failed"):
             executor.move_data(token="test_token", project_id="proj_id", cluster_id="cluster_id")
 
-    @patch("time.sleep")
-    @patch.object(DGXCloudExecutor, "create_data_mover_workload")
-    @patch.object(DGXCloudExecutor, "status")
-    def test_move_data_failed(self, mock_status, mock_create, mock_sleep):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"workloadId": "job123", "actualPhase": "Pending"}
-        mock_create.return_value = mock_response
-
-        mock_status.return_value = DGXCloudState.FAILED
+    @patch.object(DGXCloudExecutor, "_run_workspace_and_wait")
+    @patch.object(DGXCloudExecutor, "copy_directory_data_command")
+    def test_move_data_failed(self, mock_copy_cmd, mock_run_ws):
+        mock_copy_cmd.return_value = "echo data"
+        mock_run_ws.side_effect = RuntimeError("Workload ws123 ended with: DGXCloudState.FAILED")
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "workspace", "claimName": "test-claim"}],
         )
+        executor.job_dir = "/local/job_dir"
+        executor.pvc_job_dir = "/workspace/nemo_run/job_dir"
 
-        with pytest.raises(RuntimeError, match="Failed to move data to PVC"):
+        with pytest.raises(RuntimeError, match="FAILED"):
             executor.move_data(token="test_token", project_id="proj_id", cluster_id="cluster_id")
 
-        mock_create.assert_called_once_with("test_token", "proj_id", "cluster_id")
-        mock_status.assert_called()
+        mock_run_ws.assert_called_once()
 
     @patch("requests.post")
     def test_create_training_job_single_node(self, mock_post):
@@ -545,8 +549,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             nodes=1,
@@ -603,8 +607,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             nodes=2,
@@ -671,8 +675,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 nodes=1,  # Single node
@@ -681,6 +685,7 @@ class TestDGXCloudExecutor:
                 pvcs=[{"path": "/workspace", "claimName": "test-claim"}],
             )
             executor.job_dir = tmp_dir
+            executor.experiment_dir = tmp_dir
 
             job_id, status = executor.launch("test_job", ["python", "train.py"])
 
@@ -718,8 +723,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 nodes=2,  # Multi-node
@@ -729,6 +734,7 @@ class TestDGXCloudExecutor:
                 pvcs=[{"path": "/workspace", "claimName": "test-claim"}],
             )
             executor.job_dir = tmp_dir
+            executor.experiment_dir = tmp_dir
 
             job_id, status = executor.launch(
                 "test_multi_job", ["python", "-m", "torch.distributed.run", "train.py"]
@@ -757,8 +763,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -776,8 +782,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -804,13 +810,14 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
             )
             executor.job_dir = tmp_dir
+            executor.experiment_dir = tmp_dir
 
             with pytest.raises(RuntimeError, match="Failed to create job"):
                 executor.launch("test_job", ["python", "train.py"])
@@ -819,8 +826,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             nodes=3,
@@ -833,8 +840,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             gpus_per_node=4,
@@ -847,8 +854,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             gpus_per_node=0,
@@ -862,8 +869,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             gpus_per_node=0,
@@ -884,8 +891,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -910,8 +917,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -937,8 +944,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -959,8 +966,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -976,8 +983,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -998,8 +1005,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1019,8 +1026,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1039,8 +1046,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1056,8 +1063,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1086,8 +1093,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1108,8 +1115,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1126,9 +1133,10 @@ class TestDGXCloudExecutor:
         mock_makedirs.assert_called()
         assert mock_file.call_count == 2
 
+    @patch("os.remove")
     @patch("invoke.context.Context.run")
     @patch("subprocess.run")
-    def test_package_git_packager(self, mock_subprocess_run, mock_context_run):
+    def test_package_git_packager(self, mock_subprocess_run, mock_context_run, mock_os_remove):
         # Mock subprocess.run which is used to get the git repo path
         mock_process = MagicMock()
         mock_process.stdout = b"/path/to/repo\n"
@@ -1141,8 +1149,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1168,8 +1176,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1183,8 +1191,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1200,8 +1208,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1220,8 +1228,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1249,8 +1257,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1278,8 +1286,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1318,8 +1326,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1347,8 +1355,8 @@ class TestDGXCloudExecutor:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
                 kube_apiserver_url="https://127.0.0.1:443",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
                 pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1372,8 +1380,8 @@ class TestDGXCloudExecutor:
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1402,8 +1410,8 @@ class TestDGXCloudRequest:
         return DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",
@@ -1415,8 +1423,8 @@ class TestDGXCloudRequest:
         return DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
             kube_apiserver_url="https://127.0.0.1:443",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
+            client_id="test_app_id",
+            client_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             pvc_nemo_run_dir="/workspace/nemo_run",

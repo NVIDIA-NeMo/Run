@@ -1,8 +1,36 @@
 # Ray Clusters & Jobs
 
-> **Audience**: You already know how to configure executors with NeMo-Run and want distributed *Ray* on either Kubernetes **or** Slurm.
+> **Audience**: You already know how to configure executors with NeMo-Run and want distributed *Ray* on either Kubernetes **or** Slurm **or** Lepton.
 >
 > **TL;DR**: `RayCluster` manages the _cluster_; `RayJob` submits a job with an ephemeral cluster.  Everything else is syntactic sugar.
+
+## When to use Ray vs. standard execution
+
+| | Standard `run.Experiment` | Ray (`RayCluster` / `RayJob`) |
+|-|---------------------------|-------------------------------|
+| **Task style** | Python callable or shell script | Ray application (uses `ray.init()`, `@ray.remote`, etc.) |
+| **Distributed framework** | `torchrun`, fault-tolerant launcher | Ray core, Ray Train, RLlib, … |
+| **Cluster lifetime** | One job per experiment task | Persistent cluster reused across many jobs |
+| **Interactive use** | Not designed for it | Supported via `port_forward` + Ray dashboard |
+| **Best for** | PyTorch training, eval, batch jobs | RL workloads, hyper-param sweeps, actor-based pipelines |
+
+Use Ray when your workload is written against the Ray API. Use standard execution otherwise — it has lower overhead and simpler setup.
+
+## Prerequisites
+
+Install NeMo-Run (Ray extras are included by default):
+
+```bash
+pip install nemo_run
+```
+
+Backend-specific requirements:
+
+| Backend | What you need |
+|---------|---------------|
+| **KubeRay** | `kubectl` configured + KubeRay operator installed. See [KubeRayExecutor](executors/kuberay.md). |
+| **Slurm** | SSH access to a Slurm cluster with Pyxis. See [SlurmExecutor](executors/slurm.md). |
+| **Lepton** | Lepton CLI installed and authenticated. See [LeptonExecutor](executors/lepton.md). |
 
 ## RayCluster vs. RayJob – which one do I need?
 
@@ -41,6 +69,8 @@ classDiagram
 ```
 
 ## 2.  KubeRay quick-start
+
+> **Executor reference**: [executors/kuberay.md](executors/kuberay.md) — prerequisites, `KubeRayExecutor` parameters, PVC mounts, custom scheduler.
 
 ```python
 from nemo_run.core.execution.kuberay import KubeRayExecutor, KubeRayWorkerGroup
@@ -112,6 +142,8 @@ cluster.stop()
 2. Add `pre_ray_start_commands=["apt-get update && …"]` to inject shell snippets that run inside the **head** and **worker** containers **before** Ray starts.
 
 ## 3.  Slurm quick-start
+
+> **Executor reference**: [executors/slurm.md](executors/slurm.md) — SSH tunnel setup, `SlurmExecutor` parameters, job dependencies.
 
 ```python
 import os
@@ -185,7 +217,13 @@ cluster.stop()
 * `executor.packager = run.GitArchivePackager()` if you prefer packaging a git tree instead of rsync.
 * `cluster.port_forward()` opens an SSH tunnel from *your laptop* to the Ray dashboard running on the head node.
 
+```{note}
+`CustomJobDetails` (shown above) is an advanced pattern for redirecting Slurm stdout/stderr. It is not required for most workloads.
+```
+
 ## 4.  DGX Cloud Lepton RayCluster quick-start
+
+> **Executor reference**: [executors/lepton.md](executors/lepton.md) — Lepton CLI setup, `LeptonExecutor` parameters, mounts, node reservations.
 
 ```python
 import os
