@@ -319,7 +319,11 @@ def test_submit_dryrun_with_workdir_volume_mount_and_local_path(
     e = KubeflowExecutor(
         image="nvcr.io/nvidia/nemo:26.02",
         volumes=[{"name": "w", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
-        workdir_volume_mount={"name": "w", "mountPath": "/nemo_run"},
+        workdir_volume_mount={
+            "name": "w",
+            "mountPath": "/nemo_run",
+            "subPath": "team-a",
+        },
         workdir_local_path=local_path,
     )
     e.experiment_id = "test_exp"
@@ -353,7 +357,11 @@ def test_submit_dryrun_with_workdir_volume_mount_no_local_path(
     e = KubeflowExecutor(
         image="nvcr.io/nvidia/nemo:26.02",
         volumes=[{"name": "w", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
-        workdir_volume_mount={"name": "w", "mountPath": "/nemo_run"},
+        workdir_volume_mount={
+            "name": "w",
+            "mountPath": "/nemo_run",
+            "subPath": "team-a",
+        },
     )
     e.experiment_id = "test_exp"
     e.job_dir = str(tmp_path)
