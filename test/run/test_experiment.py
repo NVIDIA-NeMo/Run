@@ -1511,3 +1511,95 @@ def test_initialize_tunnels_extract_from_executors(temp_dir):
             # Should pull tunnel and connect
             exp._initialize_tunnels(extract_from_executors=True)
             assert "t1" in exp.tunnels
+
+
+def test_experiment_export_local(temp_dir):
+    """export() with LocalExecutor writes a .sh script and submit_all.sh."""
+    output_dir = os.path.join(temp_dir, "exported")
+    with Experiment("test-exp") as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        exp.add(task, name="hello-job")
+        exp.export(output_dir)
+
+    files = os.listdir(output_dir)
+    # At least one .sh script for the job and submit_all.sh
+    sh_scripts = [f for f in files if f.endswith(".sh") and f != "submit_all.sh"]
+    assert len(sh_scripts) >= 1, f"Expected a .sh script, got: {files}"
+    assert "submit_all.sh" in files
+
+    # submit_all.sh must be executable and contain "bash"
+    submit_path = os.path.join(output_dir, "submit_all.sh")
+    assert os.access(submit_path, os.X_OK)
+    content = Path(submit_path).read_text()
+    assert "bash" in content
+
+    # The job script must be executable
+    job_script_path = os.path.join(output_dir, sh_scripts[0])
+    assert os.access(job_script_path, os.X_OK)
+
+    # The exp_dir should have been cleaned up
+    assert not os.path.exists(exp._exp_dir)
+
+
+def test_experiment_export_creates_output_dir(temp_dir):
+    """export() creates the output directory if it does not exist."""
+    output_dir = os.path.join(temp_dir, "new_dir", "nested")
+    with Experiment("test-exp") as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        exp.add(task, name="nested-job")
+        exp.export(output_dir)
+
+    assert os.path.isdir(output_dir)
+    assert "submit_all.sh" in os.listdir(output_dir)
+
+
+def test_experiment_export_exist_ok(temp_dir):
+    """export() with exist_ok=True does not raise if output_dir already exists."""
+    output_dir = os.path.join(temp_dir, "exists")
+    os.makedirs(output_dir)
+    with Experiment("test-exp") as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        exp.add(task, name="job")
+        exp.export(output_dir, exist_ok=True)
+
+    assert "submit_all.sh" in os.listdir(output_dir)
+
+
+def test_experiment_export_multiple_jobs(temp_dir):
+    """export() produces one script per job and all are referenced in submit_all.sh."""
+    output_dir = os.path.join(temp_dir, "multi")
+    with Experiment("test-exp") as exp:
+        exp.add(run.Partial(dummy_function, x=1, y=2), name="job-a")
+        exp.add(run.Partial(dummy_function, x=3, y=4), name="job-b")
+        exp.export(output_dir)
+
+    files = os.listdir(output_dir)
+    sh_scripts = [f for f in files if f.endswith(".sh") and f != "submit_all.sh"]
+    assert len(sh_scripts) == 2, f"Expected 2 scripts, got: {sh_scripts}"
+
+    submit_content = Path(os.path.join(output_dir, "submit_all.sh")).read_text()
+    for script in sh_scripts:
+        assert script in submit_content, f"{script} not referenced in submit_all.sh"
+
+
+def test_experiment_export_job_group(temp_dir):
+    """export() with a JobGroup redirects all executors and writes scripts."""
+    output_dir = os.path.join(temp_dir, "group_export")
+
+    with patch(
+        "nemo_run.run.job.JobGroup.SUPPORTED_EXECUTORS", new_callable=PropertyMock
+    ) as mock_supported:
+        mock_supported.return_value = {LocalExecutor}
+
+        with Experiment("test-exp") as exp:
+            from typing import Sequence
+
+            tasks: Sequence[run.Partial] = [
+                run.Partial(dummy_function, x=1, y=2),
+                run.Partial(dummy_function, x=3, y=4),
+            ]
+            exp.add(tasks, name="group-job")  # type: ignore
+            exp.export(output_dir)
+
+    files = os.listdir(output_dir)
+    assert "submit_all.sh" in files
