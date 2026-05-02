@@ -139,12 +139,17 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             command = [app.roles[0].entrypoint] + app.roles[0].args
             # Use Ray template from executor configuration
             ray_template_name = executor.ray_template
+            ray_template_dir = None
+            if os.path.isabs(ray_template_name) or os.path.dirname(ray_template_name):
+                ray_template_name = os.path.basename(ray_template_name)
+                ray_template_dir = os.path.dirname(os.path.abspath(executor.ray_template))
             req = SlurmRayRequest(
                 name=app.roles[0].name,
                 launch_cmd=["sbatch", "--requeue", "--parsable"],
                 command=" ".join(command),
                 cluster_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name, "ray"),
                 template_name=ray_template_name,
+                template_dir=ray_template_dir,
                 executor=executor,
                 workdir=f"/{RUNDIR_NAME}/code",
                 nemo_run_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name),
