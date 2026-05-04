@@ -480,7 +480,7 @@ class TestKubeflowExecutor:
                 workdir_volume_mount=dict(_WORKDIR_MOUNT),
             )
             code_dir = e.code_dir
-        assert e.code_dir == "/nemo_run/testuser"
+        assert code_dir == "/nemo_run/testuser"
 
     def test_code_dir_returns_mount_path_when_subdir_is_none(self, mock_k8s_clients):
         """``code_dir`` is exactly ``mountPath`` when ``workdir_subdir`` is ``None``."""

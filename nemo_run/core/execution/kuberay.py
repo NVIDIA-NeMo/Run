@@ -93,7 +93,7 @@ class KubeRayExecutor(Executor):
     spec_kwargs: dict[str, Any] = field(default_factory=dict)
     container_kwargs: dict[str, Any] = field(default_factory=dict)
     lifecycle_kwargs: dict[str, Any] = field(default_factory=dict)
-    # Workdir sync: when ``workdir_volume_mount`` is set, syncs local 
+    # Workdir sync: when ``workdir_volume_mount`` is set, syncs local
     # directory into ``code_dir`` on the PVC via a throw-away data-mover
     # You must declare the matching Volume in ``volumes``
     workdir_volume_mount: Optional[dict[str, Any]] = None
