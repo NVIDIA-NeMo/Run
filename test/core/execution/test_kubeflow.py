@@ -398,6 +398,7 @@ class TestKubeflowExecutor:
             image="test:latest",
             volumes=[dict(_WORKDIR_VOLUME)],
             workdir_volume_mount=dict(_WORKDIR_MOUNT),
+            workdir_subdir="testuser",
         )
         e.job_dir = str(tmp_path)
         return e
@@ -470,8 +471,8 @@ class TestKubeflowExecutor:
         ]
         assert len(pvc_vols) == 1
 
-    def test_code_dir_uses_mount_path_only_when_subpath_set(self, mock_k8s_clients):
-        """``code_dir`` is under ``mountPath``; ``subPath`` scopes the backing volume only."""
+    def test_code_dir_appends_workdir_subdir(self, mock_k8s_clients):
+        """``code_dir`` is ``mountPath/workdir_subdir`` when subdir is set."""
         with patch("nemo_run.core.execution.kubeflow.getpass.getuser", return_value="testuser"):
             e = KubeflowExecutor(
                 image="test:latest",
@@ -479,7 +480,27 @@ class TestKubeflowExecutor:
                 workdir_volume_mount=dict(_WORKDIR_MOUNT),
             )
             code_dir = e.code_dir
-        assert code_dir == "/nemo_run/testuser/code"
+        assert e.code_dir == "/nemo_run/testuser"
+
+    def test_code_dir_returns_mount_path_when_subdir_is_none(self, mock_k8s_clients):
+        """``code_dir`` is exactly ``mountPath`` when ``workdir_subdir`` is ``None``."""
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+            workdir_subdir=None,
+        )
+        assert e.code_dir == "/nemo_run"
+
+    def test_code_dir_returns_mount_path_when_subdir_is_empty(self, mock_k8s_clients):
+        """``code_dir`` is exactly ``mountPath`` when ``workdir_subdir`` is ``""``."""
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+            workdir_subdir="",
+        )
+        assert e.code_dir == "/nemo_run"
 
     def test_package_inserts_workdir_mount_when_existing_mountpath_lacks_subpath(
         self, mock_k8s_clients, tmp_path

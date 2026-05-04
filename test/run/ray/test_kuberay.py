@@ -409,13 +409,15 @@ class TestKubeRayJob:
 
     @pytest.fixture
     def basic_executor(self):
-        """Create a basic KubeRayExecutor."""
+        """Create a basic KubeRayExecutor with workdir_volume_mount configured."""
         return KubeRayExecutor(
             namespace="test-namespace",
             volumes=[
                 {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
             ],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+            workdir_volume_mount={"name": "workspace", "mountPath": "/workspace"},
+            workdir_subdir="testuser",
         )
 
     @pytest.fixture
@@ -1328,13 +1330,15 @@ class TestKubeRayJobAdditionalPaths:
 
     @pytest.fixture
     def basic_executor(self):
-        """Create a basic KubeRayExecutor."""
+        """Create a basic KubeRayExecutor with workdir_volume_mount configured."""
         return KubeRayExecutor(
             namespace="test-namespace",
             volumes=[
                 {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
             ],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+            workdir_volume_mount={"name": "workspace", "mountPath": "/workspace"},
+            workdir_subdir="testuser",
         )
 
     @pytest.fixture
@@ -1387,8 +1391,8 @@ class TestKubeRayJobAdditionalPaths:
         with pytest.raises(RuntimeError, match="Error creating RayJob"):
             job_with_basic_executor.start(command="python train.py")
 
-    def test_start_job_workdir_without_volumes(self):
-        """Test starting job with workdir but no volumes."""
+    def test_start_job_workdir_without_workdir_volume_mount(self):
+        """Test starting job with workdir but no workdir_volume_mount configured."""
         executor = KubeRayExecutor(namespace="test")
 
         with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
@@ -1398,7 +1402,8 @@ class TestKubeRayJobAdditionalPaths:
                         job = KubeRayJob(name="test-job", executor=executor)
 
                         with pytest.raises(
-                            ValueError, match="workdir.*specified but executor has no volumes"
+                            ValueError,
+                            match="workdir.*specified but executor has no.*workdir_volume_mount",
                         ):
                             job.start(command="python train.py", workdir="/local/path")
 
@@ -1885,13 +1890,15 @@ class TestKubeRayJobStatusEdgeCases:
 
     @pytest.fixture
     def basic_executor(self):
-        """Create a basic KubeRayExecutor."""
+        """Create a basic KubeRayExecutor with workdir_volume_mount for display banner."""
         return KubeRayExecutor(
             namespace="test-namespace",
             volumes=[
                 {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
             ],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+            workdir_volume_mount={"name": "workspace", "mountPath": "/workspace"},
+            workdir_subdir="testuser",
         )
 
     @pytest.fixture
