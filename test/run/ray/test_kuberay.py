@@ -409,13 +409,15 @@ class TestKubeRayJob:
 
     @pytest.fixture
     def basic_executor(self):
-        """Create a basic KubeRayExecutor."""
+        """Create a basic KubeRayExecutor with workdir_volume_mount configured."""
         return KubeRayExecutor(
             namespace="test-namespace",
             volumes=[
                 {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
             ],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+            workdir_volume_mount={"name": "workspace", "mountPath": "/workspace"},
+            workdir_subdir="testuser",
         )
 
     @pytest.fixture
@@ -1147,6 +1149,167 @@ class TestKubeRayExecutorUtilityFunctions:
         assert worker_group.max_replicas == 5
 
 
+class TestKubeRayExecutorWorkdir:
+    """Unit tests for KubeRayExecutor workdir fields and code_dir property."""
+
+    _WORKDIR_VOLUME = {
+        "name": "work-vol",
+        "persistentVolumeClaim": {"claimName": "my-pvc"},
+    }
+    _WORKDIR_MOUNT = {"name": "work-vol", "mountPath": "/workspace", "subPath": "team-a"}
+
+    def test_code_dir_appends_workdir_subdir(self):
+        """code_dir is mountPath/workdir_subdir when subdir is set."""
+        with patch("nemo_run.core.execution.kuberay.getpass.getuser", return_value="testuser"):
+            e = KubeRayExecutor(
+                volumes=[dict(self._WORKDIR_VOLUME)],
+                workdir_volume_mount=dict(self._WORKDIR_MOUNT),
+            )
+        assert e.code_dir == "/workspace/testuser"
+
+    def test_code_dir_returns_mount_path_when_subdir_is_none(self):
+        """code_dir is exactly mountPath when workdir_subdir is None."""
+        e = KubeRayExecutor(
+            volumes=[dict(self._WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(self._WORKDIR_MOUNT),
+            workdir_subdir=None,
+        )
+        assert e.code_dir == "/workspace"
+
+    def test_code_dir_returns_mount_path_when_subdir_is_empty(self):
+        """code_dir is exactly mountPath when workdir_subdir is ''."""
+        e = KubeRayExecutor(
+            volumes=[dict(self._WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(self._WORKDIR_MOUNT),
+            workdir_subdir="",
+        )
+        assert e.code_dir == "/workspace"
+
+    def test_code_dir_raises_without_workdir_volume_mount(self):
+        """code_dir raises ValueError when workdir_volume_mount is not configured."""
+        e = KubeRayExecutor()
+        with pytest.raises(ValueError, match="workdir_volume_mount is not set"):
+            _ = e.code_dir
+
+    def test_get_volume_spec_copy_by_name_success(self):
+        """_get_volume_spec_copy_by_name returns a deep copy of the named volume."""
+        e = KubeRayExecutor(volumes=[dict(self._WORKDIR_VOLUME)])
+        spec = e._get_volume_spec_copy_by_name("work-vol")
+        assert spec == self._WORKDIR_VOLUME
+        # Mutating the copy must not affect the original
+        spec["extra"] = "modified"
+        assert "extra" not in e.volumes[0]
+
+    def test_get_volume_spec_copy_by_name_missing_raises(self):
+        """_get_volume_spec_copy_by_name raises ValueError for unknown volume name."""
+        e = KubeRayExecutor(volumes=[dict(self._WORKDIR_VOLUME)])
+        with pytest.raises(ValueError, match="nonexistent"):
+            e._get_volume_spec_copy_by_name("nonexistent")
+
+
+class TestKubeRayJobWorkdirPaths:
+    """Tests that KubeRayJob.start() computes sync and container paths correctly."""
+
+    @pytest.fixture
+    def mock_k8s_clients(self):
+        with patch("nemo_run.run.ray.kuberay.config.load_kube_config"):
+            with patch("nemo_run.run.ray.kuberay.client.CustomObjectsApi") as mock_api:
+                with patch("nemo_run.run.ray.kuberay.client.CoreV1Api") as mock_core_api:
+                    yield mock_api.return_value, mock_core_api.return_value
+
+    @pytest.fixture
+    def workdir_executor(self):
+        return KubeRayExecutor(
+            namespace="test-namespace",
+            volumes=[
+                {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
+            ],
+            volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+            workdir_volume_mount={"name": "workspace", "mountPath": "/workspace"},
+            workdir_subdir="testuser",
+        )
+
+    @pytest.fixture
+    def job(self, workdir_executor, mock_k8s_clients):
+        with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
+            return KubeRayJob(name="test-job", executor=workdir_executor)
+
+    def _run_start_with_workdir(self, job, mock_core_api, workdir="/local/src"):
+        mock_core_api.create_namespaced_pod.return_value = None
+        with patch("nemo_run.core.execution.kuberay.watch.Watch") as mock_watch_cls:
+            mock_watch_cls.return_value.stream.return_value = [
+                {"object": Mock(status=Mock(phase="Running"))}
+            ]
+            with patch("nemo_run.core.execution.kuberay.subprocess.check_call"):
+                with patch("nemo_run.run.ray.kuberay.client.CustomObjectsApi"):
+                    job.start(command="python train.py", workdir=workdir)
+
+    def test_data_mover_mounts_only_workdir_volume(self, job, mock_k8s_clients):
+        """Data-mover pod is created with only the workdir volume/mount, not all volumes."""
+        _, mock_core_api = mock_k8s_clients
+        self._run_start_with_workdir(job, mock_core_api)
+
+        pod_body = mock_core_api.create_namespaced_pod.call_args[1]["body"]
+        mover_volumes = pod_body.spec.volumes
+        mover_mounts = pod_body.spec.containers[0].volume_mounts
+        assert len(mover_volumes) == 1
+        assert len(mover_mounts) == 1
+
+    def test_sync_destination_is_code_dir_plus_workdir_name(self, job, mock_k8s_clients):
+        """user_workspace_path passed to sync is executor.code_dir + workdir basename."""
+        _, mock_core_api = mock_k8s_clients
+        mock_core_api.create_namespaced_pod.return_value = None
+
+        with patch("nemo_run.core.execution.kuberay.watch.Watch") as mock_watch_cls:
+            mock_watch_cls.return_value.stream.return_value = [
+                {"object": Mock(status=Mock(phase="Running"))}
+            ]
+            with patch("nemo_run.core.execution.kuberay.subprocess.check_call") as mock_check:
+                job.start(command="python train.py", workdir="/local/src")
+
+        # First check_call is mkdir -p <user_workspace_path>
+        mkdir_args = mock_check.call_args_list[0][0][0]
+        assert mkdir_args[-1] == "/workspace/testuser/src"
+
+    def test_container_workdir_matches_sync_path(self, job, mock_k8s_clients):
+        """workingDir set on containers equals the sync destination path."""
+        mock_api, mock_core_api = mock_k8s_clients
+        self._run_start_with_workdir(job, mock_core_api)
+
+        body = mock_api.create_namespaced_custom_object.call_args.kwargs["body"]
+        head_containers = body["spec"]["rayClusterSpec"]["headGroupSpec"]["template"]["spec"][
+            "containers"
+        ]
+        expected_workdir = "/workspace/testuser/src"
+        assert all(c.get("workingDir") == expected_workdir for c in head_containers)
+
+    def test_workdir_subdir_none_uses_mountpath_directly(self, mock_k8s_clients):
+        """When workdir_subdir is None the sync path is mountPath/workdir_name (no user prefix)."""
+        _, mock_core_api = mock_k8s_clients
+        executor = KubeRayExecutor(
+            namespace="test-namespace",
+            volumes=[
+                {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
+            ],
+            volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+            workdir_volume_mount={"name": "workspace", "mountPath": "/workspace"},
+            workdir_subdir=None,
+        )
+        with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
+            job = KubeRayJob(name="test-job", executor=executor)
+
+        mock_core_api.create_namespaced_pod.return_value = None
+        with patch("nemo_run.core.execution.kuberay.watch.Watch") as mock_watch_cls:
+            mock_watch_cls.return_value.stream.return_value = [
+                {"object": Mock(status=Mock(phase="Running"))}
+            ]
+            with patch("nemo_run.core.execution.kuberay.subprocess.check_call") as mock_check:
+                job.start(command="python train.py", workdir="/local/src")
+
+        mkdir_args = mock_check.call_args_list[0][0][0]
+        assert mkdir_args[-1] == "/workspace/src"
+
+
 class TestSyncWorkdirViaPod:
     """Test sync_workdir_via_pod function and related error paths."""
 
@@ -1328,13 +1491,15 @@ class TestKubeRayJobAdditionalPaths:
 
     @pytest.fixture
     def basic_executor(self):
-        """Create a basic KubeRayExecutor."""
+        """Create a basic KubeRayExecutor with workdir_volume_mount configured."""
         return KubeRayExecutor(
             namespace="test-namespace",
             volumes=[
                 {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
             ],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+            workdir_volume_mount={"name": "workspace", "mountPath": "/workspace"},
+            workdir_subdir="testuser",
         )
 
     @pytest.fixture
@@ -1387,8 +1552,8 @@ class TestKubeRayJobAdditionalPaths:
         with pytest.raises(RuntimeError, match="Error creating RayJob"):
             job_with_basic_executor.start(command="python train.py")
 
-    def test_start_job_workdir_without_volumes(self):
-        """Test starting job with workdir but no volumes."""
+    def test_start_job_workdir_without_workdir_volume_mount(self):
+        """Test starting job with workdir but no workdir_volume_mount configured."""
         executor = KubeRayExecutor(namespace="test")
 
         with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
@@ -1398,7 +1563,8 @@ class TestKubeRayJobAdditionalPaths:
                         job = KubeRayJob(name="test-job", executor=executor)
 
                         with pytest.raises(
-                            ValueError, match="workdir.*specified but executor has no volumes"
+                            ValueError,
+                            match="workdir.*specified but executor has no.*workdir_volume_mount",
                         ):
                             job.start(command="python train.py", workdir="/local/path")
 
@@ -1885,13 +2051,15 @@ class TestKubeRayJobStatusEdgeCases:
 
     @pytest.fixture
     def basic_executor(self):
-        """Create a basic KubeRayExecutor."""
+        """Create a basic KubeRayExecutor with workdir_volume_mount for display banner."""
         return KubeRayExecutor(
             namespace="test-namespace",
             volumes=[
                 {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
             ],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
+            workdir_volume_mount={"name": "workspace", "mountPath": "/workspace"},
+            workdir_subdir="testuser",
         )
 
     @pytest.fixture

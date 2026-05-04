@@ -15,6 +15,7 @@
 # Based on https://github.com/ray-project/kuberay/blob/master/clients/python-client/python_client/utils/kuberay_cluster_utils.py
 
 import copy
+import getpass
 import logging
 import os
 import re
@@ -92,6 +93,13 @@ class KubeRayExecutor(Executor):
     spec_kwargs: dict[str, Any] = field(default_factory=dict)
     container_kwargs: dict[str, Any] = field(default_factory=dict)
     lifecycle_kwargs: dict[str, Any] = field(default_factory=dict)
+    # Workdir sync: when ``workdir_volume_mount`` is set, syncs local
+    # directory into ``code_dir`` on the PVC via a throw-away data-mover
+    # You must declare the matching Volume in ``volumes``
+    workdir_volume_mount: Optional[dict[str, Any]] = None
+    # Optional subdirectory appended to ``mountPath`` to form ``code_dir``.
+    # Defaults to OS username. Set to ``None`` or ``""`` to use``mountPath``
+    workdir_subdir: Optional[str] = field(default_factory=lambda: getpass.getuser())
 
     def __post_init__(self):
         # Set default image based on ray_version if not provided
@@ -102,6 +110,45 @@ class KubeRayExecutor(Executor):
             for worker_group in self.worker_groups:
                 worker_group.volumes = copy.deepcopy(self.volumes)
                 worker_group.volume_mounts = copy.deepcopy(self.volume_mounts)
+
+    def _code_mount_root(self) -> str:
+        wm = self.workdir_volume_mount
+        if not wm:
+            raise ValueError(
+                "workdir_volume_mount is not set — cannot compute code_dir. "
+                "Set workdir_volume_mount on the executor, or omit workdir when starting a job."
+            )
+        mp = wm.get("mountPath")
+        if not mp:
+            raise ValueError(
+                "workdir_volume_mount must include mountPath "
+                "(or omit workdir_volume_mount when not using PVC code sync)"
+            )
+        return str(mp)
+
+    @property
+    def code_dir(self) -> str:
+        """Remote directory where workdir contents are synced on the PVC.
+
+        Computed as ``mountPath[/workdir_subdir]``.  ``workdir_subdir`` defaults to
+        the OS username so that multiple users sharing a PVC don't collide; set it to
+        ``None`` or ``""`` when ``subPath`` or ``mountPath`` already provides scoping.
+        Raises ``ValueError`` when ``workdir_volume_mount`` is not configured.
+        """
+        root = self._code_mount_root()
+        if self.workdir_subdir:
+            return f"{root.rstrip('/')}/{self.workdir_subdir.strip('/')}"
+        return root
+
+    def _get_volume_spec_copy_by_name(self, volume_name: str) -> dict[str, Any]:
+        """Return a deep copy of the volume spec matching *volume_name*."""
+        for v in self.volumes:
+            if v.get("name") == volume_name:
+                return copy.deepcopy(dict(v))
+        raise ValueError(
+            f"volumes must include an entry named {volume_name!r} referenced by "
+            "workdir_volume_mount (needed for the data-mover pod)"
+        )
 
     def get_cluster_body(self, name: str) -> dict[str, Any]:
         """

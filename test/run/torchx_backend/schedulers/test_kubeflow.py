@@ -309,14 +309,21 @@ def test_submit_dryrun_applies_macro_values(scheduler, mock_app_def, executor):
     assert dryrun_info.request.cmd[0] == "python"
 
 
-# ── _submit_dryrun: workdir_pvc with workdir_local_path cmd rewriting ─────────
+# ── _submit_dryrun: workdir_volume_mount with workdir_local_path cmd rewriting ─
 
 
-def test_submit_dryrun_with_workdir_pvc_and_local_path(scheduler, mock_app_def, mock_k8s, tmp_path):
+def test_submit_dryrun_with_workdir_volume_mount_and_local_path(
+    scheduler, mock_app_def, mock_k8s, tmp_path
+):
     local_path = str(tmp_path / "scripts")
     e = KubeflowExecutor(
         image="nvcr.io/nvidia/nemo:26.02",
-        workdir_pvc="my-pvc",
+        volumes=[{"name": "w", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
+        workdir_volume_mount={
+            "name": "w",
+            "mountPath": "/nemo_run",
+            "subPath": "team-a",
+        },
         workdir_local_path=local_path,
     )
     e.experiment_id = "test_exp"
@@ -344,10 +351,17 @@ def test_submit_dryrun_with_workdir_pvc_and_local_path(scheduler, mock_app_def, 
     assert dryrun_info.request.cmd == ["/bin/bash", f"{e.code_dir}/launch.sh"]
 
 
-def test_submit_dryrun_with_workdir_pvc_no_local_path(scheduler, mock_app_def, mock_k8s, tmp_path):
+def test_submit_dryrun_with_workdir_volume_mount_no_local_path(
+    scheduler, mock_app_def, mock_k8s, tmp_path
+):
     e = KubeflowExecutor(
         image="nvcr.io/nvidia/nemo:26.02",
-        workdir_pvc="my-pvc",
+        volumes=[{"name": "w", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
+        workdir_volume_mount={
+            "name": "w",
+            "mountPath": "/nemo_run",
+            "subPath": "team-a",
+        },
     )
     e.experiment_id = "test_exp"
     e.job_dir = str(tmp_path)

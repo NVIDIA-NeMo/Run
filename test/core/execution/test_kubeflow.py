@@ -20,6 +20,15 @@ from kubernetes.client.rest import ApiException
 
 from nemo_run.core.execution.kubeflow import KubeflowExecutor, KubeflowJobState
 
+# PVC workdir sync uses ``workdir_volume_mount`` plus a matching ``volumes`` entry.
+_WORKDIR_VOLUME = {"name": "work-vol", "persistentVolumeClaim": {"claimName": "my-pvc"}}
+_WORKDIR_SUBPATH = "team-a"
+_WORKDIR_MOUNT = {
+    "name": "work-vol",
+    "mountPath": "/nemo_run",
+    "subPath": _WORKDIR_SUBPATH,
+}
+
 
 class TestKubeflowExecutor:
     @pytest.fixture
@@ -387,8 +396,9 @@ class TestKubeflowExecutor:
     def workdir_executor(self, mock_k8s_clients, tmp_path):
         e = KubeflowExecutor(
             image="test:latest",
-            workdir_pvc="my-pvc",
-            workdir_pvc_path="/nemo_run",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+            workdir_subdir="testuser",
         )
         e.job_dir = str(tmp_path)
         return e
@@ -398,7 +408,7 @@ class TestKubeflowExecutor:
         pod.status.phase = phase
         return [{"object": pod}]
 
-    def test_package_noop_without_workdir_pvc(self, mock_k8s_clients, tmp_path):
+    def test_package_noop_without_workdir_volume_mount(self, mock_k8s_clients, tmp_path):
         e = KubeflowExecutor(image="test:latest")
         e.job_dir = str(tmp_path)
         mock_custom, mock_core = mock_k8s_clients
@@ -423,12 +433,19 @@ class TestKubeflowExecutor:
 
         mock_core.create_namespaced_pod.assert_called_once()
         assert mock_check_call.call_count == 2  # mkdir + rsync
-        # workdir PVC auto-added to volumes/volume_mounts
         assert any(
             v.get("persistentVolumeClaim", {}).get("claimName") == "my-pvc"
             for v in workdir_executor.volumes
         )
-        assert any(vm.get("mountPath") == "/nemo_run" for vm in workdir_executor.volume_mounts)
+        assert any(
+            vm.get("name") == "work-vol"
+            and vm.get("mountPath") == "/nemo_run"
+            and vm.get("subPath") == _WORKDIR_SUBPATH
+            for vm in workdir_executor.volume_mounts
+        )
+        pod_body = mock_core.create_namespaced_pod.call_args[1]["body"]
+        mover_mounts = pod_body["spec"]["containers"][0]["volumeMounts"]
+        assert mover_mounts == [dict(_WORKDIR_MOUNT)]
 
     def test_package_auto_add_volume_idempotent(self, workdir_executor, mock_k8s_clients):
         """Calling package() twice should not duplicate volumes."""
@@ -454,6 +471,66 @@ class TestKubeflowExecutor:
         ]
         assert len(pvc_vols) == 1
 
+    def test_code_dir_appends_workdir_subdir(self, mock_k8s_clients):
+        """``code_dir`` is ``mountPath/workdir_subdir`` when subdir is set."""
+        with patch("nemo_run.core.execution.kubeflow.getpass.getuser", return_value="testuser"):
+            e = KubeflowExecutor(
+                image="test:latest",
+                volumes=[dict(_WORKDIR_VOLUME)],
+                workdir_volume_mount=dict(_WORKDIR_MOUNT),
+            )
+            code_dir = e.code_dir
+        assert code_dir == "/nemo_run/testuser"
+
+    def test_code_dir_returns_mount_path_when_subdir_is_none(self, mock_k8s_clients):
+        """``code_dir`` is exactly ``mountPath`` when ``workdir_subdir`` is ``None``."""
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+            workdir_subdir=None,
+        )
+        assert e.code_dir == "/nemo_run"
+
+    def test_code_dir_returns_mount_path_when_subdir_is_empty(self, mock_k8s_clients):
+        """``code_dir`` is exactly ``mountPath`` when ``workdir_subdir`` is ``""``."""
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+            workdir_subdir="",
+        )
+        assert e.code_dir == "/nemo_run"
+
+    def test_package_inserts_workdir_mount_when_existing_mountpath_lacks_subpath(
+        self, mock_k8s_clients, tmp_path
+    ):
+        """Volume-mount identity treats missing ``subPath`` differently from a set ``subPath``."""
+        _, mock_core = mock_k8s_clients
+        mock_core.create_namespaced_pod.return_value = MagicMock()
+        mock_core.delete_namespaced_pod.return_value = MagicMock()
+        mock_core.read_namespaced_pod.side_effect = ApiException(status=404)
+
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            volume_mounts=[{"name": "work-vol", "mountPath": "/nemo_run"}],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+        )
+        e.job_dir = str(tmp_path)
+
+        with (
+            patch("kubernetes.watch.Watch") as mock_watch_cls,
+            patch("subprocess.check_call"),
+        ):
+            mock_watch_cls.return_value.stream.return_value = self._make_watch_events("Running")
+            e.package(MagicMock(), "test-job")
+
+        at_run = [vm for vm in e.volume_mounts if vm.get("mountPath") == "/nemo_run"]
+        assert len(at_run) == 2
+        assert any(vm.get("subPath") == _WORKDIR_SUBPATH for vm in at_run)
+        assert any("subPath" not in vm for vm in at_run)
+
     def test_pull_results_syncs_from_pvc(self, workdir_executor, mock_k8s_clients):
         _, mock_core = mock_k8s_clients
         mock_core.create_namespaced_pod.return_value = MagicMock()
@@ -478,7 +555,7 @@ class TestKubeflowExecutor:
         assert "cp" in cp_args
         assert f"test-job-data-mover:{workdir_executor.code_dir}" in cp_args
 
-    def test_pull_results_noop_without_workdir_pvc(self, mock_k8s_clients):
+    def test_pull_results_noop_without_workdir_volume_mount(self, mock_k8s_clients):
         e = KubeflowExecutor(image="test:latest")
         _, mock_core = mock_k8s_clients
         e.pull_results("test-job")
@@ -494,8 +571,8 @@ class TestKubeflowExecutor:
 
         e = KubeflowExecutor(
             image="test:latest",
-            workdir_pvc="my-pvc",
-            workdir_pvc_path="/nemo_run",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
             tolerations=[{"key": "gpu", "operator": "Exists"}],
             affinity={"nodeAffinity": {"key": "val"}},
             image_pull_secrets=["my-secret"],
@@ -514,6 +591,7 @@ class TestKubeflowExecutor:
         assert spec["tolerations"] == [{"key": "gpu", "operator": "Exists"}]
         assert spec["affinity"] == {"nodeAffinity": {"key": "val"}}
         assert spec["imagePullSecrets"] == [{"name": "my-secret"}]
+        assert spec["containers"][0]["volumeMounts"] == [dict(_WORKDIR_MOUNT)]
 
     # ── ImportError when kubernetes unavailable ──────────────────────────────
 
@@ -694,7 +772,8 @@ class TestKubeflowExecutor:
 
         e = KubeflowExecutor(
             image="test:latest",
-            workdir_pvc="my-pvc",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
         )
         e.job_dir = str(tmp_path)
 
@@ -715,7 +794,11 @@ class TestKubeflowExecutor:
         _, mock_core = mock_k8s_clients
         mock_core.delete_namespaced_pod.side_effect = ApiException(status=500)
 
-        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+        )
         e.job_dir = str(tmp_path)
 
         # Should not raise; just log a warning and return
@@ -728,7 +811,11 @@ class TestKubeflowExecutor:
         # Pod never disappears (read always succeeds)
         mock_core.read_namespaced_pod.return_value = MagicMock()
 
-        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+        )
         e.job_dir = str(tmp_path)
 
         with patch("time.sleep"):
@@ -742,7 +829,8 @@ class TestKubeflowExecutor:
         e = KubeflowExecutor(
             image="test:latest",
             env_vars={"MY_VAR": "hello"},
-            workdir_pvc="my-pvc",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
         )
         e.job_dir = str(tmp_path)
 
@@ -766,7 +854,8 @@ class TestKubeflowExecutor:
         local_path = str(tmp_path / "local_scripts")
         e = KubeflowExecutor(
             image="test:latest",
-            workdir_pvc="my-pvc",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
             workdir_local_path=local_path,
         )
         e.job_dir = str(tmp_path / "job_dir")
@@ -793,8 +882,12 @@ class TestKubeflowExecutor:
 
         e = KubeflowExecutor(
             image="test:latest",
-            workdir_pvc="my-pvc",
             volumes=[{"name": "pre-vol", "persistentVolumeClaim": {"claimName": "my-pvc"}}],
+            workdir_volume_mount={
+                "name": "pre-vol",
+                "mountPath": "/nemo_run",
+                "subPath": "tenant-a",
+            },
         )
         e.job_dir = str(tmp_path)
 
@@ -813,7 +906,11 @@ class TestKubeflowExecutor:
     # ── pull_results: no job_dir set and _lookup_job_dir returns empty ────────
 
     def test_pull_results_raises_when_no_job_dir_resolvable(self, mock_k8s_clients):
-        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+        )
         # job_dir not set
 
         with patch.object(e, "_lookup_job_dir", return_value=""):
@@ -826,7 +923,11 @@ class TestKubeflowExecutor:
         mock_core.delete_namespaced_pod.return_value = MagicMock()
         mock_core.read_namespaced_pod.side_effect = ApiException(status=404)
 
-        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+        )
         # job_dir not set
 
         with (
@@ -841,13 +942,21 @@ class TestKubeflowExecutor:
     # ── _lookup_job_dir ───────────────────────────────────────────────────────
 
     def test_lookup_job_dir_returns_empty_when_no_jobs_file(self, mock_k8s_clients, tmp_path):
-        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+        )
         with patch("nemo_run.config.get_nemorun_home", return_value=str(tmp_path)):
             result = e._lookup_job_dir("nonexistent-job")
         assert result == ""
 
     def test_lookup_job_dir_returns_empty_on_exception(self, mock_k8s_clients):
-        e = KubeflowExecutor(image="test:latest", workdir_pvc="my-pvc")
+        e = KubeflowExecutor(
+            image="test:latest",
+            volumes=[dict(_WORKDIR_VOLUME)],
+            workdir_volume_mount=dict(_WORKDIR_MOUNT),
+        )
         with patch("nemo_run.config.get_nemorun_home", side_effect=Exception("boom")):
             result = e._lookup_job_dir("test-job")
         assert result == ""
