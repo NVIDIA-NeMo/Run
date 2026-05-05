@@ -73,7 +73,7 @@ jobs:
       app-id: ${{ vars.BOT_ID }}
       packaging: setuptools
       gh-release-use-changelog-builder: ${{ inputs.generate-changelog || false }}
-      publish-docs: ${{ inputs.publish-docs || false }}
+      publish-docs: ${{ inputs.publish-docs || true }}
       docs-target-path: nemo/run
       restrict-to-admins: true
     secrets:
