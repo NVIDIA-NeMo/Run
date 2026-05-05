@@ -62,7 +62,7 @@ concurrency:
 jobs:
   release:
     if: '!cancelled()'
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@b7091aadca729136b12c48d45b832633c681b131
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@04a3b7766cb4fcf3299d29549d42f5bce5e445c3
     with:
       release-ref: ${{ inputs.release-ref || github.sha }}
       python-package: nemo_run
@@ -72,7 +72,7 @@ jobs:
       dry-run: ${{ inputs.dry-run || false }}
       version-bump-branch: ${{ inputs.version-bump-branch || github.ref_name }}
       app-id: ${{ vars.BOT_ID }}
-      packaging: hatch
+      packaging: setuptools
       gh-release-use-changelog-builder: ${{ inputs.generate-changelog || false }}
       publish-docs: ${{ inputs.publish-docs || false }}
       docs-target-path: nemo/run
