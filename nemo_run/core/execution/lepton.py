@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import base64
 import logging
 import os
@@ -22,34 +24,65 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, List, Optional, Set, Type
 
 from invoke.context import Context
-from leptonai.api.v2.client import APIClient
-from leptonai.api.v1.types.affinity import LeptonResourceAffinity
-from leptonai.api.v1.types.common import Metadata, LeptonVisibility
-from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
-from leptonai.api.v1.types.deployment import (
-    EnvVar,
-    EnvValue,
-    LeptonContainer,
-    Mount,
-)
-from leptonai.api.v1.types.job import (
-    LeptonJob,
-    LeptonJobState,
-    LeptonJobUserSpec,
-    ReservationConfig,
-)
-from leptonai.api.v1.types.replica import Replica
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
+_LEPTON_IMPORT_ERROR: ImportError | None = None
+_LEPTON_AVAILABLE = False
+
+try:
+    from leptonai.api.v1.types.affinity import LeptonResourceAffinity
+    from leptonai.api.v1.types.common import LeptonVisibility, Metadata
+    from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
+    from leptonai.api.v1.types.deployment import (
+        EnvVar,
+        EnvValue,
+        LeptonContainer,
+        Mount,
+    )
+    from leptonai.api.v1.types.job import (
+        LeptonJob,
+        LeptonJobState,
+        LeptonJobUserSpec,
+        ReservationConfig,
+    )
+    from leptonai.api.v1.types.replica import Replica
+    from leptonai.api.v2.client import APIClient
+
+    _LEPTON_AVAILABLE = True
+except ImportError as e:
+    _LEPTON_IMPORT_ERROR = e
+
+    class LeptonJobState(Enum):
+        Starting = "Starting"
+        Running = "Running"
+        Failed = "Failed"
+        Completed = "Completed"
+        Deleting = "Deleting"
+        Restarting = "Restarting"
+        Archived = "Archived"
+        Stopped = "Stopped"
+        Stopping = "Stopping"
+        Unknown = "Unknown"
+
+
 logger = logging.getLogger(__name__)
+
+
+def _require_leptonai() -> None:
+    if not _LEPTON_AVAILABLE:
+        raise ImportError(
+            "leptonai package is required for LeptonExecutor. "
+            'Install it with: pip install "nemo_run[lepton]"'
+        ) from _LEPTON_IMPORT_ERROR
 
 
 @dataclass(kw_only=True)
@@ -83,6 +116,9 @@ class LeptonExecutor(Executor):
     pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
     head_resource_shape: Optional[str] = ""  # Only used for LeptonRayCluster
     ray_version: Optional[str] = None  # Only used for LeptonRayCluster
+
+    def __post_init__(self) -> None:
+        _require_leptonai()
 
     def stop_job(self, job_id: str):
         """
@@ -376,6 +412,7 @@ cd /nemo_run/code
 
     @classmethod
     def logs(cls: Type["LeptonExecutor"], app_id: str, fallback_path: Optional[str]):
+        _require_leptonai()
         client = APIClient()
 
         # Get the first replica from the job which contains the job logs

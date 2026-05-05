@@ -18,8 +18,14 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
-from leptonai.api.v1.types.raycluster import LeptonRayClusterState, LeptonRayClusterStatus
 import pytest
+
+pytest.importorskip("leptonai")
+
+from leptonai.api.v1.types.raycluster import (  # noqa: E402
+    LeptonRayClusterState,
+    LeptonRayClusterStatus,
+)
 
 ########################################################
 # Given the LeptonRayCluster and LeptonRayJob tests rely on the *ray*

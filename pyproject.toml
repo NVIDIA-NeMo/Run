@@ -29,7 +29,6 @@ dependencies = [
     "jinja2>=3.1.4",
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
-    "leptonai>=0.26.6",
     "toml",
 ]
 readme = "README.md"
@@ -50,6 +49,9 @@ skypilot_jobs = "nemo_run.run.torchx_backend.schedulers.skypilot_jobs:create_sch
 kubeflow = "nemo_run.run.torchx_backend.schedulers.kubeflow:create_scheduler"
 
 [project.optional-dependencies]
+lepton = [
+    "leptonai>=0.26.6",
+]
 skypilot = [
     "skypilot[kubernetes]>=0.10.0",
 ]

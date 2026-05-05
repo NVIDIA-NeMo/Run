@@ -4506,7 +4506,6 @@ dependencies = [
     { name = "fiddle" },
     { name = "inquirerpy" },
     { name = "jinja2" },
-    { name = "leptonai" },
     { name = "networkx" },
     { name = "omegaconf" },
     { name = "rich" },
@@ -4518,6 +4517,9 @@ dependencies = [
 [package.optional-dependencies]
 kubeflow = [
     { name = "kubernetes" },
+]
+lepton = [
+    { name = "leptonai" },
 ]
 ray = [
     { name = "kubernetes" },
@@ -4568,7 +4570,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.4" },
     { name = "kubernetes", marker = "extra == 'kubeflow'" },
     { name = "kubernetes", marker = "extra == 'ray'" },
-    { name = "leptonai", specifier = ">=0.26.6" },
+    { name = "leptonai", marker = "extra == 'lepton'", specifier = ">=0.26.6" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "omegaconf", specifier = ">=2.3.0" },
     { name = "ray", extras = ["default"], marker = "extra == 'ray'", specifier = ">=2.49.2" },
@@ -4579,7 +4581,7 @@ requires-dist = [
     { name = "torchx", specifier = ">=0.7.0" },
     { name = "typer", specifier = ">=0.12.3" },
 ]
-provides-extras = ["skypilot", "skypilot-all", "ray", "kubeflow"]
+provides-extras = ["lepton", "skypilot", "skypilot-all", "ray", "kubeflow"]
 
 [package.metadata.requires-dev]
 dev = [

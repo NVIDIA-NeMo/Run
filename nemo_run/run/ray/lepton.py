@@ -13,33 +13,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import sys
 import time
-import urllib3
 import warnings
 from dataclasses import dataclass
-from ray.job_submission import JobSubmissionClient
-from rich.pretty import pretty_repr
 from typing import Any, Optional, TypeAlias
 
-from leptonai.api.v1.types.affinity import LeptonResourceAffinity
-from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
-from leptonai.api.v1.types.deployment import EnvVar, EnvValue
+import urllib3
+from rich.pretty import pretty_repr
 
-from nemo_run.core.execution.lepton import LeptonExecutor
+from nemo_run.core.execution.lepton import LeptonExecutor, _LEPTON_AVAILABLE, _require_leptonai
 
-from leptonai.api.v2.client import APIClient
-from leptonai.api.v1.types.raycluster import (
-    LeptonRayCluster as LeptonRayClusterSpec,
-    LeptonRayClusterUserSpec,
-    Metadata,
-    RayHeadGroupSpec,
-    RayWorkerGroupSpec,
-)
-from leptonai.cli.raycluster import DEFAULT_RAY_IMAGE
+_RAY_IMPORT_ERROR: ImportError | None = None
+_RAY_AVAILABLE = False
+try:
+    from ray.job_submission import JobSubmissionClient
+
+    _RAY_AVAILABLE = True
+except ImportError as e:
+    _RAY_IMPORT_ERROR = e
+    JobSubmissionClient = None
+
+if _LEPTON_AVAILABLE:
+    from leptonai.api.v1.types.affinity import LeptonResourceAffinity
+    from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
+    from leptonai.api.v1.types.deployment import EnvVar, EnvValue
+    from leptonai.api.v1.types.raycluster import (
+        LeptonRayCluster as LeptonRayClusterSpec,
+        LeptonRayClusterUserSpec,
+        Metadata,
+        RayHeadGroupSpec,
+        RayWorkerGroupSpec,
+    )
+    from leptonai.api.v2.client import APIClient
+    from leptonai.cli.raycluster import DEFAULT_RAY_IMAGE
 
 noquote: TypeAlias = str
 
@@ -47,6 +59,19 @@ logger = logging.getLogger(__name__)
 
 RAY_READY_STATE = "Ready"
 RAY_NOT_READY_STATE = "Not Ready"
+
+
+def _require_ray() -> None:
+    if not _RAY_AVAILABLE:
+        raise ImportError(
+            "ray is required for Lepton Ray helpers. "
+            'Install it with: pip install "nemo_run[lepton]"'
+        ) from _RAY_IMPORT_ERROR
+
+
+def _require_lepton_ray() -> None:
+    _require_leptonai()
+    _require_ray()
 
 
 @dataclass(kw_only=True)
@@ -57,6 +82,7 @@ class LeptonRayCluster:
     executor: LeptonExecutor
 
     def __post_init__(self):
+        _require_lepton_ray()
         self.cluster_map: dict[str, str] = {}
 
     def _node_group_id(self, client: APIClient) -> DedicatedNodeGroup:
@@ -374,6 +400,7 @@ class LeptonRayJob:
     # Internals
     # ---------------------------------------------------------------------
     def __post_init__(self):
+        _require_lepton_ray()
         self.submission_id = None
 
     def _get_last_submission_id(self) -> Optional[int]:

@@ -19,18 +19,21 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-from leptonai.api.v1.types.common import LeptonVisibility, Metadata
-from leptonai.api.v1.types.deployment import (
+
+pytest.importorskip("leptonai")
+
+from leptonai.api.v1.types.common import LeptonVisibility, Metadata  # noqa: E402
+from leptonai.api.v1.types.deployment import (  # noqa: E402
     LeptonContainer,
     LeptonResourceAffinity,
     Mount,
     EnvVar,
     EnvValue,
 )
-from leptonai.api.v1.types.job import LeptonJob, LeptonJobUserSpec
+from leptonai.api.v1.types.job import LeptonJob, LeptonJobUserSpec  # noqa: E402
 
-from nemo_run.core.execution.lepton import LeptonExecutor, LeptonJobState
-from nemo_run.core.packaging.git import GitArchivePackager
+from nemo_run.core.execution.lepton import LeptonExecutor, LeptonJobState  # noqa: E402
+from nemo_run.core.packaging.git import GitArchivePackager  # noqa: E402
 
 
 class MockLeptonJob:

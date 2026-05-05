@@ -24,13 +24,12 @@ from typing import Any, Optional
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
-from leptonai.api.v1.types.job import LeptonJobState
 from torchx.schedulers.api import AppDryRunInfo, DescribeAppResponse, ListAppResponse, Scheduler
 from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runopts
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
-from nemo_run.core.execution.lepton import LeptonExecutor
+from nemo_run.core.execution.lepton import LeptonExecutor, LeptonJobState, _require_leptonai
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
@@ -70,6 +69,7 @@ class LeptonRequest:
 class LeptonScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ignore
     def __init__(self, session_name: str) -> None:
         super().__init__("lepton", session_name)
+        _require_leptonai()
 
     def _run_opts(self) -> runopts:
         opts = runopts()
@@ -86,9 +86,8 @@ class LeptonScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ignor
         app: AppDef,
         cfg: Executor,
     ) -> AppDryRunInfo[LeptonRequest]:
-        assert isinstance(cfg, LeptonExecutor), (
-            f"{cfg.__class__} not supported for Lepton scheduler."
-        )
+        if not isinstance(cfg, LeptonExecutor):
+            raise AssertionError(f"{cfg.__class__} not supported for Lepton scheduler.")
         executor = cfg
 
         assert len(app.roles) == 1, "Only single-role apps are supported."

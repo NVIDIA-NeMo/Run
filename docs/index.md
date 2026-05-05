@@ -34,10 +34,10 @@ To install Skypilot with optional features, use one of the following commands:
 
 You can also manually install Skypilot from https://skypilot.readthedocs.io/en/latest/getting-started/installation.html
 
-If using DGX Cloud Lepton, use the following command to install the Lepton CLI:
+If using DGX Cloud Lepton, install NeMo Run with the Lepton extra:
 
 ```bash
-pip install leptonai
+pip install "nemo_run[lepton]"
 ```
 
 To authenticate with the DGX Cloud Lepton cluster, navigate to the **Settings > Tokens** page in the DGX Cloud Lepton UI and copy the ``lep login`` command shown on the page and run it in the terminal.
