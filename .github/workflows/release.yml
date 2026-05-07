@@ -79,7 +79,6 @@ jobs:
       docs-target-path: nemo/run
       restrict-to-admins: true
     secrets: inherit
-      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 
   release-summary:
     needs: [release]
