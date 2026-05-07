@@ -78,7 +78,7 @@ jobs:
       publish-docs: ${{ inputs.publish-docs || true }}
       docs-target-path: nemo/run
       restrict-to-admins: true
-    secrets: inherit
+    secrets: inherit  # pragma: allowlist secret
 
   release-summary:
     needs: [release]
