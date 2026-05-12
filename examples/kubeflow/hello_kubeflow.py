@@ -108,8 +108,10 @@ executor = KubeflowExecutor(
     ],
     # Sync the generated launch script to the pod via PVC before launch.
     # Required whenever you use a custom launcher (e.g. run.Torchrun()).
-    workdir_pvc=args.pvc,
-    workdir_pvc_path="/nemo-workspace",
+    # Must match the workdir volume name and mountPath above.
+    workdir_volume_mount=(
+        {"name": "workdir", "mountPath": "/nemo-workspace"} if args.pvc else None
+    ),
     labels={"app": JOB_NAME},
 )
 

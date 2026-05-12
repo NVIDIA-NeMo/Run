@@ -856,9 +856,10 @@ class KubeRayJob:
                 [vm.get("mountPath", "N/A") for vm in self.executor.volume_mounts]
             )
 
-            # Construct workdir paths based on standard patterns
-            # Note: These are estimates based on the naming conventions in the code
-            user_workspace_base = f"{self.executor.volume_mounts[0]['mountPath']}/{self.user}/code"
+            if self.executor.workdir_volume_mount:
+                user_workspace_base = self.executor.code_dir
+            else:
+                user_workspace_base = "N/A (no workdir_volume_mount configured)"
 
             logger.info(
                 f"""
@@ -1029,26 +1030,26 @@ Useful Commands
         user_workspace_path = None
 
         if workdir:
-            if not executor.volumes or not executor.volume_mounts:
+            if not executor.workdir_volume_mount:
                 raise ValueError(
-                    "`workdir` specified but executor has no volumes/volume_mounts to mount it."
+                    "`workdir` specified but executor has no `workdir_volume_mount` configured."
                 )
 
-            user_workspace_path = os.path.join(
-                executor.volume_mounts[0]["mountPath"], self.user, "code", Path(workdir).name
-            )
-            # Add user-based scoping to pod name and workspace path
+            user_workspace_path = f"{executor.code_dir.rstrip('/')}/{Path(workdir).name}"
             pod_name = f"{self.job_name}-data-mover"
 
             if not dryrun:
+                volume_spec = executor._get_volume_spec_copy_by_name(
+                    executor.workdir_volume_mount["name"]
+                )
                 sync_workdir_via_pod(
                     pod_name=pod_name,
                     namespace=namespace,
                     user_workspace_path=user_workspace_path,
                     workdir=workdir,
                     core_v1_api=self.core_v1_api,
-                    volumes=executor.volumes,
-                    volume_mounts=executor.volume_mounts,
+                    volumes=[volume_spec],
+                    volume_mounts=[executor.workdir_volume_mount],
                 )
                 logger.info(f"Synced workdir {workdir} to {user_workspace_path}")
 
@@ -1066,12 +1067,11 @@ Useful Commands
         ray_cluster_spec = ray_cluster_body.get("spec", {})
 
         # Ensure consistent workingDir inside all Ray containers so that relative
-        # paths in `ray job submit` resolve as expected.
+        # paths in `ray job submit` resolve as expected.  When a workdir was synced
+        # this is the same path used by sync_workdir_via_pod so files are found.
         container_workdir = "/workspace"
-        if workdir:
-            container_workdir = os.path.join(
-                executor.volume_mounts[0]["mountPath"], Path(workdir).name
-            )
+        if workdir and executor.workdir_volume_mount:
+            container_workdir = f"{executor.code_dir.rstrip('/')}/{Path(workdir).name}"
 
         def _apply_workdir(pod_template: dict):
             try:

@@ -95,10 +95,10 @@ class KubeflowScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
 
         cmd = [role.entrypoint] + role.args
 
-        # When workdir_pvc is configured, materialise a launch.sh from the
+        # When workdir_volume_mount is configured, materialise a launch.sh from the
         # Jinja2 template (env vars + training command) and point the job at
         # it so torchrun / launcher details stay out of the manifest.
-        if executor.workdir_pvc and getattr(executor, "job_dir", None):
+        if executor.workdir_volume_mount and getattr(executor, "job_dir", None):
             # Rewrite any local workdir_local_path references in the cmd.
             if executor.workdir_local_path:
                 local_prefix = executor.workdir_local_path.rstrip(os.sep)
