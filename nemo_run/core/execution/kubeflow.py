@@ -261,11 +261,25 @@ class KubeflowExecutor(Executor):
                 body=job_body,
             )
         except ApiException as e:
-            if e.status == 409:
-                raise RuntimeError(
-                    f"{_TRAINJOB_KIND} {name} already exists in namespace {self.namespace}"
-                ) from e
-            raise
+            if e.status != 409:
+                raise
+            # The job name is derived from the experiment id (the commit SHA on
+            # CI), so a 409 means a TrainJob from a prior attempt lingers — e.g.
+            # an attempt the launcher declared FAILED after a slow pod start.
+            # Delete the stale job and recreate so the caller's retry (such as
+            # setup_experiment's "attempt N of M") makes progress instead of
+            # re-colliding on the same name.
+            logger.warning(
+                "%s %s already exists; deleting stale job and recreating", _TRAINJOB_KIND, name
+            )
+            self.cancel(name, wait=True)
+            self._custom_objects_api.create_namespaced_custom_object(
+                group=_TRAINJOB_GROUP,
+                version=_TRAINJOB_VERSION,
+                namespace=self.namespace,
+                plural=_TRAINJOB_PLURAL,
+                body=job_body,
+            )
 
         logger.info("Submitted %s %s to namespace %s", _TRAINJOB_KIND, name, self.namespace)
 
