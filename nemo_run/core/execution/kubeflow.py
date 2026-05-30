@@ -363,8 +363,8 @@ class KubeflowExecutor(Executor):
             "--max-log-requests",
             str(self.num_nodes),
         ]
-        last_node = max(self.num_nodes - 1, 0)
-        last_local = max(self.nproc_per_node() - 1, 0)
+        nproc = self.nproc_per_node()
+        last_rank = max(self.num_nodes * nproc - 1, 0)
         pod_re = re.compile(r"pod/([^/]+)/")
         local_re = re.compile(r"\[default(\d+)\]")
 
@@ -401,7 +401,14 @@ class KubeflowExecutor(Executor):
             return mapping
 
         def _forward_to_stdout(log_line: str, pod_index: dict[str, int]) -> bool:
-            """True for global rank 0 (node 0, local 0) and the last global rank."""
+            """True for the first and last *global rank* only.
+
+            Kubeflow Trainer sets torchrun's PET_NODE_RANK from the JobSet
+            completion-index label (static), so the global rank is
+            ``node_rank * nproc_per_node + local_rank`` where node_rank is the
+            pod's completion index and local_rank is torchrun's ``[defaultN]``
+            marker. We forward global rank 0 and ``world_size - 1`` only.
+            """
             pod_match = pod_re.search(log_line)
             local_match = local_re.search(log_line)
             if not pod_match or not local_match:
@@ -409,8 +416,8 @@ class KubeflowExecutor(Executor):
             node = pod_index.get(pod_match.group(1))
             if node is None:
                 return False
-            local = int(local_match.group(1))
-            return (node == 0 and local == 0) or (node == last_node and local == last_local)
+            global_rank = node * nproc + int(local_match.group(1))
+            return global_rank == 0 or global_rank == last_rank
 
         all_ranks_path = os.path.join(self.job_dir, "log-allranks_0.out")
         os.makedirs(self.job_dir, exist_ok=True)
