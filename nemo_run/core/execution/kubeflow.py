@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import getpass
+import json
 import logging
 import os
 import re
@@ -332,13 +333,22 @@ class KubeflowExecutor(Executor):
         until pods are running (up to 10 minutes).  Otherwise it returns the last
         *lines* lines from a single ``kubectl logs`` call.
         """
-        # Tail every rank, but forward only global rank 0 and the last global
-        # rank to the caller (stdout / CI job log). Streaming all ranks at scale
-        # overruns CI/runner job-log size limits, yet the full multi-rank output
-        # is still written to <job_dir>/log-allranks_0.out so downstream log
-        # validation (which globs log*.out) sees every rank. --prefix tags each
-        # line with its pod name so we can recover the node (completion index)
-        # and pair it with torchrun's [defaultN] local-rank marker.
+        # Tail every rank to <job_dir>/log-allranks_0.out (downstream log
+        # validation globs log*.out and needs every rank), but forward only
+        # global rank 0 and the *last* global rank to the caller (stdout / CI
+        # job log) — streaming all ranks at scale overruns CI job-log limits.
+        #
+        # Identifying the last global rank requires the authoritative node rank,
+        # NOT the pod name. Kubeflow Trainer binds torchrun's PET_NODE_RANK to
+        # the indexed-Job completion index, stamped on each pod as the
+        # `batch.kubernetes.io/job-completion-index` label. So:
+        #     global_rank = job_completion_index * nproc_per_node + local_rank
+        # `--prefix` tags each line with `[pod/<pod>/<container>]`; we map that
+        # pod name → completion index (refreshed on every (re)connect, since a
+        # gang restart spawns new pod names) and pair it with torchrun's
+        # `[defaultN]` local-rank marker. `--tail=-1` replays each pod's full
+        # history on (re)attach so mid-run lines are never dropped (the previous
+        # `--tail <lines>` snapshot missed the last rank's per-step lines).
         label_selector = f"jobset.sigs.k8s.io/jobset-name={job_name}"
         cmd = [
             "kubectl",
@@ -349,22 +359,57 @@ class KubeflowExecutor(Executor):
             self.namespace,
             "--prefix",
             "--tail",
-            str(lines),
+            "-1",
             "--max-log-requests",
             str(self.num_nodes),
         ]
         last_node = max(self.num_nodes - 1, 0)
         last_local = max(self.nproc_per_node() - 1, 0)
-        node_re = re.compile(r"node-0-(\d+)-")
+        pod_re = re.compile(r"pod/([^/]+)/")
         local_re = re.compile(r"\[default(\d+)\]")
 
-        def _forward_to_stdout(log_line: str) -> bool:
+        def _pod_index_map() -> dict[str, int]:
+            """Map pod name → job-completion-index (== torchrun node rank)."""
+            try:
+                out = subprocess.run(
+                    [
+                        "kubectl",
+                        "get",
+                        "pods",
+                        "-n",
+                        self.namespace,
+                        "-l",
+                        label_selector,
+                        "-o",
+                        "json",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+                items = json.loads(out.stdout).get("items", [])
+            except Exception as e:
+                logger.warning("Could not list pods for %s: %s", job_name, e)
+                return {}
+            mapping: dict[str, int] = {}
+            for item in items:
+                meta = item.get("metadata", {})
+                name = meta.get("name")
+                idx = (meta.get("labels", {}) or {}).get("batch.kubernetes.io/job-completion-index")
+                if name is not None and idx is not None:
+                    mapping[name] = int(idx)
+            return mapping
+
+        def _forward_to_stdout(log_line: str, pod_index: dict[str, int]) -> bool:
             """True for global rank 0 (node 0, local 0) and the last global rank."""
-            node_match = node_re.search(log_line)
+            pod_match = pod_re.search(log_line)
             local_match = local_re.search(log_line)
-            if not node_match or not local_match:
+            if not pod_match or not local_match:
                 return False
-            node, local = int(node_match.group(1)), int(local_match.group(1))
+            node = pod_index.get(pod_match.group(1))
+            if node is None:
+                return False
+            local = int(local_match.group(1))
             return (node == 0 and local == 0) or (node == last_node and local == last_local)
 
         all_ranks_path = os.path.join(self.job_dir, "log-allranks_0.out")
@@ -375,6 +420,7 @@ class KubeflowExecutor(Executor):
             # Retry kubectl logs -f until the job reaches a terminal state.
             # This handles both pods not yet running and transient mid-stream failures.
             while True:
+                pod_index = _pod_index_map()
                 proc = subprocess.Popen(
                     cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1
                 )
@@ -384,14 +430,14 @@ class KubeflowExecutor(Executor):
                         for line in iter(proc.stdout.readline, ""):
                             if line:
                                 all_ranks_file.write(line)
-                                if _forward_to_stdout(line):
+                                if _forward_to_stdout(line, pod_index):
                                     lines_yielded += 1
                                     yield line
                             if proc.poll() is not None:
                                 for remaining in proc.stdout:
                                     if remaining:
                                         all_ranks_file.write(remaining)
-                                        if _forward_to_stdout(remaining):
+                                        if _forward_to_stdout(remaining, pod_index):
                                             lines_yielded += 1
                                             yield remaining
                                 break
@@ -411,11 +457,12 @@ class KubeflowExecutor(Executor):
                 )
                 time.sleep(5)
         else:
+            pod_index = _pod_index_map()
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             with open(all_ranks_path, "a") as all_ranks_file:
                 for line in result.stdout.splitlines():
                     all_ranks_file.write(line + "\n")
-                    if _forward_to_stdout(line):
+                    if _forward_to_stdout(line, pod_index):
                         yield line
 
     def cancel(
