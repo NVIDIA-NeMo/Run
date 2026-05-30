@@ -43,6 +43,14 @@ logger = logging.getLogger(__name__)
 _TRAINJOB_GROUP = "trainer.kubeflow.org"
 _TRAINJOB_VERSION = "v1alpha1"
 _TRAINJOB_PLURAL = "trainjobs"
+
+# The kubernetes SDK bakes the client cert into its SSLContext at construction
+# time and never re-reads it. When credentials come from a rotating source
+# (e.g. a Teleport tbot that refreshes the cert on disk), a long-running client
+# keeps presenting the original cert until it expires mid-run. Rebuilding the
+# API clients from the on-disk kubeconfig more frequently than the cert TTL
+# keeps a long run (multi-hour jobs) authenticated across rotations.
+_KUBE_CLIENT_REFRESH_SECONDS = 1500
 _TRAINJOB_KIND = "TrainJob"
 
 
@@ -109,6 +117,16 @@ class KubeflowExecutor(Executor):
                 "kubernetes package is required for KubeflowExecutor. "
                 "Install it with: pip install nemo-run[kubeflow]"
             )
+        self._load_kube_clients()
+
+    def _load_kube_clients(self) -> None:
+        """(Re)load the kubeconfig from disk and rebuild the API clients.
+
+        Called at init and again whenever the cached clients age past
+        ``_KUBE_CLIENT_REFRESH_SECONDS`` (see the module constant) so that a
+        rotating client cert (e.g. a Teleport tbot refreshing it on disk) is
+        picked up before the in-memory cert expires.
+        """
         try:
             config.load_kube_config()
         except Exception as original_exc:
@@ -116,8 +134,27 @@ class KubeflowExecutor(Executor):
                 config.load_incluster_config()
             except Exception:
                 raise original_exc
-        self._custom_objects_api = client.CustomObjectsApi()
-        self._core_v1_api = client.CoreV1Api()
+        self._co_api = client.CustomObjectsApi()
+        self._cv_api = client.CoreV1Api()
+        self._kube_clients_loaded_at = time.monotonic()
+
+    def _maybe_reload_kube_clients(self) -> None:
+        """Rebuild the API clients if they are older than the refresh interval."""
+        age = time.monotonic() - getattr(self, "_kube_clients_loaded_at", 0.0)
+        if age >= _KUBE_CLIENT_REFRESH_SECONDS:
+            self._load_kube_clients()
+
+    @property
+    def _custom_objects_api(self):
+        """CustomObjectsApi client, transparently refreshed across cert rotations."""
+        self._maybe_reload_kube_clients()
+        return self._co_api
+
+    @property
+    def _core_v1_api(self):
+        """CoreV1Api client, transparently refreshed across cert rotations."""
+        self._maybe_reload_kube_clients()
+        return self._cv_api
 
     # ── Executor interface ────────────────────────────────────────────────────
 
@@ -306,18 +343,38 @@ class KubeflowExecutor(Executor):
 
     def status(self, job_name: str) -> Optional[KubeflowJobState]:
         """Return the current state of *job_name*, or ``None`` if it no longer exists."""
-        try:
-            resp = self._custom_objects_api.get_namespaced_custom_object(
-                group=_TRAINJOB_GROUP,
-                version=_TRAINJOB_VERSION,
-                namespace=self.namespace,
-                plural=_TRAINJOB_PLURAL,
-                name=job_name,
-            )
-        except ApiException as e:
-            if e.status == 404:
+        resp = None
+        for attempt in range(2):
+            try:
+                resp = self._custom_objects_api.get_namespaced_custom_object(
+                    group=_TRAINJOB_GROUP,
+                    version=_TRAINJOB_VERSION,
+                    namespace=self.namespace,
+                    plural=_TRAINJOB_PLURAL,
+                    name=job_name,
+                )
+                break
+            except ApiException as e:
+                if e.status == 404:
+                    return None
+                logger.warning("API error getting status for %s: %s", job_name, e)
                 return None
-            logger.warning("API error getting status for %s: %s", job_name, e)
+            except Exception as e:
+                # Not an API-level error — most likely an expired client cert
+                # (tbot rotated it on disk but the SDK cached the old one) or a
+                # transient connection error. Force a client reload from the
+                # freshly-rotated kubeconfig and retry once.
+                if attempt == 0:
+                    logger.warning(
+                        "Connection error getting status for %s (%s); reloading kube client",
+                        job_name,
+                        e,
+                    )
+                    self._load_kube_clients()
+                    continue
+                logger.warning("Status check for %s failed after client reload: %s", job_name, e)
+                return None
+        if resp is None:
             return None
 
         job_status = resp.get("status", {})
