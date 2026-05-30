@@ -173,10 +173,18 @@ class KubeflowExecutor(Executor):
     def code_dir(self) -> str:
         """Subdirectory on the PVC where user code (launch.sh, scripts) is synced.
 
-        Scoped to ``<workdir_pvc_path>/<username>/code`` so multiple users sharing
-        the same PVC never clobber each other's files.
+        Scoped to ``<workdir_pvc_path>/<username>/<experiment_id>/<job_name>/code``
+        so that neither multiple users *nor* multiple concurrent jobs from the
+        same user clobber each other's launcher code on a shared PVC — each
+        ``package()`` rsyncs its ``job_dir`` here, so an unscoped path lets a
+        second job overwrite the first job's code mid-run. Falls back to a bare
+        ``<username>/code`` only before the executor is assigned to a task.
         """
-        return f"{self.workdir_pvc_path.rstrip('/')}/{getpass.getuser()}/code"
+        parts = [
+            p for p in (getattr(self, "experiment_id", None), getattr(self, "job_name", None)) if p
+        ]
+        scope = "/".join([getpass.getuser(), *parts])
+        return f"{self.workdir_pvc_path.rstrip('/')}/{scope}/code"
 
     def nproc_per_node(self) -> int:
         """Return processes per node: nprocs_per_node → gpus_per_node → 1."""
