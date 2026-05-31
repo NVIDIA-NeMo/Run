@@ -609,10 +609,40 @@ class KubeflowExecutor(Executor):
             # older than REORDER_HOLD_S — long enough to absorb cross-node clock
             # skew + flush jitter, short enough to keep the console near-live.
             reorder_hold_s = 2.0
+            # First attach: resolve BOTH rank 0 and the last rank before forwarding
+            # any line. GROUP_RANK is only readable once the torchrun workers have
+            # rendezvoused, so the map is empty at first and _forward_to_stdout would
+            # fall back to rank-0-only — the last rank's early per-step loss lines
+            # (replayed via --tail=-1) would land in log-allranks but never reach
+            # stdout, silently dropping the beginning of the run from the CI log.
+            # Poll until both are resolved, capped so a run that never exposes
+            # GROUP_RANK still streams (with the completion-index fallback).
+            rank_resolve_timeout_s = 600.0
+            rank_resolve_poll_s = 5.0
             since_time: Optional[str] = None
             while True:
                 pod_index = _pod_index_map()
                 _ensure_group_ranks(set(pod_index))
+                if since_time is None:
+                    # First attach: wait until BOTH rank 0 and the last rank are
+                    # resolved before forwarding, so the last rank's early per-step
+                    # lines (replayed via --tail=-1) reach stdout instead of only
+                    # log-allranks. Only wait while pods are actually listable; an
+                    # empty list (no kubectl / unit tests) skips the wait and streams
+                    # with the existing completion-index fallback.
+                    resolve_deadline = time.time() + rank_resolve_timeout_s
+                    while pod_index and not {0, last_group_rank} <= set(group_rank_map.values()):
+                        if time.time() >= resolve_deadline:
+                            logger.warning(
+                                "rank 0 / last rank (%d) not both resolved within %.0fs; "
+                                "forwarding with completion-index fallback",
+                                last_group_rank,
+                                rank_resolve_timeout_s,
+                            )
+                            break
+                        time.sleep(rank_resolve_poll_s)
+                        pod_index = _pod_index_map()
+                        _ensure_group_ranks(set(pod_index))
                 attempt_cmd = base_cmd + ["--timestamps", "-f"]
                 # First attach replays history (--tail=-1); reconnects resume from
                 # the last seen timestamp so re-attaching never re-emits old lines.
