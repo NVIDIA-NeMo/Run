@@ -93,6 +93,11 @@ class KubeflowExecutor(Executor):
     volumes: list[dict[str, Any]] = field(default_factory=list)
     labels: dict[str, Any] = field(default_factory=dict)
     annotations: dict[str, Any] = field(default_factory=dict)
+    # pod_annotations land on the trainer POD template (podTemplateOverrides[].metadata),
+    # not the TrainJob object — needed for e.g. GKE multi-network attach
+    # (networking.gke.io/interfaces) which is read off the pod, not the TrainJob.
+    pod_annotations: dict[str, Any] = field(default_factory=dict)
+    pod_labels: dict[str, Any] = field(default_factory=dict)
     tolerations: list[dict[str, Any]] = field(default_factory=list)
     affinity: dict[str, Any] = field(default_factory=dict)
     # env_list accepts full env var dicts (e.g. valueFrom/secretKeyRef).
@@ -267,10 +272,18 @@ class KubeflowExecutor(Executor):
             "runtimeRef": {"name": self.runtime_ref},
             "trainer": trainer,
         }
-        if pod_spec_override:
-            spec["podTemplateOverrides"] = [
-                {"targetJobs": [{"name": "node"}], "spec": pod_spec_override}
-            ]
+        if pod_spec_override or self.pod_annotations or self.pod_labels:
+            override_entry: dict[str, Any] = {"targetJobs": [{"name": "node"}]}
+            if pod_spec_override:
+                override_entry["spec"] = pod_spec_override
+            pod_meta: dict[str, Any] = {}
+            if self.pod_labels:
+                pod_meta["labels"] = self.pod_labels
+            if self.pod_annotations:
+                pod_meta["annotations"] = self.pod_annotations
+            if pod_meta:
+                override_entry["metadata"] = pod_meta
+            spec["podTemplateOverrides"] = [override_entry]
         spec.update(self.spec_kwargs)
 
         metadata: dict[str, Any] = {"name": name, "namespace": self.namespace}
