@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -446,14 +447,22 @@ class KubeflowExecutor(Executor):
         # The last global rank is resolved at stream time, not the pod name:
         # the trainer runs `torchrun --node-rank $PET_NODE_RANK`, and the runtime
         # sets PET_NODE_RANK = the pod's `batch.kubernetes.io/job-completion-index`
-        # label, so global_rank = completion_index * nproc_per_node + local_rank
-        # is deterministic. `--prefix` tags each line `[pod/<pod>/<container>]`; we
-        # map that pod name → completion index (re-read on every (re)connect, since
-        # a gang restart spawns new pod names) and pair it with torchrun's
-        # `[defaultN]` local-rank marker. `--tail=-1` replays each pod's full
-        # history on (re)attach so mid-run lines are never dropped.
+        # label. `--prefix` tags each line `[pod/<pod>/<container>]`; we map that
+        # pod name → completion index and pair it with torchrun's `[defaultN]`
+        # local-rank marker (see _forward_to_stdout).
+        #
+        # Robust streaming: `kubectl logs -l -f` only follows the pods present
+        # when it attaches and never re-attaches to a container that restarts, so
+        # a single long-lived follow silently drops pods after a gang/NCCL-init
+        # restart. We therefore (a) give --max-log-requests headroom so a restart
+        # that transiently doubles the matching-pod count can't error the whole
+        # command ("maximum allowed concurrency"), and (b) periodically re-attach.
+        # To avoid re-emitting the full history on every re-attach, reconnects
+        # resume via `--since-time` (with `--timestamps`); only the first attach
+        # uses `--tail=-1` to capture pre-existing history.
         label_selector = f"jobset.sigs.k8s.io/jobset-name={job_name}"
-        cmd = [
+        max_log_requests = max(self.num_nodes * 2, 8)
+        base_cmd = [
             "kubectl",
             "logs",
             "-l",
@@ -461,25 +470,21 @@ class KubeflowExecutor(Executor):
             "-n",
             self.namespace,
             "--prefix",
-            "--tail",
-            "-1",
             "--max-log-requests",
-            str(self.num_nodes),
+            str(max_log_requests),
         ]
-        # Collapse the near-simultaneous cross-rank burst with a *sliding time
-        # window* (cf. ClusterShell `clush -b`, which gathers identical output
-        # across nodes into one line). torchrun runs the same entrypoint on
-        # every rank, so startup/config/NCCL lines arrive as a burst of
-        # byte-identical copies; we strip the per-rank `[pod/<pod>/<container>]`
-        # and `[defaultN]` markers to form a dedup key and suppress a key only
-        # if an identical line was already forwarded within `dedup_window_s`.
-        # Unlike a global set this is bounded in both memory and time: a line
-        # that legitimately recurs later (e.g. a periodic "saving checkpoint")
-        # is forwarded again once the window passes, and a continuously
-        # repeating line is rate-limited to once per window rather than
-        # suppressed for the whole run. Lines whose body differs across ranks
-        # (per-step loss, `[rankN]` errors) keep distinct keys and are never
-        # collapsed. The full per-rank stream still goes to log-allranks_0.out.
+        # `--prefix --timestamps` lines look like:
+        #   [pod/<pod>/<container>] <RFC3339> [defaultN]: <message>
+        # Track the max RFC3339 stamp to resume via --since-time, and strip it so
+        # downstream sees the original `[pod/...] [defaultN]: <message>`.
+        ts_re = re.compile(r"^(\[pod/[^\]]+\])\s+(\d{4}-\d\d-\d\dT[\d:.]+Z)\s")
+
+        def _split_ts(line: str) -> tuple[Optional[str], str]:
+            m = ts_re.match(line)
+            if not m:
+                return None, line
+            return m.group(2), m.group(1) + " " + line[m.end() :]
+
         nproc = self.nproc_per_node()
         pod_re = re.compile(r"pod/([^/]+)/")
         local_re = re.compile(r"\[default(\d+)\]")
@@ -534,49 +539,48 @@ class KubeflowExecutor(Executor):
         os.makedirs(self.job_dir, exist_ok=True)
 
         if stream:
-            cmd.append("-f")
-            # Retry kubectl logs -f until the job reaches a terminal state.
-            # This handles both pods not yet running and transient mid-stream failures.
+            reattach_interval_s = 120.0
+            since_time: Optional[str] = None
             while True:
                 pod_index = _pod_index_map()
+                attempt_cmd = base_cmd + ["--timestamps", "-f"]
+                # First attach replays history (--tail=-1); reconnects resume from
+                # the last seen timestamp so re-attaching never re-emits old lines.
+                attempt_cmd += ["--tail", "-1"] if since_time is None else ["--since-time", since_time]
                 proc = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1
+                    attempt_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1
                 )
-                lines_yielded = 0
+                # Force a periodic re-attach (terminate → reconnect) so pods that
+                # (re)started after this attach are picked up; --since-time keeps
+                # the reconnect from replaying history.
+                reattach_timer = threading.Timer(reattach_interval_s, proc.terminate)
+                reattach_timer.start()
                 try:
                     with open(all_ranks_path, "a") as all_ranks_file:
-                        for line in iter(proc.stdout.readline, ""):
-                            if line:
-                                all_ranks_file.write(line)
-                                if _forward_to_stdout(line, pod_index):
-                                    lines_yielded += 1
-                                    yield line
-                            if proc.poll() is not None:
-                                for remaining in proc.stdout:
-                                    if remaining:
-                                        all_ranks_file.write(remaining)
-                                        if _forward_to_stdout(remaining, pod_index):
-                                            lines_yielded += 1
-                                            yield remaining
-                                break
+                        for raw in iter(proc.stdout.readline, ""):
+                            if not raw:
+                                continue
+                            ts, line = _split_ts(raw)
+                            if ts is not None and (since_time is None or ts > since_time):
+                                since_time = ts
+                            all_ranks_file.write(line)
+                            if _forward_to_stdout(line, pod_index):
+                                yield line
                 except Exception as e:
                     logger.warning("Error streaming logs: %s; retrying", e)
                 finally:
+                    reattach_timer.cancel()
                     proc.terminate()
                     proc.wait(timeout=2)
                 state = self.status(job_name)
                 if state in (KubeflowJobState.SUCCEEDED, KubeflowJobState.FAILED):
                     break  # job reached a terminal state, stop streaming
-                logger.warning(
-                    "kubectl logs exited (rc=%d, lines=%d, state=%s); retrying",
-                    proc.returncode,
-                    lines_yielded,
-                    state,
-                )
-                time.sleep(5)
+                time.sleep(2)
         else:
             pod_index = _pod_index_map()
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            result = subprocess.run(
+                base_cmd + ["--tail", "-1"], capture_output=True, text=True, timeout=timeout
+            )
             with open(all_ranks_path, "a") as all_ranks_file:
                 for line in result.stdout.splitlines():
                     all_ranks_file.write(line + "\n")
