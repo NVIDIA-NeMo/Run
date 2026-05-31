@@ -481,7 +481,6 @@ class KubeflowExecutor(Executor):
         # (per-step loss, `[rankN]` errors) keep distinct keys and are never
         # collapsed. The full per-rank stream still goes to log-allranks_0.out.
         nproc = self.nproc_per_node()
-        last_rank = max(self.num_nodes * nproc - 1, 0)
         pod_re = re.compile(r"pod/([^/]+)/")
         local_re = re.compile(r"\[default(\d+)\]")
 
@@ -507,8 +506,20 @@ class KubeflowExecutor(Executor):
                     mapping[name] = int(idx)
             return mapping
 
+        # Two ranks worth surfacing to the CI console: rank 0 (setup/config) at
+        # completion-index 0 / local 0, and the rank that emits print_rank_last's
+        # per-step loss/throughput. The c10d rendezvous does NOT map completion
+        # index to torch rank identically (it assigns by join order), so torch's
+        # world_size-1 does not land on the highest completion-index. Empirically
+        # on this JobSet it lands on completion-index `num_nodes//2 + 1`, local
+        # rank `nproc-1` (e.g. 16 nodes → index 9; default7 on 8-GPU, default3 on
+        # 4-GPU). Match those two slots directly. (A deterministic completion
+        # index→rank mapping — e.g. topology-aware/static rank ordering — would
+        # let us compute this instead of relying on the observed slot.)
+        last_node = self.num_nodes // 2 + 1
+
         def _forward_to_stdout(log_line: str, pod_index: dict[str, int]) -> bool:
-            """True for global rank 0 and the last global rank only."""
+            """True only for (index 0, local 0) and (index num_nodes//2+1, local nproc-1)."""
             pod_match = pod_re.search(log_line)
             local_match = local_re.search(log_line)
             if not pod_match or not local_match:
@@ -516,8 +527,8 @@ class KubeflowExecutor(Executor):
             node = pod_index.get(pod_match.group(1))
             if node is None:
                 return False
-            global_rank = node * nproc + int(local_match.group(1))
-            return global_rank == 0 or global_rank == last_rank
+            local = int(local_match.group(1))
+            return (node == 0 and local == 0) or (node == last_node and local == nproc - 1)
 
         all_ranks_path = os.path.join(self.job_dir, "log-allranks_0.out")
         os.makedirs(self.job_dir, exist_ok=True)
