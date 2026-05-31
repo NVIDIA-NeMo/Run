@@ -511,29 +511,66 @@ class KubeflowExecutor(Executor):
                     mapping[name] = int(idx)
             return mapping
 
-        # Two ranks worth surfacing to the CI console: rank 0 (setup/config) at
-        # completion-index 0 / local 0, and the rank that emits print_rank_last's
-        # per-step loss/throughput. The c10d rendezvous does NOT map completion
-        # index to torch rank identically (it assigns by join order), so torch's
-        # world_size-1 does not land on the highest completion-index. Empirically
-        # on this JobSet it lands on completion-index `num_nodes//2 + 1`, local
-        # rank `nproc-1` (e.g. 16 nodes → index 9; default7 on 8-GPU, default3 on
-        # 4-GPU). Match those two slots directly. (A deterministic completion
-        # index→rank mapping — e.g. topology-aware/static rank ordering — would
-        # let us compute this instead of relying on the observed slot.)
-        last_node = self.num_nodes // 2 + 1
+        # Forward only RANK 0 (setup/config) and RANK world_size-1 (Megatron's
+        # print_rank_last per-step loss/throughput). The c10d rendezvous assigns
+        # torch ranks by join order, NOT by JobSet completion-index, so we read
+        # the ground truth: torchrun exports GROUP_RANK (the node rank) into every
+        # worker's /proc/<pid>/environ. The pod whose worker has GROUP_RANK 0
+        # holds RANK 0 (local 0); the pod with GROUP_RANK num_nodes-1 holds
+        # RANK world_size-1 (local nproc-1). The map is resolved once the workers
+        # exist (post-rendezvous) and cached; it is re-resolved when the rank-0 or
+        # last pod is no longer covered (a gang restart reshuffles ranks). Before
+        # the workers come up (empty map) we fall back to the completion-index-0
+        # pod so early setup output still streams.
+        last_group_rank = self.num_nodes - 1
+        group_rank_map: dict[str, int] = {}
+
+        def _read_group_rank(pod: str) -> Optional[int]:
+            """Read a torchrun worker's GROUP_RANK from /proc/<pid>/environ in *pod*."""
+            script = (
+                "for e in /proc/[0-9]*/environ; do "
+                "g=$(tr '\\0' '\\n' < \"$e\" 2>/dev/null | grep -m1 '^GROUP_RANK='); "
+                "[ -n \"$g\" ] && { echo \"$g\"; break; }; done"
+            )
+            try:
+                out = subprocess.run(
+                    ["kubectl", "exec", pod, "-n", self.namespace, "-c", "node", "--", "sh", "-c", script],
+                    capture_output=True,
+                    text=True,
+                    timeout=min(timeout, 30),
+                )
+            except Exception:
+                return None
+            m = re.search(r"GROUP_RANK=(\d+)", out.stdout)
+            return int(m.group(1)) if m else None
+
+        def _ensure_group_ranks(current_pods: set[str]) -> None:
+            """Resolve pod → GROUP_RANK via worker environ if rank 0 / last not yet covered."""
+            covered = {group_rank_map[p] for p in current_pods if p in group_rank_map}
+            if 0 in covered and last_group_rank in covered:
+                return
+            group_rank_map.clear()
+            for pod in current_pods:
+                g = _read_group_rank(pod)
+                if g is not None:
+                    group_rank_map[pod] = g
 
         def _forward_to_stdout(log_line: str, pod_index: dict[str, int]) -> bool:
-            """True only for (index 0, local 0) and (index num_nodes//2+1, local nproc-1)."""
+            """True only for RANK 0 and RANK world_size-1.
+
+            Uses the resolved GROUP_RANK map; before the workers come up (empty
+            map) falls back to the completion-index-0 pod for early setup output.
+            """
             pod_match = pod_re.search(log_line)
             local_match = local_re.search(log_line)
             if not pod_match or not local_match:
                 return False
-            node = pod_index.get(pod_match.group(1))
-            if node is None:
-                return False
+            pod = pod_match.group(1)
             local = int(local_match.group(1))
-            return (node == 0 and local == 0) or (node == last_node and local == nproc - 1)
+            gr = group_rank_map.get(pod)
+            if gr is not None:
+                return (gr == 0 and local == 0) or (gr == last_group_rank and local == nproc - 1)
+            return pod_index.get(pod) == 0 and local == 0
 
         all_ranks_path = os.path.join(self.job_dir, "log-allranks_0.out")
         os.makedirs(self.job_dir, exist_ok=True)
@@ -543,6 +580,7 @@ class KubeflowExecutor(Executor):
             since_time: Optional[str] = None
             while True:
                 pod_index = _pod_index_map()
+                _ensure_group_ranks(set(pod_index))
                 attempt_cmd = base_cmd + ["--timestamps", "-f"]
                 # First attach replays history (--tail=-1); reconnects resume from
                 # the last seen timestamp so re-attaching never re-emits old lines.
@@ -578,6 +616,7 @@ class KubeflowExecutor(Executor):
                 time.sleep(2)
         else:
             pod_index = _pod_index_map()
+            _ensure_group_ranks(set(pod_index))
             result = subprocess.run(
                 base_cmd + ["--tail", "-1"], capture_output=True, text=True, timeout=timeout
             )
