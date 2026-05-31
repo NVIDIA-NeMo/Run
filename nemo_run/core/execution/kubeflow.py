@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import calendar
 import getpass
 import json
 import logging
@@ -485,6 +486,17 @@ class KubeflowExecutor(Executor):
                 return None, line
             return m.group(2), m.group(1) + " " + line[m.end() :]
 
+        epoch_re = re.compile(r"^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d+))?Z?$")
+
+        def _ts_epoch(ts: str) -> Optional[float]:
+            """RFC3339 UTC stamp (kubectl --timestamps, ns precision) → epoch seconds."""
+            m = epoch_re.match(ts)
+            if not m:
+                return None
+            y, mo, d, h, mi, s = (int(m.group(i)) for i in range(1, 7))
+            frac = float("0." + m.group(7)) if m.group(7) else 0.0
+            return calendar.timegm((y, mo, d, h, mi, s, 0, 0, 0)) + frac
+
         nproc = self.nproc_per_node()
         pod_re = re.compile(r"pod/([^/]+)/")
         local_re = re.compile(r"\[default(\d+)\]")
@@ -577,6 +589,13 @@ class KubeflowExecutor(Executor):
 
         if stream:
             reattach_interval_s = 120.0
+            # `kubectl logs -l ... -f` multiplexes pods in ARRIVAL order, so the two
+            # forwarded streams (rank 0 and the last rank, on different pods) can
+            # interleave out of timestamp order. Hold each forwarded line in a small
+            # buffer and emit sorted by the kubelet --timestamps value once it is
+            # older than REORDER_HOLD_S — long enough to absorb cross-node clock
+            # skew + flush jitter, short enough to keep the console near-live.
+            reorder_hold_s = 2.0
             since_time: Optional[str] = None
             while True:
                 pod_index = _pod_index_map()
@@ -593,6 +612,7 @@ class KubeflowExecutor(Executor):
                 # the reconnect from replaying history.
                 reattach_timer = threading.Timer(reattach_interval_s, proc.terminate)
                 reattach_timer.start()
+                reorder_buf: list[tuple[float, str]] = []
                 try:
                     with open(all_ranks_path, "a") as all_ranks_file:
                         for raw in iter(proc.stdout.readline, ""):
@@ -602,14 +622,32 @@ class KubeflowExecutor(Executor):
                             if ts is not None and (since_time is None or ts > since_time):
                                 since_time = ts
                             all_ranks_file.write(line)
-                            if _forward_to_stdout(line, pod_index):
+                            if not _forward_to_stdout(line, pod_index):
+                                continue
+                            ep = _ts_epoch(ts) if ts else None
+                            if ep is None:
                                 yield line
+                                continue
+                            reorder_buf.append((ep, line))
+                            reorder_buf.sort(key=lambda x: x[0])
+                            cutoff = ep - reorder_hold_s
+                            ready = 0
+                            while ready < len(reorder_buf) and reorder_buf[ready][0] <= cutoff:
+                                ready += 1
+                            for _, ready_line in reorder_buf[:ready]:
+                                yield ready_line
+                            del reorder_buf[:ready]
                 except Exception as e:
                     logger.warning("Error streaming logs: %s; retrying", e)
                 finally:
                     reattach_timer.cancel()
                     proc.terminate()
                     proc.wait(timeout=2)
+                # Flush the rest in timestamp order before re-attaching (yielding in
+                # finally is unsafe on generator close, so drain here).
+                reorder_buf.sort(key=lambda x: x[0])
+                for _, ready_line in reorder_buf:
+                    yield ready_line
                 state = self.status(job_name)
                 if state in (KubeflowJobState.SUCCEEDED, KubeflowJobState.FAILED):
                     break  # job reached a terminal state, stop streaming
