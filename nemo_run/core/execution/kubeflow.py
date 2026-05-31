@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import getpass
+import json
 import logging
 import os
 import re
@@ -437,17 +438,20 @@ class KubeflowExecutor(Executor):
         *lines* lines from a single ``kubectl logs`` call.
         """
         # Tail every rank to <job_dir>/log-allranks_0.out (downstream log
-        # validation globs log*.out and needs every rank). Forward all ranks to
-        # the caller (stdout / CI job log) too, but de-duplicated: torchrun runs
-        # the same entrypoint on every rank, so the bulk of the volume (startup,
-        # config dump, NCCL init) is byte-identical across ranks. We forward each
-        # distinct message once — which is also why the rank-specific loss line
-        # (emitted by a single, parallelism-layout-dependent rank that is usually
-        # neither rank 0 nor the last rank) and genuine per-rank errors are no
-        # longer dropped. `--prefix` tags each line with `[pod/<pod>/<container>]`
-        # and torchrun adds `[defaultN]`; both are stripped to form the dedup key.
-        # `--tail=-1` replays each pod's full history on (re)attach so mid-run
-        # lines are never dropped.
+        # validation globs log*.out and needs every rank), but forward only
+        # global rank 0 and the *last* global rank to the caller (stdout / CI
+        # job log) — rank 0 carries setup/config, the last rank carries
+        # Megatron's print_rank_last per-step loss/throughput.
+        #
+        # The last global rank is resolved at stream time, not the pod name:
+        # the trainer runs `torchrun --node-rank $PET_NODE_RANK`, and the runtime
+        # sets PET_NODE_RANK = the pod's `batch.kubernetes.io/job-completion-index`
+        # label, so global_rank = completion_index * nproc_per_node + local_rank
+        # is deterministic. `--prefix` tags each line `[pod/<pod>/<container>]`; we
+        # map that pod name → completion index (re-read on every (re)connect, since
+        # a gang restart spawns new pod names) and pair it with torchrun's
+        # `[defaultN]` local-rank marker. `--tail=-1` replays each pod's full
+        # history on (re)attach so mid-run lines are never dropped.
         label_selector = f"jobset.sigs.k8s.io/jobset-name={job_name}"
         cmd = [
             "kubectl",
@@ -476,29 +480,44 @@ class KubeflowExecutor(Executor):
         # suppressed for the whole run. Lines whose body differs across ranks
         # (per-step loss, `[rankN]` errors) keep distinct keys and are never
         # collapsed. The full per-rank stream still goes to log-allranks_0.out.
-        rank_marker_re = re.compile(r"\[pod/[^\]]+\]\s*|\[default\d+\]:?\s*")
-        dedup_window_s = 60.0
-        last_forwarded: dict[str, float] = {}
+        nproc = self.nproc_per_node()
+        last_rank = max(self.num_nodes * nproc - 1, 0)
+        pod_re = re.compile(r"pod/([^/]+)/")
+        local_re = re.compile(r"\[default(\d+)\]")
 
-        def _should_forward(log_line: str) -> bool:
-            key = rank_marker_re.sub("", log_line).strip()
-            if not key:
-                # Blank / prefix-only line: no content, so don't forward it to
-                # the CI log (every rank emits these; they're pure noise). The
-                # full per-rank stream still captures them in log-allranks_0.out.
+        def _pod_index_map() -> dict[str, int]:
+            """Map pod name → job-completion-index (== torchrun node rank)."""
+            try:
+                out = subprocess.run(
+                    ["kubectl", "get", "pods", "-n", self.namespace, "-l", label_selector, "-o", "json"],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+                items = json.loads(out.stdout).get("items", [])
+            except Exception as e:
+                logger.warning("Could not list pods for %s: %s", job_name, e)
+                return {}
+            mapping: dict[str, int] = {}
+            for item in items:
+                meta = item.get("metadata", {})
+                name = meta.get("name")
+                idx = (meta.get("labels", {}) or {}).get("batch.kubernetes.io/job-completion-index")
+                if name is not None and idx is not None:
+                    mapping[name] = int(idx)
+            return mapping
+
+        def _forward_to_stdout(log_line: str, pod_index: dict[str, int]) -> bool:
+            """True for global rank 0 and the last global rank only."""
+            pod_match = pod_re.search(log_line)
+            local_match = local_re.search(log_line)
+            if not pod_match or not local_match:
                 return False
-            now = time.monotonic()
-            prev = last_forwarded.get(key)
-            if prev is not None and now - prev < dedup_window_s:
+            node = pod_index.get(pod_match.group(1))
+            if node is None:
                 return False
-            last_forwarded[key] = now
-            # Bound memory: once the map is large, drop keys older than the
-            # window (they can no longer suppress anything).
-            if len(last_forwarded) > 20000:
-                stale = now - dedup_window_s
-                for k in [k for k, t in last_forwarded.items() if t < stale]:
-                    del last_forwarded[k]
-            return True
+            global_rank = node * nproc + int(local_match.group(1))
+            return global_rank == 0 or global_rank == last_rank
 
         all_ranks_path = os.path.join(self.job_dir, "log-allranks_0.out")
         os.makedirs(self.job_dir, exist_ok=True)
@@ -508,6 +527,7 @@ class KubeflowExecutor(Executor):
             # Retry kubectl logs -f until the job reaches a terminal state.
             # This handles both pods not yet running and transient mid-stream failures.
             while True:
+                pod_index = _pod_index_map()
                 proc = subprocess.Popen(
                     cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1
                 )
@@ -517,14 +537,14 @@ class KubeflowExecutor(Executor):
                         for line in iter(proc.stdout.readline, ""):
                             if line:
                                 all_ranks_file.write(line)
-                                if _should_forward(line):
+                                if _forward_to_stdout(line, pod_index):
                                     lines_yielded += 1
                                     yield line
                             if proc.poll() is not None:
                                 for remaining in proc.stdout:
                                     if remaining:
                                         all_ranks_file.write(remaining)
-                                        if _should_forward(remaining):
+                                        if _forward_to_stdout(remaining, pod_index):
                                             lines_yielded += 1
                                             yield remaining
                                 break
@@ -544,11 +564,12 @@ class KubeflowExecutor(Executor):
                 )
                 time.sleep(5)
         else:
+            pod_index = _pod_index_map()
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             with open(all_ranks_path, "a") as all_ranks_file:
                 for line in result.stdout.splitlines():
                     all_ranks_file.write(line + "\n")
-                    if _should_forward(line):
+                    if _forward_to_stdout(line, pod_index):
                         yield line
 
     def cancel(
