@@ -315,7 +315,9 @@ class KubeflowExecutor(Executor):
         cached = getattr(self, "_k8s_job_name", None)
         if cached is not None:
             return cached
-        base = re.sub(r"[^a-z0-9-]+", "-", (self.train_job_basename or fallback or "job").lower()).strip("-")
+        base = re.sub(
+            r"[^a-z0-9-]+", "-", (self.train_job_basename or fallback or "job").lower()
+        ).strip("-")
         uid = uuid.uuid4().hex[:6]
         base = base[: 33 - len(uid) - 1].strip("-") or "job"
         self._k8s_job_name = f"{base}-{uid}"
@@ -518,7 +520,17 @@ class KubeflowExecutor(Executor):
             """Map pod name → job-completion-index (== torchrun node rank)."""
             try:
                 out = subprocess.run(
-                    ["kubectl", "get", "pods", "-n", self.namespace, "-l", label_selector, "-o", "json"],
+                    [
+                        "kubectl",
+                        "get",
+                        "pods",
+                        "-n",
+                        self.namespace,
+                        "-l",
+                        label_selector,
+                        "-o",
+                        "json",
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -555,11 +567,23 @@ class KubeflowExecutor(Executor):
             script = (
                 "for e in /proc/[0-9]*/environ; do "
                 "g=$(tr '\\0' '\\n' < \"$e\" 2>/dev/null | grep -m1 '^GROUP_RANK='); "
-                "[ -n \"$g\" ] && { echo \"$g\"; break; }; done"
+                '[ -n "$g" ] && { echo "$g"; break; }; done'
             )
             try:
                 out = subprocess.run(
-                    ["kubectl", "exec", pod, "-n", self.namespace, "-c", "node", "--", "sh", "-c", script],
+                    [
+                        "kubectl",
+                        "exec",
+                        pod,
+                        "-n",
+                        self.namespace,
+                        "-c",
+                        "node",
+                        "--",
+                        "sh",
+                        "-c",
+                        script,
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=min(timeout, 30),
@@ -644,9 +668,15 @@ class KubeflowExecutor(Executor):
                 attempt_cmd = base_cmd + ["--timestamps", "-f"]
                 # First attach replays history (--tail=-1); reconnects resume from
                 # the last seen timestamp so re-attaching never re-emits old lines.
-                attempt_cmd += ["--tail", "-1"] if since_time is None else ["--since-time", since_time]
+                attempt_cmd += (
+                    ["--tail", "-1"] if since_time is None else ["--since-time", since_time]
+                )
                 proc = subprocess.Popen(
-                    attempt_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1
+                    attempt_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    bufsize=1,
                 )
                 # Force a periodic re-attach (terminate → reconnect) so pods that
                 # (re)started after this attach are picked up; --since-time keeps
