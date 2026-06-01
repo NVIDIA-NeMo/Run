@@ -617,7 +617,6 @@ class KubeflowExecutor(Executor):
             # stdout, silently dropping the beginning of the run from the CI log.
             # Poll until both are resolved, capped so a run that never exposes
             # GROUP_RANK still streams (with the completion-index fallback).
-            rank_resolve_timeout_s = 600.0
             rank_resolve_poll_s = 5.0
             since_time: Optional[str] = None
             while True:
@@ -627,18 +626,17 @@ class KubeflowExecutor(Executor):
                     # First attach: wait until BOTH rank 0 and the last rank are
                     # resolved before forwarding, so the last rank's early per-step
                     # lines (replayed via --tail=-1) reach stdout instead of only
-                    # log-allranks. Only wait while pods are actually listable; an
-                    # empty list (no kubectl / unit tests) skips the wait and streams
-                    # with the existing completion-index fallback.
-                    resolve_deadline = time.time() + rank_resolve_timeout_s
+                    # log-allranks. Never fall back to the completion-index heuristic
+                    # — it forwards the wrong rank. The job may sit Pending (waiting
+                    # for nodes) or be mid-rendezvous, so keep waiting while it is
+                    # alive; --tail=-1 on first attach replays history, so nothing is
+                    # lost by waiting. Stop only if the job reaches a terminal state
+                    # (or pods aren't listable at all — e.g. no kubectl / unit tests).
                     while pod_index and not {0, last_group_rank} <= set(group_rank_map.values()):
-                        if time.time() >= resolve_deadline:
-                            logger.warning(
-                                "rank 0 / last rank (%d) not both resolved within %.0fs; "
-                                "forwarding with completion-index fallback",
-                                last_group_rank,
-                                rank_resolve_timeout_s,
-                            )
+                        if self.status(job_name) in (
+                            KubeflowJobState.SUCCEEDED,
+                            KubeflowJobState.FAILED,
+                        ):
                             break
                         time.sleep(rank_resolve_poll_s)
                         pod_index = _pod_index_map()
