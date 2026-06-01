@@ -243,7 +243,8 @@ class TestKubeflowExecutor:
         mock_custom.create_namespaced_custom_object.return_value = {}
 
         job_name, state = executor.launch("test-job", ["/bin/bash", "-c", "echo hi"])
-        assert job_name == "test-job"
+        # TrainJob names are <base>-<uuid6> (RFC-1123 safe, unique per launch)
+        assert job_name.startswith("test-job-") and len(job_name) == len("test-job-") + 6
         assert state == KubeflowJobState.CREATED
         mock_custom.create_namespaced_custom_object.assert_called_once()
 
@@ -272,12 +273,18 @@ class TestKubeflowExecutor:
             with pytest.raises(RuntimeError, match="did not reach RUNNING"):
                 executor.launch("test-job", ["echo"], wait=True, timeout=-1)
 
-    def test_launch_conflict(self, executor, mock_k8s_clients):
+    def test_launch_conflict_recreates(self, executor, mock_k8s_clients):
         mock_custom, _ = mock_k8s_clients
-        mock_custom.create_namespaced_custom_object.side_effect = ApiException(status=409)
+        # A 409 means a stale TrainJob from a prior attempt lingers; launch cancels
+        # it and recreates so the caller's retry makes progress (idempotent launch).
+        mock_custom.create_namespaced_custom_object.side_effect = [ApiException(status=409), {}]
 
-        with pytest.raises(RuntimeError, match="already exists"):
-            executor.launch("test-job", ["/bin/bash", "-c", "echo hi"])
+        with patch.object(executor, "cancel") as mock_cancel:
+            _, state = executor.launch("test-job", ["/bin/bash", "-c", "echo hi"])
+
+        mock_cancel.assert_called_once()
+        assert mock_custom.create_namespaced_custom_object.call_count == 2
+        assert state == KubeflowJobState.CREATED
 
     def test_status_running(self, executor, mock_k8s_clients):
         mock_custom, _ = mock_k8s_clients
@@ -346,34 +353,38 @@ class TestKubeflowExecutor:
 
     # ── Logs ─────────────────────────────────────────────────────────────────────
 
-    def test_fetch_logs_no_follow(self, executor, mock_k8s_clients):
+    def test_fetch_logs_no_follow(self, executor, mock_k8s_clients, tmp_path):
+        executor.job_dir = str(tmp_path)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="line1\nline2\n")
-            lines = list(executor.fetch_logs("my-job", stream=False, lines=50))
+            list(executor.fetch_logs("my-job", stream=False, lines=50))
 
-        mock_run.assert_called_once()
-        called_cmd = mock_run.call_args[0][0]
-        assert "--tail" in called_cmd
-        assert "50" in called_cmd
-        label_arg = " ".join(called_cmd)
-        assert "jobset.sigs.k8s.io/jobset-name=my-job" in label_arg
-        assert "-f" not in called_cmd
-        assert lines == ["line1", "line2"]
+        # the kubectl logs call (distinct from the pod-index lookup) targets the
+        # jobset and does not follow.
+        log_cmd = next(c.args[0] for c in mock_run.call_args_list if "logs" in c.args[0])
+        assert "jobset.sigs.k8s.io/jobset-name=my-job" in " ".join(log_cmd)
+        assert "--tail" in log_cmd and "-f" not in log_cmd
+        # every rank is persisted to the all-ranks log
+        assert (tmp_path / "log-allranks_0.out").read_text() == "line1\nline2\n"
 
-    def test_fetch_logs_follow(self, executor, mock_k8s_clients):
+    def test_fetch_logs_follow(self, executor, mock_k8s_clients, tmp_path):
         import io
 
+        executor.job_dir = str(tmp_path)
         mock_proc = MagicMock()
         mock_proc.stdout = io.StringIO("line1\nline2\n")
         mock_proc.poll.return_value = None  # still running; loop exits when readline() hits EOF
 
-        with patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
-            lines = list(executor.fetch_logs("my-job", stream=True, lines=100))
+        with (
+            patch("subprocess.Popen", return_value=mock_proc) as mock_popen,
+            patch("time.sleep"),
+            patch.object(executor, "status", return_value=KubeflowJobState.SUCCEEDED),
+        ):
+            list(executor.fetch_logs("my-job", stream=True, lines=100))
 
-        mock_popen.assert_called_once()
-        called_cmd = mock_popen.call_args[0][0]
-        assert "-f" in called_cmd
-        assert lines == ["line1\n", "line2\n"]
+        assert "-f" in mock_popen.call_args.args[0]
+        # every rank is persisted to the all-ranks log
+        assert (tmp_path / "log-allranks_0.out").read_text() == "line1\nline2\n"
 
     def test_status_unknown_when_empty(self, mock_k8s_clients):
         mock_custom, _ = mock_k8s_clients
@@ -473,10 +484,14 @@ class TestKubeflowExecutor:
         mock_core.create_namespaced_pod.assert_called_once()
         assert mock_check_call.call_count == 1  # kubectl cp only (no mkdir for pull)
         cp_args = mock_check_call.call_args[0][0]
-        # kubectl cp <ns>/<pod>:<remote> <local>
+        # kubectl cp <ns>/<pod>:<remote> <local>; the data-mover pod is named off the
+        # <base>-<uuid6> TrainJob name.
         assert "kubectl" in cp_args
         assert "cp" in cp_args
-        assert f"test-job-data-mover:{workdir_executor.code_dir}" in cp_args
+        dm = next(a for a in cp_args if "-data-mover:" in a)
+        assert dm.startswith("test-job-") and dm.endswith(
+            f"-data-mover:{workdir_executor.code_dir}"
+        )
 
     def test_pull_results_noop_without_workdir_pvc(self, mock_k8s_clients):
         e = KubeflowExecutor(image="test:latest")
@@ -590,11 +605,14 @@ class TestKubeflowExecutor:
 
     # ── fetch_logs streaming: retry until terminal state ─────────────────────
 
-    def test_fetch_logs_stream_retries_until_terminal_state(self, executor, mock_k8s_clients):
+    def test_fetch_logs_stream_retries_until_terminal_state(
+        self, executor, mock_k8s_clients, tmp_path
+    ):
         """First Popen yields nothing and job is RUNNING; second yields a line and job is
         SUCCEEDED — loop exits on terminal status."""
         import io
 
+        executor.job_dir = str(tmp_path)
         empty_proc = MagicMock()
         empty_proc.stdout = io.StringIO("")
         empty_proc.poll.return_value = None
@@ -607,6 +625,8 @@ class TestKubeflowExecutor:
 
         with (
             patch("subprocess.Popen", side_effect=[empty_proc, output_proc]),
+            # no pods listable -> the rank-resolve barrier is a no-op (hermetic: no real kubectl)
+            patch("subprocess.run", return_value=MagicMock(stdout='{"items": []}')),
             patch("time.sleep"),
             patch.object(
                 executor,
@@ -614,13 +634,15 @@ class TestKubeflowExecutor:
                 side_effect=[KubeflowJobState.RUNNING, KubeflowJobState.SUCCEEDED],
             ),
         ):
-            lines = list(executor.fetch_logs("my-job", stream=True))
+            list(executor.fetch_logs("my-job", stream=True))
 
-        assert "some output\n" in lines
+        # forwarded stdout is rank-0/last only, but every rank lands in the all-ranks log
+        assert "some output" in (tmp_path / "log-allranks_0.out").read_text()
 
-    def test_fetch_logs_stream_handles_exception(self, executor, mock_k8s_clients):
+    def test_fetch_logs_stream_handles_exception(self, executor, mock_k8s_clients, tmp_path):
         """Exception inside the readline loop is caught; loop exits when job is terminal."""
 
+        executor.job_dir = str(tmp_path)
         mock_proc = MagicMock()
         mock_proc.stdout.readline.side_effect = OSError("read error")
         mock_proc.poll.return_value = None
