@@ -18,7 +18,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from kubernetes.client.rest import ApiException
 
-from nemo_run.core.execution.kubeflow import KubeflowExecutor, KubeflowJobState
+from nemo_run.core.execution.kubeflow import (
+    _KUBE_CLIENT_REFRESH_SECONDS,
+    KubeflowExecutor,
+    KubeflowJobState,
+)
 
 
 class TestKubeflowExecutor:
@@ -873,3 +877,161 @@ class TestKubeflowExecutor:
         with patch("nemo_run.config.get_nemorun_home", side_effect=Exception("boom")):
             result = e._lookup_job_dir("test-job")
         assert result == ""
+
+    # ── get_job_body(): pod-template labels / annotations ─────────────────────
+
+    def test_get_trainjob_body_pod_labels_and_annotations(self, mock_k8s_clients):
+        e = KubeflowExecutor(
+            image="test:latest",
+            pod_labels={"nemo-ci/job-id": "42"},
+            pod_annotations={"sidecar.istio.io/inject": "false"},
+        )
+        body = e.get_job_body("pod-labeled", ["echo"])
+        meta = body["spec"]["podTemplateOverrides"][0]["metadata"]
+        assert meta["labels"] == {"nemo-ci/job-id": "42"}
+        assert meta["annotations"] == {"sidecar.istio.io/inject": "false"}
+
+    # ── _maybe_reload_kube_clients(): rebuild after the refresh interval ──────
+
+    def test_maybe_reload_kube_clients_rebuilds_when_stale(self, executor):
+        import time
+
+        # Anchor relative to now (monotonic()'s epoch is arbitrary / uptime-based),
+        # so age exceeds the refresh interval regardless of the runner's uptime.
+        executor._kube_clients_loaded_at = time.monotonic() - (_KUBE_CLIENT_REFRESH_SECONDS + 1)
+        with patch.object(executor, "_load_kube_clients") as mock_reload:
+            _ = executor._custom_objects_api
+        mock_reload.assert_called_once()
+
+    def test_maybe_reload_kube_clients_skips_when_fresh(self, executor):
+        import time
+
+        executor._kube_clients_loaded_at = time.monotonic()
+        with patch.object(executor, "_load_kube_clients") as mock_reload:
+            _ = executor._core_v1_api
+        mock_reload.assert_not_called()
+
+    # ── status(): reload the kube client once on a non-API connection error ───
+
+    def test_status_reloads_kube_client_on_connection_error(self, executor, mock_k8s_clients):
+        mock_custom, _ = mock_k8s_clients
+        mock_custom.get_namespaced_custom_object.side_effect = [
+            RuntimeError("expired client cert"),
+            {"status": {"jobsStatus": [{"active": 3, "ready": 3, "succeeded": 0, "failed": 0}]}},
+        ]
+        with patch.object(executor, "_load_kube_clients") as mock_reload:
+            state = executor.status("my-job")
+        mock_reload.assert_called_once()
+        assert state == KubeflowJobState.RUNNING
+
+    def test_status_returns_none_when_reload_does_not_help(self, executor, mock_k8s_clients):
+        mock_custom, _ = mock_k8s_clients
+        mock_custom.get_namespaced_custom_object.side_effect = RuntimeError("still broken")
+        with patch.object(executor, "_load_kube_clients"):
+            assert executor.status("my-job") is None
+
+    # ── fetch_logs(stream): resolve GROUP_RANK, forward rank-0 + last only ────
+
+    def test_fetch_logs_stream_resolves_group_ranks_and_forwards(
+        self, executor, mock_k8s_clients, tmp_path
+    ):
+        """End-to-end stream: pods resolve their GROUP_RANK from worker environ
+        (after a first empty sweep that exercises the resolve barrier), and only
+        rank-0 + the last global rank reach stdout while every rank is persisted."""
+        import io
+        import json
+
+        executor.job_dir = str(tmp_path)
+        group_rank = {"pod-0": 0, "pod-1": 1, "pod-2": 2}
+        pods_json = json.dumps(
+            {
+                "items": [
+                    {
+                        "metadata": {
+                            "name": p,
+                            "labels": {"batch.kubernetes.io/job-completion-index": str(i)},
+                        }
+                    }
+                    for i, p in enumerate(group_rank)
+                ]
+            }
+        )
+        exec_calls = {"n": 0}
+
+        def fake_run(cmd, *args, **kwargs):
+            if "exec" in cmd:
+                exec_calls["n"] += 1
+                if exec_calls["n"] <= len(group_rank):  # first sweep: workers not up yet
+                    return MagicMock(stdout="")
+                return MagicMock(stdout=f"GROUP_RANK={group_rank[cmd[2]]}\n")
+            return MagicMock(stdout=pods_json)  # kubectl get pods -o json
+
+        stream = io.StringIO(
+            "[pod/pod-0/node] 2026-06-01T10:00:01.000000000Z [default0]: rank0-step\n"
+            "[pod/pod-1/node] 2026-06-01T10:00:01.500000000Z [default3]: mid-rank\n"
+            "[pod/pod-2/node] 2026-06-01T10:00:02.000000000Z [default7]: lastrank-step\n"
+            "[pod/pod-0/node] [default0]: no-timestamp-line\n"
+        )
+        proc = MagicMock()
+        proc.stdout = stream
+
+        with (
+            patch("subprocess.run", side_effect=fake_run),
+            patch("subprocess.Popen", return_value=proc),
+            patch("time.sleep"),
+            patch.object(
+                executor,
+                "status",
+                side_effect=[KubeflowJobState.RUNNING, KubeflowJobState.SUCCEEDED],
+            ),
+        ):
+            forwarded = "".join(executor.fetch_logs("my-job", stream=True))
+
+        assert exec_calls["n"] >= 2 * len(group_rank)  # both resolve sweeps ran
+        assert "rank0-step" in forwarded  # GROUP_RANK 0, local 0
+        assert "lastrank-step" in forwarded  # GROUP_RANK 2 (== num_nodes-1), local 7 (== nproc-1)
+        assert "no-timestamp-line" in forwarded  # forwarded immediately (no reorder buffer)
+        assert "mid-rank" not in forwarded  # neither rank-0 nor last rank
+        all_ranks = (tmp_path / "log-allranks_0.out").read_text()
+        for marker in ("rank0-step", "mid-rank", "lastrank-step", "no-timestamp-line"):
+            assert marker in all_ranks
+
+    def test_fetch_logs_no_follow_forwards_rank0_via_completion_index(
+        self, executor, mock_k8s_clients, tmp_path
+    ):
+        """When GROUP_RANK is unreadable, fall back to the completion-index-0 pod
+        for early setup output; the last rank is not forwarded without GROUP_RANK."""
+        import json
+
+        executor.job_dir = str(tmp_path)
+        pods_json = json.dumps(
+            {
+                "items": [
+                    {
+                        "metadata": {
+                            "name": f"pod-{i}",
+                            "labels": {"batch.kubernetes.io/job-completion-index": str(i)},
+                        }
+                    }
+                    for i in range(3)
+                ]
+            }
+        )
+
+        def fake_run(cmd, *args, **kwargs):
+            if "exec" in cmd:
+                return MagicMock(stdout="")  # GROUP_RANK not resolvable → completion-index fallback
+            if "logs" in cmd:
+                return MagicMock(
+                    stdout="[pod/pod-0/node] [default0]: setup-output\n"
+                    "[pod/pod-2/node] [default7]: last-output\n"
+                )
+            return MagicMock(stdout=pods_json)
+
+        with patch("subprocess.run", side_effect=fake_run):
+            forwarded = "".join(executor.fetch_logs("my-job", stream=False))
+
+        assert "setup-output" in forwarded  # completion-index-0 fallback
+        assert "last-output" not in forwarded  # no GROUP_RANK → last rank not forwarded
+        all_ranks = (tmp_path / "log-allranks_0.out").read_text()
+        assert "setup-output" in all_ranks and "last-output" in all_ranks
