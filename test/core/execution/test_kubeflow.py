@@ -1035,3 +1035,46 @@ class TestKubeflowExecutor:
         assert "last-output" not in forwarded  # no GROUP_RANK → last rank not forwarded
         all_ranks = (tmp_path / "log-allranks_0.out").read_text()
         assert "setup-output" in all_ranks and "last-output" in all_ranks
+
+    # ── copy_to_workspace / copy_from_workspace (arbitrary-path PVC sync) ─────
+
+    def test_copy_to_workspace_uses_data_mover(self, executor, mock_k8s_clients):
+        executor.workdir_pvc = "model-cache"
+        with (
+            patch.object(executor, "_start_data_mover_pod") as start,
+            patch.object(executor, "_rsync_to_pod") as rsync,
+            patch.object(executor, "_delete_data_mover_pod") as delete,
+        ):
+            executor.copy_to_workspace("/local/dir", "/nemo-workspace/remote", label="x")
+        start.assert_called_once()
+        delete.assert_called_once()
+        assert rsync.call_args.args[1:] == ("/local/dir", "/nemo-workspace/remote")
+
+    def test_copy_from_workspace_uses_data_mover(self, executor, mock_k8s_clients):
+        executor.workdir_pvc = "model-cache"
+        with (
+            patch.object(executor, "_start_data_mover_pod"),
+            patch.object(executor, "_rsync_from_pod") as rsync,
+            patch.object(executor, "_delete_data_mover_pod") as delete,
+        ):
+            executor.copy_from_workspace("/nemo-workspace/remote", "/local/dir")
+        assert rsync.call_args.args[1:] == ("/nemo-workspace/remote", "/local/dir")
+        delete.assert_called_once()
+
+    def test_copy_workspace_noop_without_pvc(self, executor, mock_k8s_clients):
+        executor.workdir_pvc = None
+        with patch.object(executor, "_start_data_mover_pod") as start:
+            executor.copy_to_workspace("/a", "/b")
+            executor.copy_from_workspace("/b", "/a")
+        start.assert_not_called()
+
+    def test_copy_from_workspace_cleans_up_pod_on_error(self, executor, mock_k8s_clients):
+        executor.workdir_pvc = "model-cache"
+        with (
+            patch.object(executor, "_start_data_mover_pod"),
+            patch.object(executor, "_rsync_from_pod", side_effect=RuntimeError("absent")),
+            patch.object(executor, "_delete_data_mover_pod") as delete,
+        ):
+            with pytest.raises(RuntimeError):
+                executor.copy_from_workspace("/nemo-workspace/missing", "/local/dir")
+        delete.assert_called_once()  # pod torn down even when the copy raises

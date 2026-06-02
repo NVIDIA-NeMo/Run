@@ -937,6 +937,55 @@ class KubeflowExecutor(Executor):
             f.write(script)
         logger.info("Wrote launch script to %s", launch_script_path)
 
+    def copy_to_workspace(
+        self, local_path: str, remote_path: str, label: str = "datamover"
+    ) -> None:
+        """Copy *local_path* (a directory) to *remote_path* on the workdir PVC.
+
+        Generalizes :meth:`package`'s PVC sync to an arbitrary path on the volume —
+        not just the per-job ``code_dir`` — so callers can persist auxiliary
+        cross-run state (e.g. a metrics cache) anywhere under ``workdir_pvc_path``
+        via the same throw-away data-mover pod. No-op when ``workdir_pvc`` is unset.
+
+        Args:
+            local_path: Local directory whose contents are copied.
+            remote_path: Destination directory on the workdir PVC.
+            label: Disambiguates the data-mover pod name across concurrent transfers.
+        """
+        if not self.workdir_pvc:
+            return
+        pod_name = self._data_mover_pod_name(label)
+        self._start_data_mover_pod(pod_name)
+        try:
+            self._rsync_to_pod(pod_name, local_path, remote_path)
+        finally:
+            self._delete_data_mover_pod(pod_name)
+
+    def copy_from_workspace(
+        self, remote_path: str, local_path: str, label: str = "datamover"
+    ) -> None:
+        """Copy *remote_path* from the workdir PVC to *local_path*.
+
+        Generalizes :meth:`pull_results` to an arbitrary path on the volume — not
+        just the per-job ``code_dir`` — so callers can read auxiliary cross-run
+        state via the same throw-away data-mover pod. No-op when ``workdir_pvc`` is
+        unset. Propagates the underlying ``kubectl cp`` error when *remote_path*
+        does not exist; callers that treat absence as normal should handle it.
+
+        Args:
+            remote_path: Source directory on the workdir PVC.
+            local_path: Local destination directory.
+            label: Disambiguates the data-mover pod name across concurrent transfers.
+        """
+        if not self.workdir_pvc:
+            return
+        pod_name = self._data_mover_pod_name(label)
+        self._start_data_mover_pod(pod_name)
+        try:
+            self._rsync_from_pod(pod_name, remote_path, local_path)
+        finally:
+            self._delete_data_mover_pod(pod_name)
+
     def package(self, packager: Packager, job_name: str) -> None:
         """Sync job_dir to the workdir PVC via a temporary data-mover pod before launch.
 
@@ -963,12 +1012,7 @@ class KubeflowExecutor(Executor):
         # Sync job_dir to <workdir_pvc_path>/<username>/code on the PVC via a
         # throw-away data-mover pod.  Scoping to a user subdirectory means we
         # never clobber other data already on the shared volume.
-        pod_name = self._data_mover_pod_name(job_name)
-        self._start_data_mover_pod(pod_name)
-        try:
-            self._rsync_to_pod(pod_name, self.job_dir, self.code_dir)
-        finally:
-            self._delete_data_mover_pod(pod_name)
+        self.copy_to_workspace(self.job_dir, self.code_dir, label=job_name)
 
         # Mount the PVC so the training container can reach code_dir.
         # If the PVC is already declared (e.g. explicitly by the caller for data),
@@ -1009,12 +1053,7 @@ class KubeflowExecutor(Executor):
                 "Pass dest_dir explicitly or call via an executor that has job_dir set."
             )
 
-        pod_name = self._data_mover_pod_name(job_name)
-        self._start_data_mover_pod(pod_name)
-        try:
-            self._rsync_from_pod(pod_name, self.code_dir, local_path)
-        finally:
-            self._delete_data_mover_pod(pod_name)
+        self.copy_from_workspace(self.code_dir, local_path, label=job_name)
 
     def _lookup_job_dir(self, job_name: str) -> str:
         """Look up the job_dir saved by the scheduler for *job_name*."""
