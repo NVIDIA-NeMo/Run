@@ -13,15 +13,15 @@
 # limitations under the License.
 
 MAJOR = 0
-MINOR = 10
+MINOR = 11
 PATCH = 0
-PRE_RELEASE = ""
+PRE_RELEASE = "rc0.dev0"
 
 # Use the following formatting: (major, minor, patch, pre-release)
 VERSION = (MAJOR, MINOR, PATCH, PRE_RELEASE)
 
 __shortversion__ = ".".join(map(str, VERSION[:3]))
-__version__ = '0.11.0rc0.dev0'
+__version__ = ".".join(map(str, VERSION[:3])) + "".join(VERSION[3:])
 
 import os as _os  # noqa: E402, I001
 import subprocess as _subprocess  # noqa: E402
