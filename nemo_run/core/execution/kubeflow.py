@@ -100,6 +100,11 @@ class KubeflowExecutor(Executor):
     pod_labels: dict[str, Any] = field(default_factory=dict)
     tolerations: list[dict[str, Any]] = field(default_factory=list)
     affinity: dict[str, Any] = field(default_factory=dict)
+    # Shell commands run once per pod in launch.sh, BEFORE the training command
+    # (e.g. installing a missing dependency into the container venv). They run
+    # before torchrun spawns the per-GPU ranks, so each executes exactly once
+    # per node (not once per rank) and under errexit (a failure aborts the pod).
+    setup_commands: list[str] = field(default_factory=list)
     # env_list accepts full env var dicts (e.g. valueFrom/secretKeyRef).
     # Simple key=value pairs should use the inherited env_vars dict instead.
     env_list: list[dict[str, Any]] = field(default_factory=list)
@@ -930,6 +935,7 @@ class KubeflowExecutor(Executor):
             env_vars=env_var_lines,
             max_retries=max_retries,
             code_dir=self.code_dir,
+            setup_commands=self.setup_commands,
         )
         os.makedirs(self.job_dir, exist_ok=True)
         launch_script_path = os.path.join(self.job_dir, "launch.sh")

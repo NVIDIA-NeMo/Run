@@ -12,6 +12,12 @@ export TORCHX_MAX_RETRIES={{max_retries}}
 
 # Symlink /nemo_run → code_dir so pod-side paths like /nemo_run/scripts/... resolve correctly.
 ln -sfn {{code_dir}} /nemo_run
+{% if setup_commands %}
+echo "Running setup commands..."
+{%- for setup_command in setup_commands %}
+{{setup_command}}
+{%- endfor %}
+{%- endif %}
 
 echo "Starting training command..."
 set +e
