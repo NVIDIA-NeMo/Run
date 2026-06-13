@@ -503,6 +503,19 @@ class TestKubeflowExecutor:
         e.pull_results("test-job")
         mock_core.create_namespaced_pod.assert_not_called()
 
+    def test_cleanup_pulls_results_when_workdir_pvc(self, workdir_executor):
+        # cleanup() mirrors PVC outputs (incl. profiler traces) back to job_dir
+        # via pull_results, keying off the <exp>___<role>___<job_name> handle.
+        with patch.object(workdir_executor, "pull_results") as mock_pull:
+            workdir_executor.cleanup("exp-id___trainer___test-job")
+        mock_pull.assert_called_once_with("test-job")
+
+    def test_cleanup_noop_without_workdir_pvc(self):
+        e = KubeflowExecutor(image="test:latest")
+        with patch.object(e, "pull_results") as mock_pull:
+            e.cleanup("exp-id___trainer___test-job")
+        mock_pull.assert_not_called()
+
     def test_data_mover_pod_inherits_tolerations_affinity_pull_secrets(
         self, mock_k8s_clients, tmp_path
     ):

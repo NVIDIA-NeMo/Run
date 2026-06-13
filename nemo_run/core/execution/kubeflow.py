@@ -1061,6 +1061,28 @@ class KubeflowExecutor(Executor):
 
         self.copy_from_workspace(self.code_dir, local_path, label=job_name)
 
+    def cleanup(self, handle: str) -> None:
+        """Mirror run outputs from the workdir PVC back to ``job_dir``, then tear down.
+
+        On Kubernetes the training pods write every recipe output — including the
+        PyTorch profiler chrome trace and CUDA memory snapshot, which land under
+        ``/nemo_run`` (the PVC ``code_dir``) — to the shared volume. The launcher
+        that collects artifacts and parses logs only sees the local ``job_dir``,
+        so without a copy-back those outputs are stranded on the PVC. Reuse the
+        existing data-mover (:meth:`pull_results`) to bring them back before
+        teardown. Best-effort: a failed pull must never break cleanup.
+
+        Args:
+            handle: The app handle ``<experiment>___<role>___<job_name>``.
+        """
+        if self.workdir_pvc:
+            job_name = handle.split("___")[-1] if handle else ""
+            try:
+                self.pull_results(job_name)
+            except Exception as e:
+                logger.warning("pull_results during cleanup of '%s' failed: %s", handle, e)
+        super().cleanup(handle)
+
     def _lookup_job_dir(self, job_name: str) -> str:
         """Look up the job_dir saved by the scheduler for *job_name*."""
         try:
