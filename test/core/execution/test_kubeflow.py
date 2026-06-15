@@ -510,7 +510,7 @@ class TestKubeflowExecutor:
             workdir_executor.cleanup("exp-id___trainer___test-job")
         mock_pull.assert_called_once_with("test-job")
 
-    def test_cleanup_noop_without_workdir_pvc(self):
+    def test_cleanup_noop_without_workdir_pvc(self, mock_k8s_clients):
         e = KubeflowExecutor(image="test:latest")
         with patch.object(e, "pull_results") as mock_pull:
             e.cleanup("exp-id___trainer___test-job")
