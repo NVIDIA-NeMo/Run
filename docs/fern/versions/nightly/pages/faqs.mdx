@@ -1,0 +1,136 @@
+---
+title: "Frequently Asked Questions"
+description: ""
+position: 3
+---
+
+This section provides answers to common questions organized by NeMo Run functions.
+
+## Configuration
+
+<Accordion title="UnserializableValueError when using run.Partial or run.Config">
+
+```
+fiddle._src.experimental.serialization.UnserializableValueError: Unserializable value .tmp of type <class 'pathlib.PosixPath'>. Error occurred at path '<root>.something'."
+```
+
+Every nested object inside `run.Partial` or `run.Config` needs to be serializable. As a result, if you are trying to configure objects, it's better to wrap them in `run.Config`. For example, the above error arises when you do the following:
+
+```python
+from nemorun.config import ZlibJSONSerializer
+
+partial = run.Partial(some_function, something=Path("/tmp"))
+ZlibJSONSerializer().serialize(partial)
+```
+
+You can fix it by doing:
+
+```python
+from nemorun.config import ZlibJSONSerializer
+
+partial = run.Partial(some_function, something=run.Config(Path, "/tmp"))
+ZlibJSONSerializer().serialize(partial)
+```
+
+</Accordion>
+
+<Accordion title="Deserialization error when using run.Partial or run.Config">
+
+One example shown below:
+
+```
+ValueError: Using the Buildable constructor to convert a buildable to a new type or to override arguments is forbidden; please use either `fdl.cast(new_type, buildable)` (for casting) or `fdl.copy_with(buildable, **kwargs)` (for overriding arguments).
+```
+
+Ensure that only `Config` or `Partial` objects are present in your nested configuration. You can run a quick sanity check by doing:
+
+```python
+from nemorun.config import ZlibJSONSerializer
+
+serializer = ZlibJSONSerializer()
+partial = run.Partial(some_function, something=run.Config(Path, "/tmp"))
+serializer.deserialize(serializer.serialize(partial)) == partial
+```
+
+</Accordion>
+
+<Accordion title="How to use control flow in autoconvert?">
+
+If I use control flow with `run.autoconvert`, I get `UnsupportedLanguageConstructError: Control flow (ListComp) is unsupported by auto_config.`. For example, the below doesn't work.
+
+```python
+@run.autoconvert
+def control_flow() -> llm.PreTrainingDataModule:
+    return llm.PreTrainingDataModule(
+        paths=[Path(f"some_doc_{i}") for i in range(10)],
+        weights=[1 for i in range(10)]
+    )
+```
+
+As the error mentions, control flow in `run.autoconvert` is not supported. To overcome, just return a config directly and use it like a regular python function. So the example would become:
+
+```python
+def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
+    return run.Config(
+        llm.PreTrainingDataModule,
+        paths=[run.Config(Path, f"some_doc_{i}") for i in range(10)],
+        weights=[1 for i in range(10)]
+    )
+```
+
+</Accordion>
+
+<Accordion title="I made a change locally in my git repo and tested it using the local executor. However, the change is not reflected in the remote job.">
+
+This is most likely because you haven't committed the changes. See details about `GitArchivePackager` [here](/guides/execution#packagers) to learn more.
+
+</Accordion>
+
+<Accordion title="I made a change locally outside my git repo and tested it using the local executor. However, the change is not reflected in the remote job.">
+
+Currently, we only package your current repo. To transport changes to other repos on the remote cluster, you need to check out the package on the remote cluster and then mount it at the correct path in your docker image. We will add support for packaging multiple repos in the future.
+
+</Accordion>
+
+## Execution
+
+<Accordion title="For SlurmExecutor, how can I execute directly from the login node of the cluster?">
+
+For example, to execute the SlurmExecutor from your local machine via SSH, you may have:
+
+```python
+ssh_tunnel = run.SSHTunnel(
+    host="your-slurm-host",
+    user="your-user",
+    job_dir="/your/home/directory/nemo-run-experiments",
+)
+executor = run.SlurmExecutor(
+    ...
+    tunnel=ssh_tunnel,
+    ...
+)
+```
+
+If you are on the login node of the Slurm cluster, simply change the tunnel as shown below:
+
+```python
+executor = run.SlurmExecutor(
+    ...
+    tunnel=run.LocalTunnel(),
+    ...
+)
+```
+
+</Accordion>
+
+## Management
+
+<Accordion title="I can't retrieve logs for an experiment.">
+
+There could be a few reasons for this, described below:
+
+- The NeMo Run home has changed. By default home is at `~/.nemorun`, but you can overwrite it using `NEMORUN_HOME`. Retrieving logs can be difficult if there's a discrepancy in the home between when you launched the experiment and when you try to retrieve it.
+- NeMo Run home is deleted or overwritten from the time when you ran the experiment.
+- Logs are not available on the remote cluster. For example, if launching on Kubernetes using the `SkypilotExecutor`, and the Skypilot cluster is terminated or the pod is deleted, the logs won't be available.
+
+</Accordion>
