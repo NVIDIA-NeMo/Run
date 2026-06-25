@@ -1,6 +1,7 @@
 instances:
   - url: https://nemo-run.docs.buildwithfern.com/nemo/run
     custom-domain: docs.nvidia.com/nemo/run
+    multi-source: true
 
 
 title: nemo run
