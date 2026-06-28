@@ -280,12 +280,37 @@ class JobGroup(ConfigurableMixin):
 
         self._dryrun_infos: list[AppDryRunInfo] = []
 
+    def _aggregate_state(self) -> AppState:
+        if not self.states:
+            return AppState.UNKNOWN
+
+        if any(state == AppState.FAILED for state in self.states):
+            return AppState.FAILED
+        if any(state == AppState.RUNNING for state in self.states):
+            return AppState.RUNNING
+        if any(state == AppState.PENDING for state in self.states):
+            return AppState.PENDING
+        if any(state == AppState.SUBMITTED for state in self.states):
+            return AppState.SUBMITTED
+        if any(state == AppState.UNKNOWN for state in self.states):
+            return AppState.UNKNOWN
+        if any(state == AppState.UNSUBMITTED for state in self.states):
+            return AppState.UNSUBMITTED
+        if all(state == AppState.SUCCEEDED for state in self.states):
+            return AppState.SUCCEEDED
+        if all(is_terminal(state) for state in self.states) and any(
+            state == AppState.CANCELLED for state in self.states
+        ):
+            return AppState.CANCELLED
+
+        return AppState.UNKNOWN
+
     @property
     def state(self) -> AppState:
         if not self.launched or not self.handles:
             return AppState.UNSUBMITTED
 
-        return self.states[0]
+        return self._aggregate_state()
 
     @property
     def handle(self) -> str:
@@ -425,7 +450,7 @@ class JobGroup(ConfigurableMixin):
             runner.cancel(handle)
 
     def cleanup(self):
-        if not self.handles or not is_terminal(self.state):
+        if not self.handles or not self.states or not all(is_terminal(state) for state in self.states):
             return
 
         executors: list[Executor] = []
