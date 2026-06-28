@@ -593,6 +593,24 @@ class TestSlurmBatchRequest:
         expected = Path(artifact).read_text()
         assert sbatch_script.strip() == expected.strip()
 
+    def test_group_batch_request_quotes_regular_srun_args_but_not_log_paths(
+        self,
+        group_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        group_slurm_request, _ = group_slurm_request_with_artifact
+        executor = group_slurm_request.executor
+        group_slurm_request.executor = SlurmExecutor.merge([executor], num_tasks=2)
+        group_slurm_request.executor.srun_args = ["--comment=hello world"]
+        self.apply_macros(executor)
+
+        sbatch_script = group_slurm_request.materialize()
+
+        assert "'--comment=hello world'" in sbatch_script
+        assert (
+            "--output /some/job/dir/sample_job/log-your_account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out "
+            "--container-image some-image"
+        ) in sbatch_script
+
     def test_group_resource_req_request_custom_job_details(
         self,
         group_resource_req_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
