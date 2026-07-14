@@ -21,6 +21,7 @@ import logging
 import operator
 import re
 import sys
+import types
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -685,7 +686,7 @@ class TypeParser:
                 return self.parse_list
             elif origin in (dict, Dict):
                 return self.parse_dict
-            elif origin is Union:
+            elif origin is Union or origin is types.UnionType:
                 return self.parse_union
             # Add other mappings as needed
 
@@ -704,7 +705,7 @@ class TypeParser:
                 return self.parse_list
             elif origin is dict or origin is Dict:
                 return self.parse_dict
-            elif origin is Union:
+            elif origin is Union or origin is types.UnionType:
                 return self.parse_union
 
             # Check for parsers registered for the origin
