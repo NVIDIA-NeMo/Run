@@ -518,8 +518,8 @@ class PythonicParser:
             return self._contains_unsafe_operations(node.operand)
         elif isinstance(node, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
             return any(self._contains_unsafe_operations(elt) for elt in ast.iter_child_nodes(node))
-        elif isinstance(node, (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Ellipsis)):
-            # Allow basic literals
+        elif isinstance(node, ast.Constant):
+            # Allow basic literals (numbers, strings, bytes, True/False/None, Ellipsis)
             return False
         return True
 
