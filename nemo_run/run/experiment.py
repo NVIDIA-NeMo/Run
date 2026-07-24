@@ -291,7 +291,7 @@ nemo experiment cancel {exp_id} 0
         parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         exp_dir = _get_latest_dir(parent_dir)
 
-        assert os.path.isdir(exp_dir), f"Experiment {id} not found."
+        assert os.path.isdir(exp_dir), f"Experiment {title} not found."
 
         exp = cls._from_config(exp_dir)
         return exp

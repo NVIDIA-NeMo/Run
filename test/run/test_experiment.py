@@ -436,7 +436,7 @@ def test_from_title_nonexistent(temp_dir):
         mock_get_latest_dir.return_value = nonexistent_path
 
         # The assertion should fail because the directory doesn't exist
-        with pytest.raises(AssertionError):
+        with pytest.raises(AssertionError, match=f"Experiment {title} not found"):
             Experiment.from_title(title)
 
 
