@@ -84,6 +84,15 @@ def test_docker_scheduler_methods(docker_scheduler):
     assert hasattr(docker_scheduler, "close")
 
 
+def test_cancel_existing_without_request_is_noop():
+    docker_scheduler = object.__new__(PersistentDockerScheduler)
+    docker_scheduler._DockerWorkspaceMixin__docker_client = mock.Mock()
+    docker_scheduler._scheduled_reqs = []
+
+    with mock.patch.object(DockerJobRequest, "load", return_value=None):
+        docker_scheduler._cancel_existing("app-id")
+
+
 def test_cancel_existing_persists_terminal_status(tmp_path):
     docker_scheduler = object.__new__(PersistentDockerScheduler)
     docker_scheduler._DockerWorkspaceMixin__docker_client = mock.Mock()
