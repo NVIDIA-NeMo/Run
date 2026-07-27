@@ -276,8 +276,10 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
     def _cancel_existing(self, app_id: str) -> None:
         req = DockerJobRequest.load(app_id=app_id)
         if not req:
-            return None
+            return
         for container in req.containers:
+            status_file = Path(req.executor.job_dir) / f"status_{container.name}.out"
+            status_file.write_text(json.dumps({"id": app_id, "exit_code": "1"}) + "\n")
             container.delete(client=self._docker_client, id=req.id)
 
     def close(self) -> None:
