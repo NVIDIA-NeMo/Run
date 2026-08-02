@@ -80,7 +80,7 @@ jobs:
       app-id: ${{ vars.BOT_ID }}
       packaging: setuptools
       gh-release-use-changelog-builder: ${{ inputs.generate-changelog || false }}
-      publish-docs: ${{ github.event_name == 'workflow_dispatch' ? inputs.publish-docs : true }}
+      publish-docs: ${{ github.event_name != 'workflow_dispatch' || inputs.publish-docs }}
       docs-target-path: nemo/run
       restrict-to-admins: true
     secrets: inherit  # pragma: allowlist secret
