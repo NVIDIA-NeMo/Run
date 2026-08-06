@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import tempfile
 from unittest import mock
 
@@ -68,6 +69,16 @@ def test_submit_dryrun(skypilot_scheduler, mock_app_def, skypilot_executor):
         dryrun_info = skypilot_scheduler._submit_dryrun(mock_app_def, skypilot_executor)
         assert isinstance(dryrun_info, AppDryRunInfo)
         assert dryrun_info.request is not None
+
+
+def test_submit_dryrun_writes_yaml(skypilot_scheduler, mock_app_def, skypilot_executor):
+    with tempfile.TemporaryDirectory() as exp_dir:
+        skypilot_executor.job_name = "test-job"
+        skypilot_executor.experiment_dir = exp_dir
+        with mock.patch.object(SkypilotExecutor, "package"):
+            skypilot_scheduler._submit_dryrun(mock_app_def, skypilot_executor)
+        yaml_file = os.path.join(exp_dir, "test-job.yaml")
+        assert os.path.isfile(yaml_file)
 
 
 def test_schedule(skypilot_scheduler, mock_app_def, skypilot_executor):

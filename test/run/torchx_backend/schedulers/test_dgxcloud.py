@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import tempfile
 from unittest import mock
 from unittest.mock import MagicMock
@@ -69,6 +70,16 @@ def test_submit_dryrun(dgx_cloud_scheduler, mock_app_def, dgx_cloud_executor):
         dryrun_info = dgx_cloud_scheduler._submit_dryrun(mock_app_def, dgx_cloud_executor)
         assert isinstance(dryrun_info, AppDryRunInfo)
         assert dryrun_info.request is not None
+
+
+def test_submit_dryrun_writes_script(dgx_cloud_scheduler, mock_app_def, dgx_cloud_executor):
+    with tempfile.TemporaryDirectory() as exp_dir:
+        dgx_cloud_executor.job_name = "test-job"
+        dgx_cloud_executor.experiment_dir = exp_dir
+        with mock.patch.object(DGXCloudExecutor, "package"):
+            dgx_cloud_scheduler._submit_dryrun(mock_app_def, dgx_cloud_executor)
+        script = os.path.join(exp_dir, "test-job_torchrun_job.sh")
+        assert os.path.isfile(script)
 
 
 def test_dgx_cloud_scheduler_methods(dgx_cloud_scheduler):
