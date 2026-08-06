@@ -908,10 +908,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             idx: int, job: Job | JobGroup
         ) -> tuple[list[str], dict[str, str]]:
             job_info = []
+            job_status = job.status(runner=self._runner)
             job_info.append(f"[bold green]Task {idx}[/bold green]: [bold orange1]{job.id}")
-            job_info.append(
-                f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}"
-            )
+            job_info.append(f"- [bold green]Status[/bold green]: {str(job_status)}")
             job_info.append(f"- [bold green]Executor[/bold green]: {job.executor.info()}")
 
             try:
@@ -927,7 +926,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             ]
             job_dict = {
                 "name": job.id,
-                "status": job.status(runner=self._runner),
+                "status": job_status,
                 "executor": job.executor.info(),
                 "job_id": app_id,
                 "handle": job.handle,
