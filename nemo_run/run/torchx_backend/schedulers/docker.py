@@ -189,12 +189,11 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
                         states.append(state)
 
         state = AppState.UNKNOWN
-        if any(is_terminal(state) for state in states):
-            if any(state == AppState.SUCCEEDED for state in states):
-                state = AppState.SUCCEEDED
-            else:
-                state = AppState.FAILED
-        elif len(states) > 0:
+        if any(state == AppState.FAILED for state in states):
+            state = AppState.FAILED
+        elif len(states) == len(req.containers) and all(state == AppState.SUCCEEDED for state in states):
+            state = AppState.SUCCEEDED
+        elif any(not is_terminal(state) for state in states):
             state = next(state for state in states if not is_terminal(state))
 
         return DescribeAppResponse(
