@@ -633,12 +633,21 @@ class TestPythonicParser:
         assert parser.parse_constructor("set(1, 2, 3)") == {1, 2, 3}
 
     def test_parse_comprehension(self, parser):
-        assert parser.parse_comprehension("[x for x in range(3)]") == [0, 1, 2]
-        assert parser.parse_comprehension("{x: x**2 for x in range(3)}") == {
-            0: 0,
-            1: 1,
-            2: 4,
-        }
+        with pytest.raises(ArgumentValueError, match="Comprehensions are not supported"):
+            parser.parse_comprehension("[x for x in range(3)]")
+
+        with pytest.raises(ArgumentValueError, match="Comprehensions are not supported"):
+            parser.parse_comprehension("{x: x**2 for x in range(3)}")
+
+    def test_parse_value_does_not_execute_comprehension_payload(self, parser, tmp_path):
+        marker = tmp_path / "payload_ran"
+        payload = (
+            f"[__import__('pathlib').Path({str(marker)!r}).write_text('owned') "
+            "for _ in [0]]"
+        )
+
+        assert parser.parse_value(payload) == payload
+        assert not marker.exists()
 
     def test_parse_lambda(self, parser):
         # Test safe lambdas
