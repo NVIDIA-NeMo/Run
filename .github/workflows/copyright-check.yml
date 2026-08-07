@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Build docs
+name: Copyright check
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
-  workflow_call:
+  workflow_dispatch:
 
 jobs:
-  build-docs:
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_build_docs.yml@v0.57.0
+  copyright-check:
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_copyright_check.yml@a8006e87bff5bce54336c3e1e8571563ac70d88e # v0.54.4

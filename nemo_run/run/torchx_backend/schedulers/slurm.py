@@ -22,6 +22,7 @@ import csv
 import json
 import logging
 import os
+import threading
 import time
 from dataclasses import asdict
 from datetime import datetime
@@ -50,13 +51,21 @@ from torchx.specs import (
 )
 from torchx.specs.api import is_terminal
 
-from nemo_run.config import RUNDIR_NAME, USE_WITH_RAY_CLUSTER_KEY, from_dict, get_nemorun_home
+from nemo_run.config import (
+    RUNDIR_NAME,
+    USE_WITH_RAY_CLUSTER_KEY,
+    from_dict,
+    get_nemorun_home,
+)
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor, SlurmJobDetails
 from nemo_run.core.tunnel.client import LocalTunnel, PackagingJob, SSHTunnel, Tunnel
+from nemo_run.exceptions import PersistentSacctFailure
 from nemo_run.run import experiment as run_experiment
 from nemo_run.run.ray.slurm import SlurmRayRequest
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
+
+MAX_CONSECUTIVE_SACCT_FAILURES = 30
 
 log: logging.Logger = logging.getLogger(__name__)
 SLURM_JOB_DIRS = os.path.join(get_nemorun_home(), ".slurm_jobs")
@@ -69,6 +78,9 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         self.tunnel: Optional[Tunnel] = None
         super().__init__(session_name)
         self.experiment = experiment
+        self._consecutive_sacct_failures: dict[str, int] = {}
+        self._start_time_threads: dict[str, threading.Thread] = {}
+        self._start_time_stop_events: dict[str, threading.Event] = {}
 
     # TODO: Move this into the SlurmExecutor
     def _initialize_tunnel(self, tunnel: SSHTunnel | LocalTunnel):
@@ -113,13 +125,26 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
                 srun_cmd = [role.entrypoint] + role.args
                 srun_cmds.append([" ".join(srun_cmd)])
 
+            # For heterogeneous jobs, ensure run_as_group is set for command group mapping
+            if executor.heterogeneous and executor.resource_group:
+                executor.run_as_group = True
+                # Validate that command groups align with resource groups
+                if len(srun_cmds) != len(executor.resource_group):
+                    log.warning(
+                        f"Heterogeneous job has {len(executor.resource_group)} resource groups "
+                        f"but {len(srun_cmds)} roles. Command groups should match resource groups "
+                        f"for proper het-group mapping."
+                    )
+
             command = [app.roles[0].entrypoint] + app.roles[0].args
+            # Use Ray template from executor configuration
+            ray_template_name = executor.ray_template
             req = SlurmRayRequest(
                 name=app.roles[0].name,
                 launch_cmd=["sbatch", "--requeue", "--parsable"],
                 command=" ".join(command),
                 cluster_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name, "ray"),
-                template_name="ray.sub.j2",
+                template_name=ray_template_name,
                 executor=executor,
                 workdir=f"/{RUNDIR_NAME}/code",
                 nemo_run_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name),
@@ -168,6 +193,41 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         return AppDryRunInfo(req, repr)
 
+    def _poll_job_start_time(
+        self, job_id: str, tunnel: Tunnel, stop_event: threading.Event
+    ) -> None:
+        attempt = 0
+        while not stop_event.is_set():
+            try:
+                result = tunnel.run(
+                    f"squeue --start --noheader -j {job_id} -o '%i|%S|%T'",
+                    warn=True,
+                    hide=True,
+                )
+                output = (result.stdout or "").strip()
+                if output and result.return_code == 0:
+                    # Array jobs produce one line per task — print only the first
+                    line = output.splitlines()[0]
+                    parts = line.strip().split("|")
+                    if len(parts) >= 3:
+                        _, start_time, state = parts[0].strip(), parts[1].strip(), parts[2].strip()
+                        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        print(
+                            f"[SLURM] Job {job_id} - State: {state}, Estimated start: {start_time}, Current time: {now}",
+                            flush=True,
+                        )
+                        if state.upper() not in ("PENDING", "CF", "CONFIGURING"):
+                            return
+                else:
+                    print(f"[SLURM] Job {job_id} is no longer pending.", flush=True)
+                    return
+            except Exception as e:
+                log.debug(f"Failed to poll start time for job {job_id}: {e}")
+
+            delay = min(30 * (2**attempt), 900)
+            attempt += 1
+            stop_event.wait(delay)
+
     def schedule(self, dryrun_info: AppDryRunInfo[SlurmBatchRequest | SlurmRayRequest]) -> str:  # type: ignore
         # Setup
         req = dryrun_info.request
@@ -196,6 +256,24 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         # Save metadata
         _save_job_dir(job_id, job_dir, tunnel, slurm_executor.job_details.ls_term)
+
+        if slurm_executor.poll_estimated_start_time:
+            # Stop any existing polling thread for this job_id (retry scenario)
+            if job_id in self._start_time_stop_events:
+                self._start_time_stop_events.pop(job_id).set()
+                self._start_time_threads.pop(job_id, None)
+
+            stop_event = threading.Event()
+            self._start_time_stop_events[job_id] = stop_event
+            thread = threading.Thread(
+                target=self._poll_job_start_time,
+                args=(job_id, self.tunnel, stop_event),
+                daemon=True,
+                name=f"slurm-start-time-{job_id}",
+            )
+            self._start_time_threads[job_id] = thread
+            thread.start()
+
         return job_id
 
     def _cancel_existing(self, app_id: str) -> None:
@@ -209,8 +287,16 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         assert self.tunnel, "Tunnel is None."
         self.tunnel.run(f"scancel {app_id}", hide=False)
 
+        if app_id in self._start_time_stop_events:
+            self._start_time_stop_events.pop(app_id).set()
+            self._start_time_threads.pop(app_id, None)
+
     def describe(self, app_id: str) -> Optional[DescribeAppResponse]:
-        job_dirs = _get_job_dirs()
+        try:
+            job_dirs = _get_job_dirs()
+        except OSError as e:
+            log.warning(f"Could not read job dirs file, returning UNKNOWN status for {app_id}: {e}")
+            return DescribeAppResponse(app_id=app_id, state=AppState.UNKNOWN)
         if app_id in job_dirs:
             _, tunnel_cfg, _ = job_dirs[app_id]
             self._initialize_tunnel(tunnel_cfg)
@@ -218,9 +304,23 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             return None
 
         assert self.tunnel, "Tunnel is None."
-        p = self.tunnel.run(
-            f"sacct --parsable2 -j {app_id}",
-        )
+        try:
+            p = self.tunnel.run(
+                f"sacct --parsable2 -j {app_id}",
+            )
+        except Exception as e:
+            count = self._consecutive_sacct_failures.get(app_id, 0) + 1
+            self._consecutive_sacct_failures[app_id] = count
+            if count >= MAX_CONSECUTIVE_SACCT_FAILURES:
+                raise PersistentSacctFailure(
+                    f"sacct failed {count} consecutive times for job {app_id}: {e}"
+                ) from e
+            log.warning(
+                f"Failed to query sacct for job {app_id} ({count}/{MAX_CONSECUTIVE_SACCT_FAILURES}): "
+                f"{e}. Treating as transient."
+            )
+            return DescribeAppResponse(app_id=app_id, state=AppState.UNKNOWN)
+        self._consecutive_sacct_failures.pop(app_id, None)
         output = p.stdout.strip().split("\n")
 
         if len(output) <= 1:
@@ -326,7 +426,11 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         else:
             return [f"Failed getting logs for {app_id}"]
 
-    def close(self) -> None: ...
+    def close(self) -> None:
+        for stop_event in self._start_time_stop_events.values():
+            stop_event.set()
+        self._start_time_threads.clear()
+        self._start_time_stop_events.clear()
 
 
 class TunnelLogIterator(LogIterator):
@@ -406,12 +510,29 @@ def _save_job_dir(
         )
 
 
-def _get_job_dirs() -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
-    try:
-        with open(SLURM_JOB_DIRS, "rt") as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        return {}
+def _get_job_dirs(retries: int = 5) -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
+    last_exc: OSError | None = None
+    for attempt in range(retries):
+        try:
+            with open(SLURM_JOB_DIRS, "rt") as f:
+                lines = f.readlines()
+            break
+        except FileNotFoundError:
+            return {}
+        except OSError as e:
+            last_exc = e
+            delay = min(2**attempt, 30)
+            log.warning(
+                f"OSError reading {SLURM_JOB_DIRS} (attempt {attempt + 1}/{retries}): {e}. "
+                f"Retrying in {delay}s..."
+            )
+            time.sleep(delay)
+    else:
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError(
+            f"Failed to read {SLURM_JOB_DIRS} after {retries} retries, but no OSError was captured."
+        )
 
     out = {}
     for line in lines:

@@ -1,3 +1,18 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import base64
 import logging
 import os
@@ -17,8 +32,10 @@ from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
 from leptonai.api.v1.types.deployment import (
     EnvVar,
+    EnvValue,
     LeptonContainer,
     Mount,
+    QueueConfig,
 )
 from leptonai.api.v1.types.job import (
     LeptonJob,
@@ -57,6 +74,7 @@ class LeptonExecutor(Executor):
     resource_shape: str = ""
     node_group: str = ""
     node_reservation: str = ""
+    secret_vars: dict[str, str] = field(default_factory=dict)
     mounts: list[dict[str, Any]] = field(default_factory=list)
     lepton_job_dir: str = field(init=False, default="")
     image_pull_secrets: list[str] = field(
@@ -64,6 +82,11 @@ class LeptonExecutor(Executor):
     )  # Image pull secrets for container registry authentication
     custom_spec: dict[str, Any] = field(default_factory=dict)
     pre_launch_commands: list[str] = field(default_factory=list)  # Custom commands before launch
+    head_resource_shape: Optional[str] = ""  # Only used for LeptonRayCluster
+    ray_version: Optional[str] = None  # Only used for LeptonRayCluster
+    can_be_preempted: bool = False  # job yields nodes to higher-priority jobs
+    can_preempt: bool = False  # job can evict lower-priority jobs
+    queue_priority: Optional[str] = None  # e.g. "mid-4000"; required when either flag is set
 
     def stop_job(self, job_id: str):
         """
@@ -233,6 +256,8 @@ class LeptonExecutor(Executor):
         client = APIClient()
 
         envs = [EnvVar(name=key, value=value) for key, value in self.env_vars.items()]
+        for key, value in self.secret_vars.items():
+            envs.append(EnvVar(name=key, value_from=EnvValue(secret_name_ref=value)))
 
         cmd = ["/bin/bash", "-c", f"bash {self.lepton_job_dir}/launch_script.sh"]
 
@@ -264,7 +289,13 @@ class LeptonExecutor(Executor):
             privileged=False,
             metrics=None,
             log=None,
-            queue_config=None,
+            queue_config=QueueConfig(
+                priority_class=self.queue_priority or "mid-4000",
+                can_be_preempted=self.can_be_preempted if self.can_be_preempted else None,
+                can_preempt=self.can_preempt if self.can_preempt else None,
+            )
+            if (self.can_be_preempted or self.can_preempt)
+            else None,
             stopped=None,
         )
 

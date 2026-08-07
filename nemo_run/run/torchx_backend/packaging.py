@@ -15,6 +15,7 @@
 
 import logging
 import os
+from pathlib import Path
 from typing import Iterator, Optional, Type, Union
 
 import fiddle as fdl
@@ -120,13 +121,33 @@ def package(
                 log.warning(f"Failed saving yaml configs due to: {e}")
 
         args = fn_or_script.args
+
+        # For SlurmExecutor without container, substitute /{RUNDIR_NAME} paths
+        # with actual cluster paths in inline scripts
+        substitute_rundir_path = None
+        if (
+            isinstance(executor, SlurmExecutor)
+            and executor.container_image is None
+            and executor.tunnel is not None
+        ):
+            substitute_rundir_path = os.path.join(
+                executor.tunnel.job_dir, Path(executor.job_dir).name
+            )
+
         role_args = fn_or_script.to_command(
             filename=os.path.join(executor.job_dir, SCRIPTS_DIR, f"{name}.sh"),
             is_local=True if isinstance(executor, LocalExecutor) else False,
+            substitute_rundir_path=substitute_rundir_path,
         )
         m = fn_or_script.path if fn_or_script.m else None
         no_python = fn_or_script.entrypoint != "python"
-        script = fn_or_script.path if not fn_or_script.m else None
+        if fn_or_script.m:
+            script = None
+        elif fn_or_script.inline and role_args:
+            # Inline scripts are written to a file; role_args[0] is the pod-side path
+            script = role_args[0]
+        else:
+            script = fn_or_script.path
         entrypoint = fn_or_script.entrypoint
 
         return role_args, args, m, no_python, script, entrypoint
@@ -203,6 +224,7 @@ def package(
             log_level=launcher.log_level,
             max_retries=executor.retries,
             max_restarts=launcher.max_restarts,
+            dgxc=isinstance(executor, DGXCloudExecutor),
             use_env=use_env,
         )
     else:

@@ -40,11 +40,9 @@ If all tests passed, then you should be good to get started with the development
 The repository is home to flexible Python modules, sample scripts, tests, and more.
 Here is a brief overview of where everything lives:
 
-- [docker](docker/) - Dockerfiles to build NeMo with NeMo Run.
 - [docs](docs/) - Walkthroughs and guides the library.
 - [examples](examples/) - Examples for how users may want to use NeMo Run.
-- [src](src/) -
-  - [nemo_run](src/nemo_run/) - The source code for NeMo Run.
+- [nemo_run](nemo_run/) - The source code for NeMo Run.
 - [test](test/) - Unit tests.
 
 ## Examples and Documentation
@@ -65,7 +63,7 @@ Run the following commands to switch to the project documentation folder and gen
 
 ```sh
 cd docs/
-uv run --group docs sphinx-build source/ _build/html
+uv run --group docs sphinx-build . _build/html
 ```
 
 The resulting HTML files are generated in a `_build/html` folder created under the project `docs/` folder.

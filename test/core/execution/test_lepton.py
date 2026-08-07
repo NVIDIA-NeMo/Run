@@ -21,9 +21,12 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 from leptonai.api.v1.types.common import LeptonVisibility, Metadata
 from leptonai.api.v1.types.deployment import (
+    EnvValue,
+    EnvVar,
     LeptonContainer,
     LeptonResourceAffinity,
     Mount,
+    QueueConfig,
 )
 from leptonai.api.v1.types.job import LeptonJob, LeptonJobUserSpec
 
@@ -94,6 +97,21 @@ class TestLeptonExecutor:
         )
 
         assert executor.node_reservation == ""
+
+    def test_init_with_secret_vars(self):
+        """Test initialization with node_reservation parameter."""
+        executor = LeptonExecutor(
+            resource_shape="gpu.8xh100-80gb",
+            node_group="my-node-group",
+            container_image="test-image",
+            nodes=2,
+            gpus_per_node=8,
+            secret_vars={"WANDB_API_KEY": "WANDB_API_KEY.zozhang"},
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        assert executor.secret_vars == {"WANDB_API_KEY": "WANDB_API_KEY.zozhang"}
 
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_stop_job(self, mock_APIClient):
@@ -371,6 +389,8 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
+            env_vars={"TEST_ENV": "test-value"},
+            secret_vars={"TEST_SECRET": "test-secret"},
             mounts=[{"path": "/test", "mount_path": "/test"}],
         )
         executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
@@ -379,6 +399,11 @@ class TestLeptonExecutor:
         executor.create_lepton_job("my-lepton-job")
 
         mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.envs == [
+            EnvVar(name="TEST_ENV", value="test-value"),
+            EnvVar(name="TEST_SECRET", value_from=EnvValue(secret_name_ref="test-secret")),
+        ]
 
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_create_lepton_job_with_reservation_config(self, mock_APIClient_class):
@@ -462,6 +487,145 @@ class TestLeptonExecutor:
         created_job = mock_client.job.create.call_args[0][0]
         assert created_job.spec.reservation_config is None
 
+    def test_init_preemption_defaults(self):
+        """Test that preemption fields default to off."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+        )
+
+        assert executor.can_be_preempted is False
+        assert executor.can_preempt is False
+        assert executor.queue_priority is None
+
+    def test_init_with_can_be_preempted(self):
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            can_be_preempted=True,
+        )
+
+        assert executor.can_be_preempted is True
+
+    def test_init_with_can_preempt(self):
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            can_preempt=True,
+        )
+
+        assert executor.can_preempt is True
+
+    def test_init_with_queue_priority(self):
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            can_be_preempted=True,
+            queue_priority="high-8000",
+        )
+
+        assert executor.queue_priority == "high-8000"
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_without_preemption(self, mock_APIClient_class):
+        """Test queue_config is None when neither preemption flag is set."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+        )
+        executor._valid_node_ids = MagicMock(return_value=["node-id-1"])
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.queue_config is None
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_with_can_be_preempted(self, mock_APIClient_class):
+        """Test queue_config is set correctly when can_be_preempted=True."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            can_be_preempted=True,
+        )
+        executor._valid_node_ids = MagicMock(return_value=["node-id-1"])
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.queue_config == QueueConfig(
+            priority_class="mid-4000",
+            can_be_preempted=True,
+            can_preempt=None,
+        )
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_with_can_preempt(self, mock_APIClient_class):
+        """Test queue_config is set correctly when can_preempt=True."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            can_preempt=True,
+        )
+        executor._valid_node_ids = MagicMock(return_value=["node-id-1"])
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.queue_config == QueueConfig(
+            priority_class="mid-4000",
+            can_be_preempted=None,
+            can_preempt=True,
+        )
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_with_custom_queue_priority(self, mock_APIClient_class):
+        """Test that a custom queue_priority overrides the 'mid-4000' default."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            can_be_preempted=True,
+            queue_priority="high-8000",
+        )
+        executor._valid_node_ids = MagicMock(return_value=["node-id-1"])
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.queue_config.priority_class == "high-8000"
+
     def test_nnodes(self):
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
@@ -525,7 +689,11 @@ class TestLeptonExecutor:
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
             mounts=[
-                {"path": "/workspace", "mount_path": "/workspace", "from": "local-storage:nfs"}
+                {
+                    "path": "/workspace",
+                    "mount_path": "/workspace",
+                    "from": "local-storage:nfs",
+                }
             ],
         )
 
@@ -706,7 +874,10 @@ class TestLeptonExecutor:
             mounts=[{"path": "/test", "mount_path": "/test"}],
         )
 
-        configs = [("config1.yaml", "key: value"), ("subdir/config2.yaml", "another: config")]
+        configs = [
+            ("config1.yaml", "key: value"),
+            ("subdir/config2.yaml", "another: config"),
+        ]
 
         filenames = executor.package_configs(*configs)
 
@@ -831,7 +1002,9 @@ class TestLeptonExecutor:
         """Test launch method name validation, pre_launch_commands, and script generation."""
         # Setup
         executor = LeptonExecutor(
-            container_image="test-image", nemo_run_dir="/test", pre_launch_commands=["echo setup"]
+            container_image="test-image",
+            nemo_run_dir="/test",
+            pre_launch_commands=["echo setup"],
         )
         executor.job_dir = executor.lepton_job_dir = "/fake"
         mock_join.return_value = "/fake/script.sh"

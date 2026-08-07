@@ -881,6 +881,29 @@ class TestModernTypeHintParsing:
         result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
         assert result.data == {"x": 1, "y": 2}
 
+    def test_modern_pep604_union_type_hints(self):
+        # PEP 604 unions (X | Y) report get_origin() as types.UnionType, not
+        # typing.Union, so they previously fell through to "Unsupported type".
+        # Regression for #558.
+        if sys.version_info < (3, 10):
+            pytest.skip("Python 3.10+ required for PEP 604 unions")
+
+        def func(data: list[str] | dict[str, int]):
+            pass
+
+        result = parse_cli_args(func, ["data=['a', 'b', 'c']"])
+        assert result.data == ["a", "b", "c"]
+        result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
+        assert result.data == {"x": 1, "y": 2}
+
+        def func_optional(name: str | None):
+            pass
+
+        result = parse_cli_args(func_optional, ["name=hello"])
+        assert result.name == "hello"
+        result = parse_cli_args(func_optional, ["name=None"])
+        assert result.name is None
+
     def test_modern_type_parsing_errors(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):

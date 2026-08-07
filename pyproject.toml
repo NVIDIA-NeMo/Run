@@ -27,11 +27,9 @@ dependencies = [
     "typer>=0.12.3",
     "rich>=13.7.1",
     "jinja2>=3.1.4",
-    "cryptography < 43.0.0",
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
-    "leptonai>=0.25.0",
-    "packaging",
+    "leptonai>=0.26.6",
     "toml",
 ]
 readme = "README.md"
@@ -49,16 +47,21 @@ docker_persistent = "nemo_run.run.torchx_backend.schedulers.docker:create_schedu
 dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
 lepton = "nemo_run.run.torchx_backend.schedulers.lepton:create_scheduler"
 skypilot_jobs = "nemo_run.run.torchx_backend.schedulers.skypilot_jobs:create_scheduler"
+kubeflow = "nemo_run.run.torchx_backend.schedulers.kubeflow:create_scheduler"
 
 [project.optional-dependencies]
 skypilot = [
-    "skypilot[kubernetes]>=0.10.0",
+    "skypilot[kubernetes]>=0.12.3",
 ]
 skypilot-all = [
-    "skypilot[all]>=0.10.0",
+    "skypilot[all]>=0.12.3",
 ]
 ray = [
-    "kubernetes"
+    "kubernetes",
+    "ray[default]>=2.56.0",
+]
+kubeflow = [
+    "kubernetes",
 ]
 
 [dependency-groups]
@@ -92,18 +95,44 @@ docs = [
 ]
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=70.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["nemo_run*"]
+
+[tool.setuptools.package-data]
+nemo_run = ["**/*.j2"]
+
+[tool.setuptools.dynamic]
+version = { attr = "nemo_run.package_info.__version__" }
 
 [tool.uv]
 managed = true
 prerelease = "allow"
 conflicts = [
     [
-        { group = "docs", name = "colorama" },
-        { extra = "skypilot", name = "colorama" },
-        { extra = "skypilot-all", name = "colorama" }
+        { group = "docs" },
+        { extra = "skypilot" },
+        { extra = "skypilot-all" }
     ]
+]
+override-dependencies = [
+    "aiohttp>=3.14.0",                # CVE-2026-50269
+    "cryptography>=46.0.6,<47",       # CVE-2026-34073
+    "fonttools>=4.60.2",              # CVE-2025-66034
+    "h11>=0.16.0",                    # CVE-2025-43859
+    "httpcore>=1.0.9",                # Supports h11 0.16
+    "ibm-cos-sdk>=2.16.2",            # Supports patched urllib3
+    "microsoft-kiota-http>=1.9.9",    # CVE-2026-44503
+    "pillow>=12.3.0",                 # Pillow findings in the compiler report
+    "pygments>=2.20.0",               # CVE-2026-4539
+    "oci>=2.169.0",                   # Compatible with the security-patched crypto stack
+    "python-multipart>=0.0.22",       # CVE-2026-24486
+    "runpod>=1.9.0",                  # Compatible with the security-patched crypto stack
+    "setuptools>=70.0.0",             # CVE-2024-6345
+    "simpleeval>=1.0.5",              # CVE-2026-32640
+    "urllib3>=2.7.0",                 # CVE-2026-44432
 ]
 
 [tool.pytest.ini_options]
@@ -142,14 +171,6 @@ ignore_errors = true
 [tool.coverage.html]
 directory = "coverage_html_report"
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["nemo_run"]
-
-[tool.hatch.version]
-path  = "nemo_run/package_info.py"
 
 [tool.ruff]
 line-length = 100

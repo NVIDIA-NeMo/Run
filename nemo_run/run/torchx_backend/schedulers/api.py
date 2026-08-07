@@ -20,6 +20,7 @@ from torchx.specs import AppDef, AppDryRunInfo
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
+from nemo_run.core.execution.kubeflow import KubeflowExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
@@ -34,6 +35,7 @@ EXECUTOR_MAPPING: dict[Type[Executor], str] = {
     DockerExecutor: "docker_persistent",
     DGXCloudExecutor: "dgx_cloud",
     LeptonExecutor: "lepton",
+    KubeflowExecutor: "kubeflow",
 }
 
 REVERSE_EXECUTOR_MAPPING: dict[str, Type[Executor]] = {
@@ -44,6 +46,7 @@ REVERSE_EXECUTOR_MAPPING: dict[str, Type[Executor]] = {
     "docker_persistent": DockerExecutor,
     "dgx_cloud": DGXCloudExecutor,
     "lepton": LeptonExecutor,
+    "kubeflow": KubeflowExecutor,
 }
 
 

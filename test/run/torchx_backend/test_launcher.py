@@ -23,7 +23,7 @@ from torchx.schedulers.api import Stream
 from torchx.specs import AppDef, AppStatus
 
 from nemo_run.core.execution.base import Executor
-from nemo_run.exceptions import UnknownStatusError
+from nemo_run.exceptions import PersistentSacctFailure, UnknownStatusError
 from nemo_run.run.logs import get_logs
 from nemo_run.run.torchx_backend.launcher import ContextThread, launch, wait_and_exit
 
@@ -160,6 +160,86 @@ def test_context_thread_init(setup_and_teardown):
         assert isinstance(thread, threading.Thread)
         assert hasattr(thread, "ctx")
         assert isinstance(thread.ctx, contextvars.Context)
+
+
+def test_wait_and_exit_retries_on_thread_limit(mock_runner):
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    success_status = MagicMock(spec=AppStatus, state="SUCCEEDED")
+    mock_runner.wait.side_effect = [
+        RuntimeError("can't start new thread"),
+        RuntimeError("can't start new thread"),
+        success_status,
+    ]
+
+    with patch("nemo_run.run.torchx_backend.launcher.time.sleep"):
+        result = wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
+
+    assert mock_runner.wait.call_count == 3
+    assert result.state == "SUCCEEDED"
+
+
+def test_wait_and_exit_thread_limit_backoff(mock_runner):
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    success_status = MagicMock(spec=AppStatus, state="SUCCEEDED")
+    mock_runner.wait.side_effect = [
+        RuntimeError("can't start new thread"),
+        RuntimeError("can't start new thread"),
+        RuntimeError("can't start new thread"),
+        success_status,
+    ]
+
+    sleep_calls = []
+    with patch(
+        "nemo_run.run.torchx_backend.launcher.time.sleep",
+        side_effect=lambda t: sleep_calls.append(t),
+    ):
+        wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
+
+    # backoff: 20, 40, 80
+    assert sleep_calls[:3] == [20, 40, 80]
+
+
+def test_wait_and_exit_thread_limit_does_not_count_as_timeout(mock_runner):
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    success_status = MagicMock(spec=AppStatus, state="SUCCEEDED")
+    # Fail with thread error 5 times (max retries), then succeed — should not time out
+    mock_runner.wait.side_effect = [RuntimeError("can't start new thread")] * 5 + [success_status]
+
+    with patch("nemo_run.run.torchx_backend.launcher.time.sleep"):
+        result = wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner, timeout=3)
+
+    assert result.state == "SUCCEEDED"
+
+
+def test_wait_and_exit_thread_limit_exceeded_raises(mock_runner):
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    # Fail with thread error more than 5 times — should re-raise after 5 retries
+    mock_runner.wait.side_effect = RuntimeError("can't start new thread")
+
+    with patch("nemo_run.run.torchx_backend.launcher.time.sleep"):
+        with pytest.raises(RuntimeError, match="can't start new thread"):
+            wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
+
+    assert mock_runner.wait.call_count == 6  # 1 initial + 5 retries
+
+
+def test_wait_and_exit_other_runtime_error_propagates(mock_runner):
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    mock_runner.wait.side_effect = RuntimeError("some other error")
+
+    with pytest.raises(RuntimeError, match="some other error"):
+        wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
+
+
+def test_wait_and_exit_cancels_job_on_persistent_sacct_failure(mock_runner):
+    """PersistentSacctFailure must cancel the job and raise UnknownStatusError."""
+    mock_app_handle = "dummy://nemo_run/my-test-run"
+    mock_runner.wait.side_effect = PersistentSacctFailure("sacct failed 30 times for 12345")
+
+    with pytest.raises(UnknownStatusError):
+        wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
+
+    mock_runner.cancel.assert_called_once_with(mock_app_handle)
 
 
 @patch("threading.Thread.run")

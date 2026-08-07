@@ -27,7 +27,7 @@ from torchx.specs.api import parse_app_handle
 
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.api import CONSOLE
-from nemo_run.exceptions import UnknownStatusError
+from nemo_run.exceptions import PersistentSacctFailure, UnknownStatusError
 from nemo_run.run.logs import get_logs
 from nemo_run.run.torchx_backend.runner import Runner, get_runner
 
@@ -153,8 +153,28 @@ def wait_and_exit(
 
     tries = 0
     status = None
+    thread_retries = 0
+    thread_retry_delay = 20
     while tries < timeout:
-        status = runner.wait(app_handle, wait_interval=2)
+        try:
+            status = runner.wait(app_handle, wait_interval=2)
+        except PersistentSacctFailure as e:
+            logger.error(
+                f"sacct has been unreachable for too long for job {app_id}, cancelling: {e}"
+            )
+            runner.cancel(app_handle)
+            raise UnknownStatusError(str(e)) from e
+        except RuntimeError as e:
+            if "can't start new thread" in str(e) and thread_retries < 5:
+                thread_retries += 1
+                logger.warning(
+                    f"Thread limit reached while waiting for job {app_id}, "
+                    f"retrying ({thread_retries}/5) in {thread_retry_delay}s..."
+                )
+                time.sleep(thread_retry_delay)
+                thread_retry_delay = min(thread_retry_delay * 2, 300)
+                continue
+            raise
         if status:
             break
         tries += 1

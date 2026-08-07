@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import logging
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -13,6 +29,7 @@ from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
+
 from nemo_run.run.logs import get_logs
 from nemo_run.run.plugin import ExperimentPlugin
 from nemo_run.run.task import direct_run_fn
@@ -20,6 +37,8 @@ from nemo_run.run.torchx_backend.launcher import launch, wait_and_exit
 from nemo_run.run.torchx_backend.packaging import merge_executables, package
 from nemo_run.run.torchx_backend.runner import Runner
 from nemo_run.run.torchx_backend.schedulers.api import get_executor_str
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -83,9 +102,9 @@ class Job(ConfigurableMixin):
             status = runner.status(self.handle)
             state = status.state if status else None
         except Exception:
-            ...
-        finally:
-            return state or self.state
+            logger.exception("Failed to get status for job %s", self.handle)
+            state = None
+        return state or self.state
 
     def logs(self, runner: Runner, regex: str | None = None):
         get_logs(
@@ -263,7 +282,7 @@ class JobGroup(ConfigurableMixin):
             if len(executors) == 1:
                 self.executors = executors * len(self.tasks)
 
-        self._dryrun_info: Optional[AppDryRunInfo] = None
+        self._dryrun_infos: list[AppDryRunInfo] = []
 
     @property
     def state(self) -> AppState:
@@ -301,11 +320,11 @@ class JobGroup(ConfigurableMixin):
                 status = runner.status(handle)
                 state = status.state if status else None
             except Exception:
-                ...
-            finally:
-                if not state:
-                    state = AppState.UNKNOWN
-                new_states.append(state)
+                logger.exception("Failed to get status for job handle %s", handle)
+                state = None
+            if not state:
+                state = AppState.UNKNOWN
+            new_states.append(state)
 
         self.states = new_states
         return self.state
@@ -356,7 +375,7 @@ class JobGroup(ConfigurableMixin):
 
         assert hasattr(self, "_executables") and self._executables
 
-        for executable, executor in self._executables:
+        for idx, (executable, executor) in enumerate(self._executables):
             executor_str = get_executor_str(executor)
 
             if dryrun:
@@ -370,8 +389,9 @@ class JobGroup(ConfigurableMixin):
                     log=self.tail_logs,
                     runner=runner,
                 )
-                self._dryrun_info = dryrun_info
+                self._dryrun_infos.append(dryrun_info)
             else:
+                dryrun_info = self._dryrun_infos[idx] if idx < len(self._dryrun_infos) else None
                 handle, status = launch(
                     executable=executable,
                     executor_name=executor_str,
@@ -380,7 +400,7 @@ class JobGroup(ConfigurableMixin):
                     wait=wait,
                     log=self.tail_logs,
                     runner=runner,
-                    dryrun_info=self._dryrun_info,
+                    dryrun_info=dryrun_info,
                 )
                 self.handles.append(handle)
                 self.states.append(status.state if status else AppState.UNKNOWN)

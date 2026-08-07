@@ -1,11 +1,27 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import logging
 import os
 import shutil
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -14,19 +30,14 @@ from torchx.schedulers.api import (
     DescribeAppResponse,
     ListAppResponse,
     Scheduler,
+    Stream,
+    split_lines,
 )
-from torchx.specs import (
-    AppDef,
-    AppState,
-    ReplicaStatus,
-    Role,
-    RoleStatus,
-    runopts,
-)
+from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runopts
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
-from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
+from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudRequest, DGXCloudState
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
@@ -48,7 +59,7 @@ DGX_STATES: dict[DGXCloudState, AppState] = {
     DGXCloudState.FAILED: AppState.FAILED,
     DGXCloudState.COMPLETED: AppState.SUCCEEDED,
     DGXCloudState.TERMINATING: AppState.RUNNING,
-    DGXCloudState.UNKNOWN: AppState.FAILED,
+    DGXCloudState.UNKNOWN: AppState.PENDING,
 }
 
 log = logging.getLogger(__name__)
@@ -98,6 +109,23 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
             role = values.apply(role)
 
         cmd = [role.entrypoint] + role.args
+
+        req = DGXCloudRequest(
+            launch_cmd=cmd,
+            jobs=[role.name],
+            executor=executor,
+            max_retries=role.max_retries,
+            extra_env=role.env,
+            launcher=executor.get_launcher(),
+        )
+
+        # Write and copy sbatch script
+        path = os.path.join(executor.experiment_dir, "torchrun_job.sh")
+        script = req.materialize()
+
+        with open(path, "w") as f:
+            f.write(script)
+
         return AppDryRunInfo(
             DGXRequest(app=app, executor=executor, cmd=cmd, name=role.name),
             # Minimal function to show the config, if any
@@ -117,7 +145,9 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
 
         # The DGXExecutor's launch call typically returns (job_id, handle).
         # We'll call it without additional parameters here.
-        job_id, status = executor.launch(name=req.name, cmd=req.cmd)
+        cmd = os.path.join(executor.experiment_dir, "torchrun_job.sh")
+        req.launch_cmd = ["bash", cmd]
+        job_id, status = executor.launch(name=req.name, cmd=req.launch_cmd)
         if not job_id:
             raise RuntimeError("Failed scheduling run on DGX: no job_id returned")
 
@@ -131,7 +161,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
 
         # Store a status entry or logs path if available
         # Currently, the DGXExecutor status is placeholder, but we keep the pattern
-        _save_job_dir(app_id, job_status=status, executor=executor)
+        _save_job_dir(app_id, job_status=status, executor=executor, job_id=job_id)
 
         return app_id
 
@@ -143,7 +173,8 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         # We split out the stored values from the JSON file
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)
-        _, role_name, job_id = app_id.split("___")
+        parts = app_id.split("___")
+        role_name = parts[1] if len(parts) > 1 else app_id
         roles = [Role(name=role_name, image="", num_replicas=1)]
         roles_statuses = [
             RoleStatus(
@@ -161,8 +192,9 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         if not executor:
             return None
 
+        job_id = job_info.get("job_id") or parts[-1]
         dgx_state = executor.status(job_id) or DGXCloudState.UNKNOWN
-        app_state = DGX_STATES.get(dgx_state, AppState.UNKNOWN)
+        app_state = DGX_STATES.get(dgx_state, AppState.PENDING)
         roles_statuses[0].replicas[0].state = app_state
 
         return DescribeAppResponse(
@@ -174,13 +206,43 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
             ui_url=f"{executor.base_url}/workloads/distributed/{job_id}",
         )
 
+    def log_iter(
+        self,
+        app_id: str,
+        role_name: str,
+        k: int = 0,
+        regex: Optional[str] = None,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+        should_tail: bool = False,
+        streams: Optional[Stream] = None,
+    ) -> Iterable[str]:
+        stored_data = _get_job_dirs()
+        job_info = stored_data.get(app_id)
+        job_id = job_info.get("job_id") or app_id.split("___")[-1]
+        executor: Optional[DGXCloudExecutor] = job_info.get("executor", None)  # type: ignore
+        if not executor:
+            return [""]
+
+        logs = executor.fetch_logs(
+            job_id=job_id,
+            stream=should_tail,
+        )  # type: ignore
+        if isinstance(logs, str):
+            if len(logs) == 0:
+                logs = []
+            else:
+                logs = split_lines(logs)
+
+        return logs
+
     def _cancel_existing(self, app_id: str) -> None:
         """
         Cancels the job by calling the DGXExecutor's cancel method.
         """
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)
-        _, _, job_id = app_id.split("___")
+        job_id = job_info.get("job_id") or app_id.split("___")[-1]
         executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
         if not executor:
             return None
@@ -197,7 +259,9 @@ def create_scheduler(session_name: str, **kwargs: Any) -> DGXCloudScheduler:
     return DGXCloudScheduler(session_name=session_name)
 
 
-def _save_job_dir(app_id: str, job_status: str, executor: DGXCloudExecutor) -> None:
+def _save_job_dir(
+    app_id: str, job_status: str, executor: DGXCloudExecutor, job_id: str = ""
+) -> None:
     """
     Saves or updates local record of job status in JSON for demonstration.
     """
@@ -216,6 +280,7 @@ def _save_job_dir(app_id: str, job_status: str, executor: DGXCloudExecutor) -> N
 
         app = {
             "job_status": job_status,
+            "job_id": job_id,
             "executor": serializer.serialize(
                 fdl_dc.convert_dataclasses_to_configs(executor, allow_post_init=True)
             ),

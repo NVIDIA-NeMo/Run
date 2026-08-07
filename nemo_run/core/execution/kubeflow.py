@@ -1,0 +1,1097 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import calendar
+import getpass
+import json
+import logging
+import os
+import re
+import subprocess
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Iterable, Optional
+
+from jinja2 import Environment, PackageLoader, select_autoescape
+
+try:
+    from kubernetes import client, config, watch
+    from kubernetes.client.rest import ApiException
+
+    _KUBERNETES_AVAILABLE = True
+except ImportError:
+    _KUBERNETES_AVAILABLE = False
+
+from nemo_run.core.execution.base import Executor, ExecutorMacros
+from nemo_run.core.packaging.base import Packager
+
+logger = logging.getLogger(__name__)
+
+# TrainJob (Kubeflow Training Operator v2)
+_TRAINJOB_GROUP = "trainer.kubeflow.org"
+_TRAINJOB_VERSION = "v1alpha1"
+_TRAINJOB_PLURAL = "trainjobs"
+
+# The kubernetes SDK bakes the client cert into its SSLContext at construction
+# time and never re-reads it. When credentials come from a rotating source
+# (e.g. a Teleport tbot that refreshes the cert on disk), a long-running client
+# keeps presenting the original cert until it expires mid-run. Rebuilding the
+# API clients from the on-disk kubeconfig more frequently than the cert TTL
+# keeps a long run (multi-hour jobs) authenticated across rotations.
+_KUBE_CLIENT_REFRESH_SECONDS = 1500
+_TRAINJOB_KIND = "TrainJob"
+
+
+class KubeflowJobState(Enum):
+    CREATED = "Created"
+    RUNNING = "Running"
+    SUCCEEDED = "Succeeded"
+    FAILED = "Failed"
+    UNKNOWN = "Unknown"
+
+
+@dataclass(kw_only=True)
+class KubeflowExecutor(Executor):
+    """
+    Dataclass to configure a Kubeflow Executor for the Kubeflow Training Operator on Kubernetes.
+
+    Uses TrainJob (Training Operator v2). Kubernetes configuration is loaded automatically
+    (local kubeconfig with in-cluster fallback).
+
+    Args:
+        runtime_ref: ``ClusterTrainingRuntime`` name used by TrainJob (e.g. ``"torch-distributed"``).
+    """
+
+    runtime_ref: str = "torch-distributed"
+    namespace: str = "default"
+    image: str = ""
+    num_nodes: int = 1
+    nprocs_per_node: Optional[int] = None  # defaults to gpus_per_node when not set
+    gpus_per_node: Optional[int] = None
+    cpu_requests: Optional[str] = None
+    memory_requests: Optional[str] = None
+    cpu_limits: Optional[str] = None
+    memory_limits: Optional[str] = None
+    extra_resource_requests: dict[str, str] = field(default_factory=dict)
+    extra_resource_limits: dict[str, str] = field(default_factory=dict)
+    volume_mounts: list[dict[str, Any]] = field(default_factory=list)
+    volumes: list[dict[str, Any]] = field(default_factory=list)
+    labels: dict[str, Any] = field(default_factory=dict)
+    annotations: dict[str, Any] = field(default_factory=dict)
+    # pod_annotations land on the trainer POD template (podTemplateOverrides[].metadata),
+    # not the TrainJob object — needed for e.g. GKE multi-network attach
+    # (networking.gke.io/interfaces) which is read off the pod, not the TrainJob.
+    pod_annotations: dict[str, Any] = field(default_factory=dict)
+    pod_labels: dict[str, Any] = field(default_factory=dict)
+    tolerations: list[dict[str, Any]] = field(default_factory=list)
+    affinity: dict[str, Any] = field(default_factory=dict)
+    # env_list accepts full env var dicts (e.g. valueFrom/secretKeyRef).
+    # Simple key=value pairs should use the inherited env_vars dict instead.
+    env_list: list[dict[str, Any]] = field(default_factory=list)
+    # pod_spec_overrides merges extra fields into podTemplateOverrides[].spec — e.g. {"resourceClaims": [...]}.
+    pod_spec_overrides: dict[str, Any] = field(default_factory=dict)
+    data_mover_image: str = "alpine:3.19"
+    restart_policy: str = "OnFailure"
+    image_pull_secrets: list[str] = field(default_factory=list)
+    spec_kwargs: dict[str, Any] = field(default_factory=dict)
+    container_kwargs: dict[str, Any] = field(default_factory=dict)
+    # Workdir sync: if set, package() rsyncs job_dir → PVC before launch and
+    # pull_results() rsyncs the PVC back to job_dir after the job completes.
+    workdir_pvc: Optional[str] = None
+    workdir_pvc_path: str = "/nemo_run"
+    # Optional local directory whose contents are merged into job_dir before
+    # the PVC sync.  Use this to include local scripts/files that are not
+    # generated by the packager (e.g. a hand-written training script).
+    workdir_local_path: Optional[str] = None
+    # Human-readable base for the generated TrainJob name. The k8s name becomes
+    # ``<basename>-<uuid6>`` (RFC-1123 safe, ≤33 chars); the uuid keeps every
+    # launch unique. Falls back to the launch ``name`` when unset.
+    train_job_basename: Optional[str] = None
+
+    def __post_init__(self):
+        if not _KUBERNETES_AVAILABLE:
+            raise ImportError(
+                "kubernetes package is required for KubeflowExecutor. "
+                "Install it with: pip install nemo-run[kubeflow]"
+            )
+        self._load_kube_clients()
+
+    def _load_kube_clients(self) -> None:
+        """(Re)load the kubeconfig from disk and rebuild the API clients.
+
+        Called at init and again whenever the cached clients age past
+        ``_KUBE_CLIENT_REFRESH_SECONDS`` (see the module constant) so that a
+        rotating client cert (e.g. a Teleport tbot refreshing it on disk) is
+        picked up before the in-memory cert expires.
+        """
+        try:
+            config.load_kube_config()
+        except Exception as original_exc:
+            try:
+                config.load_incluster_config()
+            except Exception:
+                raise original_exc
+        self._co_api = client.CustomObjectsApi()
+        self._cv_api = client.CoreV1Api()
+        self._kube_clients_loaded_at = time.monotonic()
+
+    def _maybe_reload_kube_clients(self) -> None:
+        """Rebuild the API clients if they are older than the refresh interval."""
+        age = time.monotonic() - getattr(self, "_kube_clients_loaded_at", 0.0)
+        if age >= _KUBE_CLIENT_REFRESH_SECONDS:
+            self._load_kube_clients()
+
+    @property
+    def _custom_objects_api(self):
+        """CustomObjectsApi client, transparently refreshed across cert rotations."""
+        self._maybe_reload_kube_clients()
+        return self._co_api
+
+    @property
+    def _core_v1_api(self):
+        """CoreV1Api client, transparently refreshed across cert rotations."""
+        self._maybe_reload_kube_clients()
+        return self._cv_api
+
+    # ── Executor interface ────────────────────────────────────────────────────
+
+    def assign(self, exp_id: str, exp_dir: str, task_id: str, task_dir: str) -> None:
+        """Bind this executor to a specific experiment task, setting job identity and directories."""
+        self.experiment_id = exp_id
+        self.experiment_dir = exp_dir
+        self.job_name = task_id
+        self.job_dir = os.path.join(exp_dir, task_dir)
+
+    def nnodes(self) -> int:
+        """Return the total number of nodes requested."""
+        return self.num_nodes
+
+    @property
+    def code_dir(self) -> str:
+        """Subdirectory on the PVC where user code (launch.sh, scripts) is synced.
+
+        Scoped to ``<workdir_pvc_path>/<username>/<experiment_id>/<job_name>/code``
+        so that neither multiple users *nor* multiple concurrent jobs from the
+        same user clobber each other's launcher code on a shared PVC — each
+        ``package()`` rsyncs its ``job_dir`` here, so an unscoped path lets a
+        second job overwrite the first job's code mid-run. Falls back to a bare
+        ``<username>/code`` only before the executor is assigned to a task.
+        """
+        parts = [
+            p for p in (getattr(self, "experiment_id", None), getattr(self, "job_name", None)) if p
+        ]
+        scope = "/".join([getpass.getuser(), *parts])
+        return f"{self.workdir_pvc_path.rstrip('/')}/{scope}/code"
+
+    def nproc_per_node(self) -> int:
+        """Return processes per node: nprocs_per_node → gpus_per_node → 1."""
+        if self.nprocs_per_node is not None:
+            return self.nprocs_per_node
+        if self.gpus_per_node is not None:
+            return self.gpus_per_node
+        return 1
+
+    # ── Manifest builders ─────────────────────────────────────────────────────
+
+    def _build_resources(self) -> dict[str, Any]:
+        limits: dict[str, Any] = {}
+        requests: dict[str, Any] = {}
+        if self.cpu_requests:
+            requests["cpu"] = self.cpu_requests
+        if self.memory_requests:
+            requests["memory"] = self.memory_requests
+        if self.cpu_limits:
+            limits["cpu"] = self.cpu_limits
+        if self.memory_limits:
+            limits["memory"] = self.memory_limits
+        if self.gpus_per_node is not None:
+            limits["nvidia.com/gpu"] = str(self.gpus_per_node)
+            requests["nvidia.com/gpu"] = str(self.gpus_per_node)
+        requests.update(self.extra_resource_requests)
+        limits.update(self.extra_resource_limits)
+        resources: dict[str, Any] = {}
+        if limits:
+            resources["limits"] = limits
+        if requests:
+            resources["requests"] = requests
+        return resources
+
+    def get_job_body(self, name: str, command: list[str]) -> dict:
+        """Build and return the TrainJob CRD manifest dict."""
+        resources = self._build_resources()
+        env = [{"name": k, "value": v} for k, v in self.env_vars.items()] + self.env_list
+
+        trainer: dict[str, Any] = {
+            "numNodes": self.num_nodes,
+            "numProcPerNode": self.nproc_per_node(),
+            "image": self.image,
+            "command": command,
+            "env": env,
+        }
+        if resources:
+            trainer["resourcesPerNode"] = resources
+        trainer.update(self.container_kwargs)
+
+        # TrainJob uses podTemplateOverrides for pod-level config (volumes, tolerations,
+        # affinity, imagePullSecrets, etc.) rather than embedding them in the pod spec.
+        # All native fields are merged into a single override entry targeting "node".
+        pod_spec_override: dict[str, Any] = {}
+        if self.volumes:
+            pod_spec_override["volumes"] = self.volumes
+        if self.image_pull_secrets:
+            pod_spec_override["imagePullSecrets"] = [{"name": s} for s in self.image_pull_secrets]
+        if self.tolerations:
+            pod_spec_override["tolerations"] = self.tolerations
+        if self.affinity:
+            pod_spec_override["affinity"] = self.affinity
+        if self.volume_mounts:
+            # Container name must match the CRT's container name ("node") so the
+            # volumeMounts are merged into the existing container rather than
+            # creating a new image-less container.
+            pod_spec_override.setdefault("containers", []).append(
+                {"name": "node", "volumeMounts": self.volume_mounts}
+            )
+        pod_spec_override.update(self.pod_spec_overrides)
+
+        spec: dict[str, Any] = {
+            "runtimeRef": {"name": self.runtime_ref},
+            "trainer": trainer,
+        }
+        if pod_spec_override or self.pod_annotations or self.pod_labels:
+            override_entry: dict[str, Any] = {"targetJobs": [{"name": "node"}]}
+            if pod_spec_override:
+                override_entry["spec"] = pod_spec_override
+            pod_meta: dict[str, Any] = {}
+            if self.pod_labels:
+                pod_meta["labels"] = self.pod_labels
+            if self.pod_annotations:
+                pod_meta["annotations"] = self.pod_annotations
+            if pod_meta:
+                override_entry["metadata"] = pod_meta
+            spec["podTemplateOverrides"] = [override_entry]
+        spec.update(self.spec_kwargs)
+
+        metadata: dict[str, Any] = {"name": name, "namespace": self.namespace}
+        if self.labels:
+            metadata["labels"] = self.labels
+        if self.annotations:
+            metadata["annotations"] = self.annotations
+
+        return {
+            "apiVersion": f"{_TRAINJOB_GROUP}/{_TRAINJOB_VERSION}",
+            "kind": _TRAINJOB_KIND,
+            "metadata": metadata,
+            "spec": spec,
+        }
+
+    # ── Submit / status / cancel / logs ──────────────────────────────────────
+
+    def _trainjob_name(self, fallback: str) -> str:
+        """RFC-1123 base name ``<basename>-<uuid6>`` (≤33 chars), generated once.
+
+        Shared by the TrainJob and its data-mover pod (created in ``package()``,
+        before ``launch()``) so both are valid, unique per launch — the uuid
+        avoids API-server collisions — and consistent. The basename is
+        ``train_job_basename`` (e.g. the model recipe) or the caller's name,
+        sanitized to lowercase alphanumerics + dashes; capped at 33 chars to
+        stay under the 63-char label limit with room for the ``-data-mover``
+        suffix.
+        """
+        cached = getattr(self, "_k8s_job_name", None)
+        if cached is not None:
+            return cached
+        base = re.sub(
+            r"[^a-z0-9-]+", "-", (self.train_job_basename or fallback or "job").lower()
+        ).strip("-")
+        uid = uuid.uuid4().hex[:6]
+        base = base[: 33 - len(uid) - 1].strip("-") or "job"
+        self._k8s_job_name = f"{base}-{uid}"
+        return self._k8s_job_name
+
+    def launch(
+        self,
+        name: str,
+        cmd: list[str],
+        wait: bool = False,
+        timeout: int = 300,
+        poll_interval: int = 10,
+    ) -> tuple[str, KubeflowJobState]:
+        """Submit a TrainJob and optionally wait until it reaches a terminal or running state.
+
+        Returns ``(job_name, state)`` where state is ``CREATED`` when not waiting, or the
+        observed ``RUNNING``, ``SUCCEEDED``, or ``FAILED`` state when *wait* is ``True``.
+        Raises ``RuntimeError`` if the job already exists or *timeout* expires.
+        """
+        name = self._trainjob_name(name)
+        job_body = self.get_job_body(name, cmd)
+        try:
+            self._custom_objects_api.create_namespaced_custom_object(
+                group=_TRAINJOB_GROUP,
+                version=_TRAINJOB_VERSION,
+                namespace=self.namespace,
+                plural=_TRAINJOB_PLURAL,
+                body=job_body,
+            )
+        except ApiException as e:
+            if e.status != 409:
+                raise
+            # The job name is derived from the experiment id (the commit SHA on
+            # CI), so a 409 means a TrainJob from a prior attempt lingers — e.g.
+            # an attempt the launcher declared FAILED after a slow pod start.
+            # Delete the stale job and recreate so the caller's retry (such as
+            # setup_experiment's "attempt N of M") makes progress instead of
+            # re-colliding on the same name.
+            logger.warning(
+                "%s %s already exists; deleting stale job and recreating", _TRAINJOB_KIND, name
+            )
+            self.cancel(name, wait=True)
+            self._custom_objects_api.create_namespaced_custom_object(
+                group=_TRAINJOB_GROUP,
+                version=_TRAINJOB_VERSION,
+                namespace=self.namespace,
+                plural=_TRAINJOB_PLURAL,
+                body=job_body,
+            )
+
+        logger.info("Submitted %s %s to namespace %s", _TRAINJOB_KIND, name, self.namespace)
+
+        if not wait:
+            return name, KubeflowJobState.CREATED
+
+        deadline = time.time() + timeout
+        state = KubeflowJobState.CREATED
+        last_logged_state: Optional[KubeflowJobState] = None
+        while time.time() < deadline:
+            state = self.status(name) or KubeflowJobState.UNKNOWN
+            if state != last_logged_state:
+                logger.info("%s %s: %s", _TRAINJOB_KIND, name, state.value)
+                last_logged_state = state
+            if state == KubeflowJobState.RUNNING:
+                return name, state
+            if state in (KubeflowJobState.SUCCEEDED, KubeflowJobState.FAILED):
+                return name, state
+            time.sleep(poll_interval)
+
+        raise RuntimeError(
+            f"{_TRAINJOB_KIND} {name} did not reach RUNNING within {timeout}s, last state: {state}"
+        )
+
+    def status(self, job_name: str) -> Optional[KubeflowJobState]:
+        """Return the current state of *job_name*, or ``None`` if it no longer exists."""
+        resp = None
+        for attempt in range(2):
+            try:
+                resp = self._custom_objects_api.get_namespaced_custom_object(
+                    group=_TRAINJOB_GROUP,
+                    version=_TRAINJOB_VERSION,
+                    namespace=self.namespace,
+                    plural=_TRAINJOB_PLURAL,
+                    name=job_name,
+                )
+                break
+            except ApiException as e:
+                if e.status == 404:
+                    return None
+                logger.warning("API error getting status for %s: %s", job_name, e)
+                return None
+            except Exception as e:
+                # Not an API-level error — most likely an expired client cert
+                # (tbot rotated it on disk but the SDK cached the old one) or a
+                # transient connection error. Force a client reload from the
+                # freshly-rotated kubeconfig and retry once.
+                if attempt == 0:
+                    logger.warning(
+                        "Connection error getting status for %s (%s); reloading kube client",
+                        job_name,
+                        e,
+                    )
+                    self._load_kube_clients()
+                    continue
+                logger.warning("Status check for %s failed after client reload: %s", job_name, e)
+                return None
+        if resp is None:
+            return None
+
+        job_status = resp.get("status", {})
+
+        # TrainJob (v2) uses status.jobsStatus[].{active,ready,succeeded,failed}
+        jobs_status = job_status.get("jobsStatus", [])
+        if any(js.get("failed", 0) > 0 for js in jobs_status):
+            return KubeflowJobState.FAILED
+        if jobs_status and all(
+            js.get("succeeded", 0) > 0 and js.get("active", 0) == 0 for js in jobs_status
+        ):
+            return KubeflowJobState.SUCCEEDED
+        if any(js.get("active", 0) > 0 or js.get("ready", 0) > 0 for js in jobs_status):
+            return KubeflowJobState.RUNNING
+        return KubeflowJobState.UNKNOWN
+
+    def fetch_logs(
+        self,
+        job_name: str,
+        stream: bool = False,
+        lines: int = 100,
+        timeout: int = 60,
+    ) -> Iterable[str]:
+        """Yield log lines from all pods of *job_name* via ``kubectl logs``.
+
+        When *stream* is ``True`` the method follows the log stream and retries
+        until pods are running (up to 10 minutes).  Otherwise it returns the last
+        *lines* lines from a single ``kubectl logs`` call.
+        """
+        # Tail every rank to <job_dir>/log-allranks_0.out (downstream log
+        # validation globs log*.out and needs every rank), but forward only
+        # global rank 0 and the *last* global rank to the caller (stdout / CI
+        # job log) — rank 0 carries setup/config, the last rank carries
+        # Megatron's print_rank_last per-step loss/throughput.
+        #
+        # The last global rank is resolved at stream time, not the pod name:
+        # the trainer runs `torchrun --node-rank $PET_NODE_RANK`, and the runtime
+        # sets PET_NODE_RANK = the pod's `batch.kubernetes.io/job-completion-index`
+        # label. `--prefix` tags each line `[pod/<pod>/<container>]`; we map that
+        # pod name → completion index and pair it with torchrun's `[defaultN]`
+        # local-rank marker (see _forward_to_stdout).
+        #
+        # Robust streaming: `kubectl logs -l -f` only follows the pods present
+        # when it attaches and never re-attaches to a container that restarts, so
+        # a single long-lived follow silently drops pods after a gang/NCCL-init
+        # restart. We therefore (a) give --max-log-requests headroom so a restart
+        # that transiently doubles the matching-pod count can't error the whole
+        # command ("maximum allowed concurrency"), and (b) periodically re-attach.
+        # To avoid re-emitting the full history on every re-attach, reconnects
+        # resume via `--since-time` (with `--timestamps`); only the first attach
+        # uses `--tail=-1` to capture pre-existing history.
+        label_selector = f"jobset.sigs.k8s.io/jobset-name={job_name}"
+        max_log_requests = max(self.num_nodes * 2, 8)
+        base_cmd = [
+            "kubectl",
+            "logs",
+            "-l",
+            label_selector,
+            "-n",
+            self.namespace,
+            "--prefix",
+            "--max-log-requests",
+            str(max_log_requests),
+        ]
+        # `--prefix --timestamps` lines look like:
+        #   [pod/<pod>/<container>] <RFC3339> [defaultN]: <message>
+        # Track the max RFC3339 stamp to resume via --since-time, and strip it so
+        # downstream sees the original `[pod/...] [defaultN]: <message>`.
+        ts_re = re.compile(r"^(\[pod/[^\]]+\])\s+(\d{4}-\d\d-\d\dT[\d:.]+Z)\s")
+
+        def _split_ts(line: str) -> tuple[Optional[str], str]:
+            m = ts_re.match(line)
+            if not m:
+                return None, line
+            return m.group(2), m.group(1) + " " + line[m.end() :]
+
+        epoch_re = re.compile(r"^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d+))?Z?$")
+
+        def _ts_epoch(ts: str) -> Optional[float]:
+            """RFC3339 UTC stamp (kubectl --timestamps, ns precision) → epoch seconds."""
+            m = epoch_re.match(ts)
+            if not m:
+                return None
+            y, mo, d, h, mi, s = (int(m.group(i)) for i in range(1, 7))
+            frac = float("0." + m.group(7)) if m.group(7) else 0.0
+            return calendar.timegm((y, mo, d, h, mi, s, 0, 0, 0)) + frac
+
+        nproc = self.nproc_per_node()
+        pod_re = re.compile(r"pod/([^/]+)/")
+        local_re = re.compile(r"\[default(\d+)\]")
+
+        def _pod_index_map() -> dict[str, int]:
+            """Map pod name → job-completion-index (== torchrun node rank)."""
+            try:
+                out = subprocess.run(
+                    [
+                        "kubectl",
+                        "get",
+                        "pods",
+                        "-n",
+                        self.namespace,
+                        "-l",
+                        label_selector,
+                        "-o",
+                        "json",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+                items = json.loads(out.stdout).get("items", [])
+            except Exception as e:
+                logger.warning("Could not list pods for %s: %s", job_name, e)
+                return {}
+            mapping: dict[str, int] = {}
+            for item in items:
+                meta = item.get("metadata", {})
+                name = meta.get("name")
+                idx = (meta.get("labels", {}) or {}).get("batch.kubernetes.io/job-completion-index")
+                if name is not None and idx is not None:
+                    mapping[name] = int(idx)
+            return mapping
+
+        # Forward only RANK 0 (setup/config) and RANK world_size-1 (Megatron's
+        # print_rank_last per-step loss/throughput). The c10d rendezvous assigns
+        # torch ranks by join order, NOT by JobSet completion-index, so we read
+        # the ground truth: torchrun exports GROUP_RANK (the node rank) into every
+        # worker's /proc/<pid>/environ. The pod whose worker has GROUP_RANK 0
+        # holds RANK 0 (local 0); the pod with GROUP_RANK num_nodes-1 holds
+        # RANK world_size-1 (local nproc-1). The map is resolved once the workers
+        # exist (post-rendezvous) and cached; it is re-resolved when the rank-0 or
+        # last pod is no longer covered (a gang restart reshuffles ranks). Before
+        # the workers come up (empty map) we fall back to the completion-index-0
+        # pod so early setup output still streams.
+        last_group_rank = self.num_nodes - 1
+        group_rank_map: dict[str, int] = {}
+
+        def _read_group_rank(pod: str) -> Optional[int]:
+            """Read a torchrun worker's GROUP_RANK from /proc/<pid>/environ in *pod*."""
+            script = (
+                "for e in /proc/[0-9]*/environ; do "
+                "g=$(tr '\\0' '\\n' < \"$e\" 2>/dev/null | grep -m1 '^GROUP_RANK='); "
+                '[ -n "$g" ] && { echo "$g"; break; }; done'
+            )
+            try:
+                out = subprocess.run(
+                    [
+                        "kubectl",
+                        "exec",
+                        pod,
+                        "-n",
+                        self.namespace,
+                        "-c",
+                        "node",
+                        "--",
+                        "sh",
+                        "-c",
+                        script,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=min(timeout, 30),
+                )
+            except Exception:
+                return None
+            m = re.search(r"GROUP_RANK=(\d+)", out.stdout)
+            return int(m.group(1)) if m else None
+
+        def _ensure_group_ranks(current_pods: set[str]) -> None:
+            """Resolve pod → GROUP_RANK via worker environ if rank 0 / last not yet covered."""
+            covered = {group_rank_map[p] for p in current_pods if p in group_rank_map}
+            if 0 in covered and last_group_rank in covered:
+                return
+            group_rank_map.clear()
+            for pod in current_pods:
+                g = _read_group_rank(pod)
+                if g is not None:
+                    group_rank_map[pod] = g
+
+        def _forward_to_stdout(log_line: str, pod_index: dict[str, int]) -> bool:
+            """True only for RANK 0 and RANK world_size-1.
+
+            Uses the resolved GROUP_RANK map; before the workers come up (empty
+            map) falls back to the completion-index-0 pod for early setup output.
+            """
+            pod_match = pod_re.search(log_line)
+            local_match = local_re.search(log_line)
+            if not pod_match or not local_match:
+                return False
+            pod = pod_match.group(1)
+            local = int(local_match.group(1))
+            gr = group_rank_map.get(pod)
+            if gr is not None:
+                return (gr == 0 and local == 0) or (gr == last_group_rank and local == nproc - 1)
+            return pod_index.get(pod) == 0 and local == 0
+
+        all_ranks_path = os.path.join(self.job_dir, "log-allranks_0.out")
+        os.makedirs(self.job_dir, exist_ok=True)
+
+        if stream:
+            reattach_interval_s = 120.0
+            # `kubectl logs -l ... -f` multiplexes pods in ARRIVAL order, so the two
+            # forwarded streams (rank 0 and the last rank, on different pods) can
+            # interleave out of timestamp order. Hold each forwarded line in a small
+            # buffer and emit sorted by the kubelet --timestamps value once it is
+            # older than REORDER_HOLD_S — long enough to absorb cross-node clock
+            # skew + flush jitter, short enough to keep the console near-live.
+            reorder_hold_s = 2.0
+            # First attach: resolve BOTH rank 0 and the last rank before forwarding
+            # any line. GROUP_RANK is only readable once the torchrun workers have
+            # rendezvoused, so the map is empty at first and _forward_to_stdout would
+            # fall back to rank-0-only — the last rank's early per-step loss lines
+            # (replayed via --tail=-1) would land in log-allranks but never reach
+            # stdout, silently dropping the beginning of the run from the CI log.
+            # Poll until both are resolved, capped so a run that never exposes
+            # GROUP_RANK still streams (with the completion-index fallback).
+            rank_resolve_poll_s = 5.0
+            since_time: Optional[str] = None
+            while True:
+                pod_index = _pod_index_map()
+                _ensure_group_ranks(set(pod_index))
+                if since_time is None:
+                    # First attach: wait until BOTH rank 0 and the last rank are
+                    # resolved before forwarding, so the last rank's early per-step
+                    # lines (replayed via --tail=-1) reach stdout instead of only
+                    # log-allranks. Never fall back to the completion-index heuristic
+                    # — it forwards the wrong rank. The job may sit Pending (waiting
+                    # for nodes) or be mid-rendezvous, so keep waiting while it is
+                    # alive; --tail=-1 on first attach replays history, so nothing is
+                    # lost by waiting. Stop only if the job reaches a terminal state
+                    # (or pods aren't listable at all — e.g. no kubectl / unit tests).
+                    while pod_index and not {0, last_group_rank} <= set(group_rank_map.values()):
+                        if self.status(job_name) in (
+                            KubeflowJobState.SUCCEEDED,
+                            KubeflowJobState.FAILED,
+                        ):
+                            break
+                        time.sleep(rank_resolve_poll_s)
+                        pod_index = _pod_index_map()
+                        _ensure_group_ranks(set(pod_index))
+                attempt_cmd = base_cmd + ["--timestamps", "-f"]
+                # First attach replays history (--tail=-1); reconnects resume from
+                # the last seen timestamp so re-attaching never re-emits old lines.
+                attempt_cmd += (
+                    ["--tail", "-1"] if since_time is None else ["--since-time", since_time]
+                )
+                proc = subprocess.Popen(
+                    attempt_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    bufsize=1,
+                )
+                # Force a periodic re-attach (terminate → reconnect) so pods that
+                # (re)started after this attach are picked up; --since-time keeps
+                # the reconnect from replaying history.
+                reattach_timer = threading.Timer(reattach_interval_s, proc.terminate)
+                reattach_timer.start()
+                reorder_buf: list[tuple[float, str]] = []
+                try:
+                    with open(all_ranks_path, "a") as all_ranks_file:
+                        for raw in iter(proc.stdout.readline, ""):
+                            if not raw:
+                                continue
+                            ts, line = _split_ts(raw)
+                            if ts is not None and (since_time is None or ts > since_time):
+                                since_time = ts
+                            all_ranks_file.write(line)
+                            if not _forward_to_stdout(line, pod_index):
+                                continue
+                            ep = _ts_epoch(ts) if ts else None
+                            if ep is None:
+                                yield line
+                                continue
+                            reorder_buf.append((ep, line))
+                            reorder_buf.sort(key=lambda x: x[0])
+                            cutoff = ep - reorder_hold_s
+                            ready = 0
+                            while ready < len(reorder_buf) and reorder_buf[ready][0] <= cutoff:
+                                ready += 1
+                            for _, ready_line in reorder_buf[:ready]:
+                                yield ready_line
+                            del reorder_buf[:ready]
+                except Exception as e:
+                    logger.warning("Error streaming logs: %s; retrying", e)
+                finally:
+                    reattach_timer.cancel()
+                    proc.terminate()
+                    proc.wait(timeout=2)
+                # Flush the rest in timestamp order before re-attaching (yielding in
+                # finally is unsafe on generator close, so drain here).
+                reorder_buf.sort(key=lambda x: x[0])
+                for _, ready_line in reorder_buf:
+                    yield ready_line
+                state = self.status(job_name)
+                if state in (KubeflowJobState.SUCCEEDED, KubeflowJobState.FAILED):
+                    break  # job reached a terminal state, stop streaming
+                time.sleep(2)
+        else:
+            pod_index = _pod_index_map()
+            _ensure_group_ranks(set(pod_index))
+            result = subprocess.run(
+                base_cmd + ["--tail", "-1"], capture_output=True, text=True, timeout=timeout
+            )
+            with open(all_ranks_path, "a") as all_ranks_file:
+                for line in result.stdout.splitlines():
+                    all_ranks_file.write(line + "\n")
+                    if _forward_to_stdout(line, pod_index):
+                        yield line
+
+    def cancel(
+        self,
+        job_name: str,
+        wait: bool = False,
+        timeout: int = 300,
+        poll_interval: int = 5,
+    ) -> Optional[bool]:
+        """Delete *job_name* from the cluster.
+
+        When *wait* is ``True``, blocks until both the CR and its pods are gone,
+        returning ``True`` on success or ``False`` if *timeout* expires.
+        Returns ``None`` when not waiting or when the job was already absent.
+        """
+        try:
+            self._custom_objects_api.delete_namespaced_custom_object(
+                group=_TRAINJOB_GROUP,
+                version=_TRAINJOB_VERSION,
+                namespace=self.namespace,
+                plural=_TRAINJOB_PLURAL,
+                name=job_name,
+            )
+        except ApiException as e:
+            if e.status == 404:
+                logger.info("%s %s already deleted", _TRAINJOB_KIND, job_name)
+                return None
+            raise
+
+        if not wait:
+            return None
+
+        label_selector = f"jobset.sigs.k8s.io/jobset-name={job_name}"
+        deadline = time.time() + timeout
+
+        while time.time() < deadline:
+            time.sleep(poll_interval)
+
+            # Check if CR is gone
+            try:
+                self._custom_objects_api.get_namespaced_custom_object(
+                    group=_TRAINJOB_GROUP,
+                    version=_TRAINJOB_VERSION,
+                    namespace=self.namespace,
+                    plural=_TRAINJOB_PLURAL,
+                    name=job_name,
+                )
+                continue  # CR still present
+            except ApiException as e:
+                if e.status != 404:
+                    continue
+
+            # CR is gone; check pods
+            pods = self._core_v1_api.list_namespaced_pod(
+                namespace=self.namespace,
+                label_selector=label_selector,
+            )
+            if len(pods.items) == 0:
+                return True
+
+        return False
+
+    # ── Workdir sync helpers ──────────────────────────────────────────────────
+
+    def _data_mover_pod_name(self, job_name: str) -> str:
+        return f"{self._trainjob_name(job_name)}-data-mover"
+
+    def _start_data_mover_pod(self, pod_name: str, timeout: int = 120) -> None:
+        """Spin up a throw-away Alpine pod that mounts workdir_pvc and blocks until Running.
+
+        Uses ``kubectl cp`` (tar-based, built into Alpine — no internet needed) for data
+        transfer.  The pod inherits tolerations, affinity, and imagePullSecrets from the
+        main workload so it can be scheduled on the same nodes (required when the PVC is
+        zone- or node-local).
+        """
+        vol_name = "nemo-run-workdir"
+        pod_spec: dict[str, Any] = {
+            "restartPolicy": "Never",
+            "containers": [
+                {
+                    "name": "mover",
+                    "image": self.data_mover_image,
+                    "command": ["sleep", "infinity"],
+                    "volumeMounts": [{"name": vol_name, "mountPath": self.workdir_pvc_path}],
+                }
+            ],
+            "volumes": [
+                {
+                    "name": vol_name,
+                    "persistentVolumeClaim": {"claimName": self.workdir_pvc},
+                }
+            ],
+        }
+        if self.tolerations:
+            pod_spec["tolerations"] = self.tolerations
+        if self.affinity:
+            pod_spec["affinity"] = self.affinity
+        if self.image_pull_secrets:
+            pod_spec["imagePullSecrets"] = [{"name": s} for s in self.image_pull_secrets]
+        pod_body = {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {"name": pod_name, "namespace": self.namespace},
+            "spec": pod_spec,
+        }
+        # Always delete a stale pod first so we start clean.
+        self._delete_data_mover_pod(pod_name)
+
+        self._core_v1_api.create_namespaced_pod(namespace=self.namespace, body=pod_body)
+        logger.info("Created data-mover pod '%s'", pod_name)
+
+        w = watch.Watch()
+        for event in w.stream(
+            self._core_v1_api.list_namespaced_pod,
+            namespace=self.namespace,
+            field_selector=f"metadata.name={pod_name}",
+            timeout_seconds=timeout,
+        ):
+            pod_obj = event.get("object")
+            phase = pod_obj.status.phase if pod_obj and pod_obj.status else None
+            if phase == "Running":
+                w.stop()
+                break
+        else:
+            raise RuntimeError(
+                f"Data-mover pod '{pod_name}' did not reach Running within {timeout}s"
+            )
+
+    def _delete_data_mover_pod(self, pod_name: str, timeout: int = 120) -> None:
+        try:
+            self._core_v1_api.delete_namespaced_pod(
+                name=pod_name, namespace=self.namespace, body=client.V1DeleteOptions()
+            )
+        except ApiException as e:
+            if e.status != 404:
+                logger.warning("Failed to delete data-mover pod '%s': %s", pod_name, e)
+                return
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                self._core_v1_api.read_namespaced_pod(name=pod_name, namespace=self.namespace)
+            except ApiException as e:
+                if e.status == 404:
+                    return
+            time.sleep(2)
+        logger.warning("Data-mover pod '%s' did not terminate within %ds", pod_name, timeout)
+
+    def _rsync_to_pod(self, pod_name: str, local_path: str, remote_path: str) -> None:
+        """Copy local_path → pod:remote_path via kubectl cp (uses tar, no rsync needed)."""
+        subprocess.check_call(
+            ["kubectl", "exec", "-n", self.namespace, pod_name, "--", "mkdir", "-p", remote_path]
+        )
+        # kubectl cp <local>/. <ns>/<pod>:<remote> copies directory contents
+        subprocess.check_call(
+            [
+                "kubectl",
+                "cp",
+                "-n",
+                self.namespace,
+                f"{local_path.rstrip(os.sep)}/.",
+                f"{pod_name}:{remote_path.rstrip('/')}",
+            ]
+        )
+        logger.info("Copied '%s' → pod:%s", local_path, remote_path)
+
+    def _rsync_from_pod(self, pod_name: str, remote_path: str, local_path: str) -> None:
+        """Copy pod:remote_path → local_path via kubectl cp (uses tar, no rsync needed)."""
+        os.makedirs(local_path, exist_ok=True)
+        subprocess.check_call(
+            [
+                "kubectl",
+                "cp",
+                "-n",
+                self.namespace,
+                f"{pod_name}:{remote_path.rstrip('/')}",
+                f"{local_path.rstrip(os.sep)}",
+            ]
+        )
+        logger.info("Copied pod:%s → '%s'", remote_path, local_path)
+
+    def materialize_launch_script(self, cmd: list[str], max_retries: int = 0) -> None:
+        """Render kubeflow.sh.j2 with *cmd* as the training command and write
+        it to ``{job_dir}/launch.sh`` so it can be synced to the pod."""
+        # Shell-script template: autoescape is intentionally disabled for non-HTML/XML
+        # extensions (.sh, .j2).  There is no XSS risk — output is executed locally.
+        env = Environment(  # noqa: S701
+            loader=PackageLoader("nemo_run", "core/execution/templates"),
+            keep_trailing_newline=True,
+            autoescape=select_autoescape(["html", "xml"]),
+        )
+        template = env.get_template("kubeflow.sh.j2")
+        env_var_lines = [f"export {k}={v}" for k, v in self.env_vars.items()]
+        script = template.render(
+            training_command=" ".join(cmd),
+            env_vars=env_var_lines,
+            max_retries=max_retries,
+            code_dir=self.code_dir,
+        )
+        os.makedirs(self.job_dir, exist_ok=True)
+        launch_script_path = os.path.join(self.job_dir, "launch.sh")
+        with open(launch_script_path, "w") as f:
+            f.write(script)
+        logger.info("Wrote launch script to %s", launch_script_path)
+
+    def copy_to_workspace(
+        self, local_path: str, remote_path: str, label: str = "datamover"
+    ) -> None:
+        """Copy *local_path* (a directory) to *remote_path* on the workdir PVC.
+
+        Generalizes :meth:`package`'s PVC sync to an arbitrary path on the volume —
+        not just the per-job ``code_dir`` — so callers can persist auxiliary
+        cross-run state (e.g. a metrics cache) anywhere under ``workdir_pvc_path``
+        via the same throw-away data-mover pod. No-op when ``workdir_pvc`` is unset.
+
+        Args:
+            local_path: Local directory whose contents are copied.
+            remote_path: Destination directory on the workdir PVC.
+            label: Disambiguates the data-mover pod name across concurrent transfers.
+        """
+        if not self.workdir_pvc:
+            return
+        pod_name = self._data_mover_pod_name(label)
+        self._start_data_mover_pod(pod_name)
+        try:
+            self._rsync_to_pod(pod_name, local_path, remote_path)
+        finally:
+            self._delete_data_mover_pod(pod_name)
+
+    def copy_from_workspace(
+        self, remote_path: str, local_path: str, label: str = "datamover"
+    ) -> None:
+        """Copy *remote_path* from the workdir PVC to *local_path*.
+
+        Generalizes :meth:`pull_results` to an arbitrary path on the volume — not
+        just the per-job ``code_dir`` — so callers can read auxiliary cross-run
+        state via the same throw-away data-mover pod. No-op when ``workdir_pvc`` is
+        unset. Propagates the underlying ``kubectl cp`` error when *remote_path*
+        does not exist; callers that treat absence as normal should handle it.
+
+        Args:
+            remote_path: Source directory on the workdir PVC.
+            local_path: Local destination directory.
+            label: Disambiguates the data-mover pod name across concurrent transfers.
+        """
+        if not self.workdir_pvc:
+            return
+        pod_name = self._data_mover_pod_name(label)
+        self._start_data_mover_pod(pod_name)
+        try:
+            self._rsync_from_pod(pod_name, remote_path, local_path)
+        finally:
+            self._delete_data_mover_pod(pod_name)
+
+    def package(self, packager: Packager, job_name: str) -> None:
+        """Sync job_dir to the workdir PVC via a temporary data-mover pod before launch.
+
+        Does nothing when ``workdir_pvc`` is unset.  If ``workdir_local_path`` is set,
+        its contents are first rsynced into ``job_dir`` so hand-written scripts are
+        included alongside generated files such as ``launch.sh``.
+        """
+        if not self.workdir_pvc:
+            return
+        # Merge extra local files (e.g. training scripts) into job_dir so they
+        # are included alongside generated files like launch.sh.
+        if self.workdir_local_path:
+            os.makedirs(self.job_dir, exist_ok=True)
+            subprocess.check_call(
+                [
+                    "rsync",
+                    "-a",
+                    f"{self.workdir_local_path.rstrip(os.sep)}/",
+                    f"{self.job_dir.rstrip(os.sep)}/",
+                ]
+            )
+            logger.info("Merged '%s' into job_dir '%s'", self.workdir_local_path, self.job_dir)
+
+        # Sync job_dir to <workdir_pvc_path>/<username>/code on the PVC via a
+        # throw-away data-mover pod.  Scoping to a user subdirectory means we
+        # never clobber other data already on the shared volume.
+        self.copy_to_workspace(self.job_dir, self.code_dir, label=job_name)
+
+        # Mount the PVC so the training container can reach code_dir.
+        # If the PVC is already declared (e.g. explicitly by the caller for data),
+        # reuse that existing volume rather than adding a duplicate entry.
+        already_mounted = any(
+            v.get("persistentVolumeClaim", {}).get("claimName") == self.workdir_pvc
+            for v in self.volumes
+        )
+        if not already_mounted:
+            vol_name = "nemo-run-workdir"
+            self.volumes.append(
+                {"name": vol_name, "persistentVolumeClaim": {"claimName": self.workdir_pvc}}
+            )
+            if not any(vm.get("mountPath") == self.workdir_pvc_path for vm in self.volume_mounts):
+                self.volume_mounts.append({"name": vol_name, "mountPath": self.workdir_pvc_path})
+
+    def pull_results(self, job_name: str, dest_dir: Optional[str] = None) -> None:
+        """Sync workdir_pvc_path back to a local directory after the job completes.
+
+        Args:
+            job_name: The job name used when the job was launched.
+            dest_dir: Local destination directory.  Defaults to ``self.job_dir``
+                when set.  If neither is available the method looks up the
+                persisted job state in ``~/.nemo_run/.kubeflow_jobs.json`` to
+                find the original ``job_dir``.
+        """
+        if not self.workdir_pvc:
+            logger.warning("pull_results called but workdir_pvc is not set — nothing to sync")
+            return
+
+        local_path = dest_dir or getattr(self, "job_dir", "") or ""
+        if not local_path:
+            # Try to recover job_dir from the scheduler's persisted state.
+            local_path = self._lookup_job_dir(job_name)
+        if not local_path:
+            raise RuntimeError(
+                f"Cannot determine destination directory for pull_results('{job_name}'). "
+                "Pass dest_dir explicitly or call via an executor that has job_dir set."
+            )
+
+        self.copy_from_workspace(self.code_dir, local_path, label=job_name)
+
+    def _lookup_job_dir(self, job_name: str) -> str:
+        """Look up the job_dir saved by the scheduler for *job_name*."""
+        try:
+            from nemo_run.config import get_nemorun_home
+
+            jobs_file = os.path.join(get_nemorun_home(), ".kubeflow_jobs.json")
+            if not os.path.isfile(jobs_file):
+                return ""
+            import json
+
+            with open(jobs_file) as f:
+                data = json.load(f)
+            for entry in data.values():
+                if entry.get("job_name") == job_name:
+                    # Deserialize executor to get job_dir
+                    try:
+                        import fiddle as fdl
+
+                        from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
+
+                        serializer = ZlibJSONSerializer()
+                        saved_executor: "KubeflowExecutor" = fdl.build(
+                            serializer.deserialize(entry["executor"])
+                        )
+                        return getattr(saved_executor, "job_dir", "") or ""
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.debug("Could not look up job_dir for '%s': %s", job_name, e)
+        return ""
+
+    def macro_values(self) -> Optional[ExecutorMacros]:
+        """Return the torchrun environment variable names injected by the Training Operator."""
+        return ExecutorMacros(
+            head_node_ip_var="PET_MASTER_ADDR",
+            nproc_per_node_var="PET_NPROC_PER_NODE",
+            num_nodes_var="PET_NNODES",
+            node_rank_var="PET_NODE_RANK",
+            het_group_host_var="PET_MASTER_ADDR",
+        )

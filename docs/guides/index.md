@@ -6,37 +6,39 @@
 :hidden:
 
 why-use-nemo-run
+quickstart
 configuration
 execution
+executors/index
 management
-ray
 cli
+ray
+architecture
 :::
 
 Welcome to the NeMo-Run guides! This section provides comprehensive documentation on how to use NeMo-Run effectively for your machine learning experiments.
 
 ## Get Started
 
-If you're new to NeMo-Run, we recommend starting with:
+If you're new to NeMo-Run, follow the guides in this order:
 
-- **[Why Use NeMo-Run?](why-use-nemo-run.md)** - Understand the benefits and philosophy behind NeMo-Run.
-- **[Configuration](configuration.md)** - Learn how to configure your ML tasks and experiments.
-- **[Execution](execution.md)** - Discover how to run your experiments across different computing environments.
-- **[Management](management.md)** - Master experiment tracking, reproducibility, and organization.
+1. **[Why Use NeMo-Run?](why-use-nemo-run.md)** — Understand the benefits and philosophy.
+2. **[Quickstart](quickstart.md)** — Get something running in 5 minutes.
+3. **[Configuration](configuration.md)** — Learn how to configure tasks and experiments.
+4. **[Execution](execution.md)** — Understand executors, packagers, and launchers.
+5. **[Executors](executors/index.md)** — Per-executor guides from local to cloud.
+6. **[Management](management.md)** — Track, inspect, and reproduce past experiments.
 
 ## Advanced Topics
 
-For more advanced usage:
-
-- **[Ray Integration](ray.md)** - Learn how to use NeMo-Run with Ray for distributed computing.
-- **[CLI Reference](cli.md)** - Explore the command-line interface for NeMo-Run.
+- **[CLI Reference](cli.md)** — Automate experiment management from the command line.
+- **[Ray Integration](ray.md)** — Distributed Ray workloads on Kubernetes, Slurm, and Lepton.
+- **[Architecture](architecture.md)** — Internals for contributors and power users.
 
 ## Core Concepts
 
 NeMo-Run is built around three core responsibilities:
 
-1. **Configuration** - Define your ML experiments using a flexible, Pythonic configuration system.
-1. **Execution** - Run your experiments seamlessly across local machines, Slurm clusters, cloud providers, and more.
-1. **Management** - Track, reproduce, and organize your experiments with built-in experiment management.
-
-Each guide dives deep into these concepts with practical examples and best practices. Choose a guide above to get started!
+1. **Configuration** — Define ML experiments using a flexible, Pythonic configuration system.
+2. **Execution** — Run experiments seamlessly across local machines, Slurm clusters, cloud providers, and more.
+3. **Management** — Track, reproduce, and organize experiments with built-in experiment management.

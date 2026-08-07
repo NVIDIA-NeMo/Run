@@ -169,9 +169,67 @@ class SlurmRayRequest:
             parameters.update(self.executor.additional_parameters)
 
         sbatch_flags = []
-        assert not self.executor.heterogeneous, "heterogeneous is not supported for ray clusters"
-        for k in sorted(parameters):
-            sbatch_flags.append(_as_sbatch_flag(k, parameters[k]))
+        if self.executor.heterogeneous:
+            # Validate resource_group exists
+            assert self.executor.resource_group, "heterogeneous requires resource_group to be set"
+            assert len(self.executor.resource_group) > 0, "resource_group must not be empty"
+
+            # Validate het-group-0 has at least 1 node for Ray head
+            head_group = self.executor.resource_group[0]
+            assert head_group.nodes >= 1, "het-group-0 must have at least 1 node for Ray head"
+
+            # Determine the final het group index (for hetjob separator placement)
+            final_group_index = len(self.executor.resource_group) - 1
+            if self.executor.het_group_indices:
+                final_group_index = self.executor.het_group_indices.index(
+                    max(self.executor.het_group_indices)
+                )
+
+            # Generate SBATCH blocks for each het group
+            for i, resource_req in enumerate(self.executor.resource_group):
+                # Skip duplicate het groups (when het_group_index is shared)
+                if resource_req.het_group_index is not None:
+                    if (
+                        i > 0
+                        and resource_req.het_group_index
+                        == self.executor.resource_group[i - 1].het_group_index
+                    ):
+                        continue
+
+                # Build het-specific parameters
+                het_parameters = parameters.copy()
+                het_parameters.update(
+                    {
+                        "nodes": resource_req.nodes,
+                        "ntasks_per_node": resource_req.ntasks_per_node,
+                    }
+                )
+
+                # Update job name to include het group index
+                het_parameters["job_name"] = f"{job_details.job_name}-{i}"
+
+                # Only update GPU parameters if they're explicitly set in resource_req
+                if resource_req.gpus_per_node is not None:
+                    het_parameters["gpus_per_node"] = resource_req.gpus_per_node
+                if resource_req.gpus_per_task is not None:
+                    het_parameters["gpus_per_task"] = resource_req.gpus_per_task
+
+                # Update output/error paths to include het group index
+                het_parameters["output"] = parameters["output"].replace("%t", str(i))
+                if "error" in het_parameters:
+                    het_parameters["error"] = parameters["error"].replace("%t", str(i))
+
+                # Generate SBATCH flags for this het group
+                for k in sorted(het_parameters):
+                    sbatch_flags.append(_as_sbatch_flag(k, het_parameters[k]))
+
+                # Add hetjob separator (except after last group)
+                if i != final_group_index:
+                    sbatch_flags.append("#SBATCH hetjob")
+        else:
+            # Non-heterogeneous: use existing logic
+            for k in sorted(parameters):
+                sbatch_flags.append(_as_sbatch_flag(k, parameters[k]))
 
         if self.executor.dependencies:
             slurm_deps = self.executor.parse_deps()
@@ -203,15 +261,13 @@ class SlurmRayRequest:
             if gres_specification:
                 _srun_flags.append(gres_specification)
 
+            new_mounts = copy.deepcopy(mounts)
             if self.nemo_run_dir:
-                new_mounts = copy.deepcopy(mounts)
                 for i, mount in enumerate(new_mounts):
                     if mount.startswith(RUNDIR_SPECIAL_NAME):
                         new_mounts[i] = mount.replace(RUNDIR_SPECIAL_NAME, self.nemo_run_dir, 1)
 
                 new_mounts.append(f"{self.nemo_run_dir}:/{RUNDIR_NAME}")
-            else:
-                new_mounts = mounts
 
             new_mounts.append(f"{self.cluster_dir}:{self.cluster_dir}")
             new_mounts.append(f"{logs_dir}:{logs_dir}")
@@ -221,6 +277,19 @@ class SlurmRayRequest:
             _srun_flags.append(f"--container-workdir={container_workdir}")
 
             return " ".join(_srun_flags)
+
+        def get_command_srun_args() -> str:
+            if (
+                self.executor.run_as_group
+                and self.executor.heterogeneous
+                and self.executor.resource_group
+                and self.executor.resource_group[0].srun_args is not None
+            ):
+                command_srun_args = self.executor.resource_group[0].srun_args
+            else:
+                command_srun_args = self.executor.srun_args or []
+
+            return " ".join(shlex.quote(arg) for arg in command_srun_args)
 
         ray_log_prefix = job_details.ray_log_prefix
         vars_to_fill = {
@@ -238,6 +307,9 @@ class SlurmRayRequest:
             "command_workdir": self.workdir,
             "gres_specification": get_gres_specification(),
             "ray_log_prefix": ray_log_prefix,
+            "heterogeneous": self.executor.heterogeneous,
+            "resource_group": self.executor.resource_group if self.executor.heterogeneous else [],
+            "command_srun_args": get_command_srun_args(),
         }
 
         if self.command_groups:
@@ -273,12 +345,24 @@ class SlurmRayRequest:
                         os.path.join(logs_dir, f"{ray_log_prefix}overlap-{idx}.err"),
                     ]
 
+                # Determine het group for this command (if heterogeneous)
+                het_group_flag = []
+                if self.executor.heterogeneous and self.executor.run_as_group:
+                    if len(self.executor.resource_group) == len(self.command_groups):
+                        # Use resource_group mapping
+                        req = self.executor.resource_group[idx]
+                        het_group_num = (
+                            req.het_group_index if req.het_group_index is not None else idx
+                        )
+                        het_group_flag = [f"--het-group={het_group_num}"]
+
                 srun_cmd = " ".join(
                     list(
                         map(
                             lambda arg: arg if isinstance(arg, noquote) else shlex.quote(arg),
                             [
                                 "srun",
+                                *het_group_flag,
                                 "--output",
                                 noquote(stdout_path),
                                 *stderr_flags,

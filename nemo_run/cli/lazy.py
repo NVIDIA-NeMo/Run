@@ -1,3 +1,18 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import ast
 import builtins
 import contextlib
@@ -818,8 +833,8 @@ def _load_entrypoint_from_script(script_content: str, module_name: str = "__dyna
             if (
                 isinstance(node.test.left, ast.Name)
                 and node.test.left.id == "__name__"
-                and isinstance(node.test.comparators[0], ast.Str)
-                and node.test.comparators[0].s == "__main__"
+                and isinstance(node.test.comparators[0], ast.Constant)
+                and node.test.comparators[0].value == "__main__"
             ):
                 main_block = node.body
                 break

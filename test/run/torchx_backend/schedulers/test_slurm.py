@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import tempfile
+import threading
 from unittest import mock
 
 import pytest
@@ -26,7 +27,9 @@ from torchx.specs import AppDef, AppState, Role
 
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor
 from nemo_run.core.tunnel.client import LocalTunnel
+from nemo_run.exceptions import PersistentSacctFailure
 from nemo_run.run.torchx_backend.schedulers.slurm import (
+    MAX_CONSECUTIVE_SACCT_FAILURES,
     SlurmTunnelScheduler,
     TunnelLogIterator,
     _get_job_dirs,
@@ -141,6 +144,7 @@ def test_schedule(slurm_scheduler, slurm_executor):
     with (
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
         mock.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir"),
+        mock.patch.object(SlurmTunnelScheduler, "_poll_job_start_time"),
     ):
         # Create a fresh mock tunnel for each test to avoid interference
         mock_tunnel = mock.MagicMock()
@@ -339,6 +343,124 @@ def test_get_job_dirs():
                     assert result == {}
 
 
+def test_get_job_dirs_retries_on_permission_error(tmp_path, mocker):
+    """Transient PermissionError should be retried with exponential backoff; success on 3rd attempt returns data."""
+    mock_sleep = mocker.patch("time.sleep")
+    mock_open = mocker.mock_open(read_data="")
+    mock_open.side_effect = [
+        PermissionError("[Errno 1] Operation not permitted"),
+        PermissionError("[Errno 1] Operation not permitted"),
+        mock_open.return_value,
+    ]
+    mocker.patch("builtins.open", mock_open)
+
+    result = _get_job_dirs(retries=5)
+    assert result == {}
+    assert mock_open.call_count == 3
+    # Exponential backoff: attempt 0 -> sleep(1), attempt 1 -> sleep(2)
+    assert mock_sleep.call_args_list == [mock.call(1), mock.call(2)]
+
+
+def test_get_job_dirs_raises_after_exhausting_retries(mocker):
+    """PermissionError should be re-raised after all retries are exhausted."""
+    mocker.patch("time.sleep")
+    mocker.patch("builtins.open", side_effect=PermissionError("[Errno 1] Operation not permitted"))
+
+    with pytest.raises(PermissionError):
+        _get_job_dirs(retries=3)
+
+
+def test_describe_returns_unknown_on_persistent_permission_error(slurm_scheduler, mocker):
+    """describe() should return UNKNOWN state when _get_job_dirs() raises OSError, not propagate."""
+    from torchx.specs import AppState
+
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        side_effect=PermissionError("[Errno 1] Operation not permitted"),
+    )
+
+    result = slurm_scheduler.describe("12345")
+    assert result is not None
+    assert result.state == AppState.UNKNOWN
+
+
+def test_describe_returns_unknown_on_sacct_exception(slurm_scheduler, mocker):
+    """Regression: transient sacct failure (e.g. after hours of polling) must not
+    propagate an exception and kill the wait loop. describe() should return UNKNOWN
+    (non-terminal) so polling continues until the job completes."""
+    from torchx.specs import AppState
+
+    job_dirs = {"12345": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        return_value=job_dirs,
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+
+    slurm_scheduler.tunnel = mock.MagicMock()
+    slurm_scheduler.tunnel.run.side_effect = Exception("sacct: command failed")
+
+    result = slurm_scheduler.describe("12345")
+    assert result is not None
+    assert result.state == AppState.UNKNOWN
+
+
+def test_describe_raises_persistent_sacct_failure_after_threshold(slurm_scheduler, mocker):
+    """After MAX_CONSECUTIVE_SACCT_FAILURES consecutive sacct exceptions, describe() must
+    raise PersistentSacctFailure so the caller can cancel the job instead of spinning forever."""
+    job_dirs = {"12345": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        return_value=job_dirs,
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+
+    slurm_scheduler.tunnel = mock.MagicMock()
+    slurm_scheduler.tunnel.run.side_effect = Exception("sacct: command failed")
+
+    for _ in range(MAX_CONSECUTIVE_SACCT_FAILURES - 1):
+        result = slurm_scheduler.describe("12345")
+        assert result.state == AppState.UNKNOWN
+
+    with pytest.raises(PersistentSacctFailure, match="12345"):
+        slurm_scheduler.describe("12345")
+
+
+def test_describe_resets_sacct_failure_counter_on_success(slurm_scheduler, mocker):
+    """A successful sacct call must reset the consecutive failure counter so that
+    subsequent transient failures start fresh."""
+    job_dirs = {"12345": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        return_value=job_dirs,
+    )
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+
+    slurm_scheduler.tunnel = mock.MagicMock()
+
+    # Fail just below the threshold
+    slurm_scheduler.tunnel.run.side_effect = Exception("sacct: command failed")
+    for _ in range(MAX_CONSECUTIVE_SACCT_FAILURES - 1):
+        slurm_scheduler.describe("12345")
+
+    # Recover — sacct returns valid output
+    header = "JobID|JobName|State|ExitCode"
+    row = "12345|exp.master|RUNNING|0:0"
+    success_result = mock.MagicMock()
+    success_result.stdout = f"{header}\n{row}"
+    slurm_scheduler.tunnel.run.side_effect = None
+    slurm_scheduler.tunnel.run.return_value = success_result
+    slurm_scheduler.describe("12345")
+
+    assert slurm_scheduler._consecutive_sacct_failures.get("12345", 0) == 0
+
+    # Fail again — counter should restart from 1, not trigger threshold immediately
+    slurm_scheduler.tunnel.run.side_effect = Exception("sacct: command failed")
+    result = slurm_scheduler.describe("12345")
+    assert result.state == AppState.UNKNOWN
+    assert slurm_scheduler._consecutive_sacct_failures["12345"] == 1
+
+
 def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
     mock_request = mock.MagicMock()
     mock_request.cmd = ["sbatch", "--requeue", "--parsable"]
@@ -353,6 +475,7 @@ def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
         mock.patch.object(SlurmExecutor, "parse_deps", return_value=["54321"]),
         mock.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir"),
+        mock.patch.object(SlurmTunnelScheduler, "_poll_job_start_time"),
     ):
         # Create a fresh mock tunnel for testing
         mock_tunnel = mock.MagicMock()
@@ -366,3 +489,482 @@ def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
         assert result == "12345"
         # Verify the run was called with the expected arguments
         mock_tunnel.run.assert_called_once()
+
+
+def test_ray_template_executor(slurm_scheduler, slurm_executor, temp_dir):
+    """Test that executor.ray_template selects the correct template."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+    from nemo_run.run.ray.slurm import SlurmRayRequest
+
+    # Create a Ray-enabled app
+    app_def = AppDef(
+        name="test_ray_app",
+        roles=[Role(name="test_role", image="", entrypoint="python", args=["script.py"])],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+
+        # Test default template name (ray.sub.j2)
+        assert slurm_executor.ray_template == "ray.sub.j2"
+        with mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill:
+            mock_fill.return_value = "#!/bin/bash\n# Mock script"
+            dryrun_info = slurm_scheduler._submit_dryrun(app_def, slurm_executor)
+            assert isinstance(dryrun_info.request, SlurmRayRequest)
+            assert dryrun_info.request.template_name == "ray.sub.j2"
+
+        # Test custom template name via executor
+        custom_executor = SlurmExecutor(
+            account="test_account",
+            job_dir=temp_dir,
+            nodes=1,
+            ntasks_per_node=1,
+            tunnel=LocalTunnel(job_dir=temp_dir),
+            ray_template="ray_enroot.sub.j2",
+        )
+        with mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill:
+            mock_fill.return_value = "#!/bin/bash\n# Mock script"
+            dryrun_info = slurm_scheduler._submit_dryrun(app_def, custom_executor)
+            assert isinstance(dryrun_info.request, SlurmRayRequest)
+            assert dryrun_info.request.template_name == "ray_enroot.sub.j2"
+
+
+def test_heterogeneous_ray_cluster_run_as_group(slurm_scheduler, temp_dir):
+    """Test that run_as_group is automatically set for heterogeneous Ray clusters."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+    from nemo_run.run.ray.slurm import SlurmRayRequest
+
+    # Create executor with heterogeneous job configuration
+    executor = SlurmExecutor(
+        account="test_account",
+        job_dir=temp_dir,
+        heterogeneous=True,
+        tunnel=LocalTunnel(job_dir=temp_dir),
+    )
+    executor.resource_group = [
+        SlurmExecutor.ResourceRequest(
+            packager=mock.MagicMock(),
+            nodes=2,
+            ntasks_per_node=8,
+            gpus_per_node=8,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[],
+            het_group_index=0,
+        ),
+        SlurmExecutor.ResourceRequest(
+            packager=mock.MagicMock(),
+            nodes=1,
+            ntasks_per_node=1,
+            gpus_per_node=0,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[],
+            het_group_index=1,
+        ),
+    ]
+
+    # Create a Ray-enabled app with 2 roles (matching resource groups)
+    app_def = AppDef(
+        name="test_ray_het_app",
+        roles=[
+            Role(name="ray_cluster", image="", entrypoint="python", args=["train.py"]),
+            Role(name="auxiliary", image="", entrypoint="python", args=["monitor.py"]),
+        ],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+        mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+        mock_fill.return_value = "#!/bin/bash\n# Mock script"
+
+        # Initially run_as_group should not be set
+        assert not hasattr(executor, "run_as_group") or not executor.run_as_group
+
+        dryrun_info = slurm_scheduler._submit_dryrun(app_def, executor)
+
+        # Verify run_as_group was automatically set
+        assert executor.run_as_group is True
+        assert isinstance(dryrun_info.request, SlurmRayRequest)
+        assert dryrun_info.request.executor.heterogeneous is True
+        assert len(dryrun_info.request.command_groups) == 2
+
+
+def test_heterogeneous_ray_cluster_mismatched_groups_warning(slurm_scheduler, temp_dir, caplog):
+    """Test that a warning is logged when roles don't match resource groups."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+    from nemo_run.run.ray.slurm import SlurmRayRequest
+
+    # Create executor with 2 resource groups
+    executor = SlurmExecutor(
+        account="test_account",
+        job_dir=temp_dir,
+        heterogeneous=True,
+        tunnel=LocalTunnel(job_dir=temp_dir),
+    )
+    executor.resource_group = [
+        SlurmExecutor.ResourceRequest(
+            packager=mock.MagicMock(),
+            nodes=2,
+            ntasks_per_node=8,
+            gpus_per_node=8,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[],
+            het_group_index=0,
+        ),
+        SlurmExecutor.ResourceRequest(
+            packager=mock.MagicMock(),
+            nodes=1,
+            ntasks_per_node=1,
+            gpus_per_node=0,
+            container_image="nvcr.io/nvidia/pytorch:24.01-py3",
+            container_mounts=[],
+            het_group_index=1,
+        ),
+    ]
+
+    # Create a Ray-enabled app with 3 roles (mismatched with 2 resource groups)
+    app_def = AppDef(
+        name="test_ray_het_app",
+        roles=[
+            Role(name="ray_cluster", image="", entrypoint="python", args=["train.py"]),
+            Role(name="auxiliary", image="", entrypoint="python", args=["monitor.py"]),
+            Role(name="extra", image="", entrypoint="python", args=["extra.py"]),
+        ],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+        mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+        mock_fill.return_value = "#!/bin/bash\n# Mock script"
+
+        with caplog.at_level(logging.WARNING):
+            dryrun_info = slurm_scheduler._submit_dryrun(app_def, executor)
+
+        # Verify warning was logged
+        assert any("resource groups" in record.message for record in caplog.records)
+        assert any("3 roles" in record.message for record in caplog.records)
+        assert any("2 resource groups" in record.message for record in caplog.records)
+
+        # Verify request was still created
+        assert isinstance(dryrun_info.request, SlurmRayRequest)
+        assert executor.run_as_group is True
+
+
+def test_heterogeneous_ray_cluster_no_resource_group(slurm_scheduler, temp_dir):
+    """Test that heterogeneous jobs without resource_group raise an AssertionError."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+
+    # Create executor with heterogeneous=True but no resource_group
+    executor = SlurmExecutor(
+        account="test_account",
+        job_dir=temp_dir,
+        heterogeneous=True,
+        tunnel=LocalTunnel(job_dir=temp_dir),
+    )
+    # Don't set resource_group
+
+    # Create a Ray-enabled app
+    app_def = AppDef(
+        name="test_ray_het_app",
+        roles=[Role(name="ray_cluster", image="", entrypoint="python", args=["train.py"])],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+
+        # Should raise AssertionError because resource_group is required for het jobs
+        with pytest.raises(AssertionError, match="heterogeneous requires resource_group to be set"):
+            slurm_scheduler._submit_dryrun(app_def, executor)
+
+
+def test_non_heterogeneous_ray_cluster(slurm_scheduler, temp_dir):
+    """Test that run_as_group is NOT set for non-heterogeneous clusters."""
+    from nemo_run.config import USE_WITH_RAY_CLUSTER_KEY
+    from nemo_run.run.ray.slurm import SlurmRayRequest
+
+    # Create executor without heterogeneous
+    executor = SlurmExecutor(
+        account="test_account",
+        job_dir=temp_dir,
+        tunnel=LocalTunnel(job_dir=temp_dir),
+    )
+
+    # Create a Ray-enabled app
+    app_def = AppDef(
+        name="test_ray_app",
+        roles=[Role(name="ray_cluster", image="", entrypoint="python", args=["train.py"])],
+        metadata={USE_WITH_RAY_CLUSTER_KEY: True},
+    )
+
+    with (
+        mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
+        mock.patch.object(SlurmExecutor, "package"),
+        mock.patch("builtins.open", mock.mock_open()),
+        mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill,
+    ):
+        slurm_scheduler.tunnel = mock.MagicMock()
+        mock_fill.return_value = "#!/bin/bash\n# Mock script"
+
+        dryrun_info = slurm_scheduler._submit_dryrun(app_def, executor)
+
+        # Verify run_as_group was NOT set
+        assert not hasattr(executor, "run_as_group") or not executor.run_as_group
+        assert isinstance(dryrun_info.request, SlurmRayRequest)
+
+
+# ---------------------------------------------------------------------------
+# Tests for start-time polling feature
+# ---------------------------------------------------------------------------
+
+
+def test_poll_job_start_time_prints_while_pending(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = f"{job_id}|2026-03-14T15:30:00|PENDING\n"
+    mock_tunnel.run.return_value.return_code = 0
+
+    mock_print = mocker.patch("builtins.print")
+
+    # Stop after first iteration by setting the event inside wait
+    def wait_once(timeout=None):
+        stop_event.set()
+        return True
+
+    stop_event.wait = wait_once
+
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+    mock_print.assert_called_once()
+    printed = mock_print.call_args[0][0]
+    assert job_id in printed
+    assert "PENDING" in printed
+    assert "2026-03-14T15:30:00" in printed
+    assert "Current time:" in printed
+
+
+def test_poll_job_start_time_stops_when_job_starts(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = f"{job_id}|2026-03-14T15:30:00|RUNNING\n"
+    mock_tunnel.run.return_value.return_code = 0
+
+    mocker.patch("builtins.print")
+    wait_called = []
+    original_wait = stop_event.wait
+    stop_event.wait = lambda t=None: wait_called.append(t) or original_wait(0)
+
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+    assert len(wait_called) == 0  # returned immediately, no wait
+
+
+def test_poll_job_start_time_stops_when_queue_empty(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = ""
+    mock_tunnel.run.return_value.return_code = 0
+
+    mock_print = mocker.patch("builtins.print")
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+
+    mock_print.assert_called_once()
+    assert "no longer pending" in mock_print.call_args[0][0]
+
+
+def test_poll_job_start_time_continues_on_exception(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    # First call raises, second call returns empty to stop the loop
+    second_result = mock.MagicMock()
+    second_result.stdout = ""
+    mock_tunnel.run.side_effect = [
+        Exception("squeue failed"),
+        second_result,
+    ]
+
+    mocker.patch("builtins.print")
+    # Patch wait so the inter-poll sleep doesn't block the test (edge case #1)
+    stop_event.wait = mock.MagicMock(return_value=False)
+
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+    assert mock_tunnel.run.call_count == 2
+    stop_event.wait.assert_called_once_with(30)
+
+
+def test_poll_job_start_time_handles_none_stdout(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = None
+
+    mock_print = mocker.patch("builtins.print")
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+
+    mock_print.assert_called_once()
+    assert "no longer pending" in mock_print.call_args[0][0]
+
+
+def test_poll_job_start_time_skips_nonzero_return_code(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = "slurm_load_jobs error: Invalid job id specified"
+    mock_tunnel.run.return_value.return_code = 1
+
+    mock_print = mocker.patch("builtins.print")
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+
+    mock_print.assert_called_once()
+    assert "no longer pending" in mock_print.call_args[0][0]
+
+
+def test_poll_job_start_time_deduplicates_array_job_lines(slurm_scheduler, mocker):
+    job_id = "12345"
+    stop_event = threading.Event()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = (
+        f"{job_id}_1|2026-03-14T15:30:00|PENDING\n{job_id}_2|2026-03-14T15:30:00|PENDING\n"
+    )
+    mock_tunnel.run.return_value.return_code = 0
+
+    mock_print = mocker.patch("builtins.print")
+
+    def wait_once(timeout=None):
+        stop_event.set()
+        return True
+
+    stop_event.wait = wait_once
+
+    slurm_scheduler._poll_job_start_time(job_id, mock_tunnel, stop_event)
+    assert mock_print.call_count == 1
+
+
+def test_schedule_starts_start_time_polling_thread(slurm_scheduler, mocker):
+    job_id = "99999"
+    dryrun_info = mock.MagicMock()
+
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = job_id
+    slurm_scheduler.tunnel = mock_tunnel
+
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir")
+
+    # Block the polling thread so is_alive() is True when we check
+    started = threading.Event()
+
+    def blocking_poll(poll_job_id, poll_tunnel, stop_event):
+        started.set()
+        stop_event.wait()
+
+    mocker.patch.object(SlurmTunnelScheduler, "_poll_job_start_time", side_effect=blocking_poll)
+
+    slurm_scheduler.schedule(dryrun_info)
+
+    started.wait(timeout=2)
+    assert job_id in slurm_scheduler._start_time_threads
+    thread = slurm_scheduler._start_time_threads[job_id]
+    assert thread.daemon
+    assert thread.is_alive()
+    assert job_id in slurm_scheduler._start_time_stop_events
+
+    # Cleanup
+    slurm_scheduler._start_time_stop_events[job_id].set()
+
+
+def test_schedule_stops_existing_thread_on_duplicate_job_id(slurm_scheduler, mocker):
+    job_id = "99999"
+    old_ev = threading.Event()
+    slurm_scheduler._start_time_stop_events[job_id] = old_ev
+    slurm_scheduler._start_time_threads[job_id] = mock.MagicMock()
+
+    dryrun_info = mock.MagicMock()
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = job_id
+    slurm_scheduler.tunnel = mock_tunnel
+
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir")
+    mocker.patch.object(SlurmTunnelScheduler, "_poll_job_start_time")
+
+    slurm_scheduler.schedule(dryrun_info)
+
+    assert old_ev.is_set()
+    assert slurm_scheduler._start_time_stop_events[job_id] is not old_ev  # new event
+
+    # Cleanup
+    slurm_scheduler._start_time_stop_events[job_id].set()
+
+
+def test_close_stops_all_polling_threads(slurm_scheduler):
+    ev1, ev2 = threading.Event(), threading.Event()
+    slurm_scheduler._start_time_stop_events = {"1": ev1, "2": ev2}
+    slurm_scheduler.close()
+    assert ev1.is_set()
+    assert ev2.is_set()
+    assert slurm_scheduler._start_time_threads == {}
+    assert slurm_scheduler._start_time_stop_events == {}
+
+
+def test_cancel_stops_polling_thread_for_job(slurm_scheduler, mocker):
+    job_id = "12345"
+    ev = threading.Event()
+    slurm_scheduler._start_time_stop_events[job_id] = ev
+    slurm_scheduler._start_time_threads[job_id] = mock.MagicMock()
+    mocker.patch(
+        "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs",
+        return_value={job_id: ("dir", mock.MagicMock(), "")},
+    )
+    slurm_scheduler.tunnel = mock.MagicMock()
+
+    slurm_scheduler._cancel_existing(job_id)
+
+    assert ev.is_set()
+    assert job_id not in slurm_scheduler._start_time_stop_events
+
+
+def test_schedule_skips_polling_thread_when_disabled(slurm_scheduler, mocker):
+    """When poll_estimated_start_time=False on the executor, no thread is started."""
+    job_id = "88888"
+    dryrun_info = mock.MagicMock()
+    dryrun_info.request.executor.poll_estimated_start_time = False
+    dryrun_info.request.executor.job_dir = "/tmp/test"
+    dryrun_info.request.executor.tunnel = mock.MagicMock()
+    dryrun_info.request.executor.dependencies = []
+    dryrun_info.request.executor.job_name = "test-job"
+    dryrun_info.request.executor.job_details.ls_term = ""
+
+    mock_tunnel = mock.MagicMock()
+    mock_tunnel.run.return_value.stdout = job_id
+    slurm_scheduler.tunnel = mock_tunnel
+
+    mocker.patch.object(SlurmTunnelScheduler, "_initialize_tunnel")
+    mocker.patch("nemo_run.run.torchx_backend.schedulers.slurm._save_job_dir")
+    poll_mock = mocker.patch.object(SlurmTunnelScheduler, "_poll_job_start_time")
+
+    slurm_scheduler.schedule(dryrun_info)
+
+    poll_mock.assert_not_called()
+    assert job_id not in slurm_scheduler._start_time_threads
+    assert job_id not in slurm_scheduler._start_time_stop_events

@@ -30,9 +30,7 @@ from torchx.util.types import none_throws
 from nemo_run.core.execution.base import LogSupportedExecutor
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.run.torchx_backend.runner import Runner, get_runner
-from nemo_run.run.torchx_backend.schedulers.api import (
-    REVERSE_EXECUTOR_MAPPING,
-)
+from nemo_run.run.torchx_backend.schedulers.api import REVERSE_EXECUTOR_MAPPING
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -60,6 +58,8 @@ def print_log_lines(
                 role_name,
                 replica_id,
                 regex,
+                None,
+                None,
                 should_tail=should_tail,
                 streams=streams,
             ):
