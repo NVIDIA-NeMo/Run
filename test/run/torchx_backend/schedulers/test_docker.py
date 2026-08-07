@@ -84,6 +84,34 @@ def test_docker_scheduler_methods(docker_scheduler):
     assert hasattr(docker_scheduler, "close")
 
 
+def test_cancel_existing_without_request_is_noop():
+    docker_scheduler = object.__new__(PersistentDockerScheduler)
+    docker_scheduler._DockerWorkspaceMixin__docker_client = mock.Mock()
+    docker_scheduler._scheduled_reqs = []
+
+    with mock.patch.object(DockerJobRequest, "load", return_value=None):
+        docker_scheduler._cancel_existing("app-id")
+
+
+def test_cancel_existing_persists_terminal_status(tmp_path):
+    docker_scheduler = object.__new__(PersistentDockerScheduler)
+    docker_scheduler._DockerWorkspaceMixin__docker_client = mock.Mock()
+    docker_scheduler._scheduled_reqs = []
+    container = mock.Mock(name="container")
+    container.name = "task-1-0"
+    request = mock.Mock()
+    request.id = "app-id"
+    request.executor.job_dir = str(tmp_path)
+    request.containers = [container]
+
+    with mock.patch.object(DockerJobRequest, "load", return_value=request):
+        docker_scheduler._cancel_existing("app-id")
+
+    container.delete.assert_called_once_with(client=docker_scheduler._docker_client, id="app-id")
+    status = json.loads((tmp_path / "status_task-1-0.out").read_text())
+    assert status == {"id": "app-id", "exit_code": "1"}
+
+
 def test_schedule(docker_scheduler, mock_app_def, docker_executor):
     with (
         mock.patch.object(DockerExecutor, "package") as mock_package,
