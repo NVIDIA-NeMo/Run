@@ -24,8 +24,9 @@ from nemo_run.core.execution.kubeflow import KubeflowExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
-from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.execution.skypilot_jobs import SkypilotJobsExecutor
+from nemo_run.core.execution.slurm import SlurmExecutor
+from nemo_run.core.execution.xcalibur import XCaliburExecutor
 
 EXECUTOR_MAPPING: dict[Type[Executor], str] = {
     SlurmExecutor: "slurm_tunnel",
@@ -36,6 +37,7 @@ EXECUTOR_MAPPING: dict[Type[Executor], str] = {
     DGXCloudExecutor: "dgx_cloud",
     LeptonExecutor: "lepton",
     KubeflowExecutor: "kubeflow",
+    XCaliburExecutor: "xcalibur",
 }
 
 REVERSE_EXECUTOR_MAPPING: dict[str, Type[Executor]] = {
@@ -47,6 +49,7 @@ REVERSE_EXECUTOR_MAPPING: dict[str, Type[Executor]] = {
     "dgx_cloud": DGXCloudExecutor,
     "lepton": LeptonExecutor,
     "kubeflow": KubeflowExecutor,
+    "xcalibur": XCaliburExecutor,
 }
 
 
