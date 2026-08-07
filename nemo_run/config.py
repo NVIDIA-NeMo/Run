@@ -577,7 +577,7 @@ def _construct_args(
     for name, parameter in params.items():
         arg = kwargs.get(name, None)
 
-        if arg:
+        if arg is not None:
             if dataclasses.is_dataclass(arg):
                 final_args[name] = fdl.cast(
                     Config,

@@ -82,6 +82,18 @@ def test_experiment_creation(temp_dir):
     assert isinstance(exp.executor, LocalExecutor)
 
 
+def test_experiment_creation_uses_nanosecond_timestamp(temp_dir):
+    timestamp_ns = 1_753_041_987_123_456_789
+
+    with patch("nemo_run.run.experiment.time.time_ns", return_value=timestamp_ns):
+        exp = Experiment("test-exp")
+
+    assert exp._id == f"test-exp_{timestamp_ns}"
+    assert exp._exp_dir == os.path.join(
+        temp_dir, "experiments", "test-exp", f"test-exp_{timestamp_ns}"
+    )
+
+
 def test_experiment_with_custom_id(temp_dir):
     """Test creating an experiment with a custom id."""
     exp = Experiment("test-exp", id="custom-id")
@@ -343,6 +355,22 @@ def test_reset_not_run_experiment(temp_dir):
                 f"[bold magenta]Experiment {exp._id} has not run yet, skipping reset..."
             )
             assert reset_exp is exp  # The implementation returns self now
+
+
+def test_reset_uses_nanosecond_timestamp(temp_dir):
+    timestamp_ns = 1_753_041_987_987_654_321
+    exp = Experiment("test-exp", id="test-exp_original")
+    exp._prepare()
+    Path(os.path.join(exp._exp_dir, Experiment._DONE_FILE)).touch()
+
+    with patch("nemo_run.run.experiment.time.time_ns", return_value=timestamp_ns):
+        reset_exp = exp.reset()
+
+    assert reset_exp is exp
+    assert exp._id == f"test-exp_{timestamp_ns}"
+    assert exp._exp_dir == os.path.join(
+        temp_dir, "experiments", "test-exp", f"test-exp_{timestamp_ns}"
+    )
 
 
 @patch("nemo_run.run.experiment.get_runner")
