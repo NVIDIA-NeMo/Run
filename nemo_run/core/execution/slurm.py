@@ -22,7 +22,7 @@ import time
 import warnings
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, TypeAlias, Union
+from typing import Any, Dict, Optional, Type, Union
 
 import invoke
 from invoke.context import Context
@@ -52,7 +52,13 @@ from nemo_run.core.tunnel.server import TunnelMetadata, server_dir
 from nemo_run.devspace.base import DevSpace
 
 logger = logging.getLogger(__name__)
-noquote: TypeAlias = str
+
+
+class NoQuote(str):
+    """Marker for strings that must bypass shell quoting."""
+
+
+noquote = NoQuote
 
 
 @dataclass(kw_only=True)
@@ -1011,10 +1017,12 @@ class SlurmBatchRequest:
                 _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
                 _srun_args.extend(resource_req.srun_args or [])
             else:
-                cmd_stdout = srun_stdout.replace(original_job_name, self.jobs[group_ind])
+                cmd_stdout = noquote(srun_stdout.replace(original_job_name, self.jobs[group_ind]))
                 cmd_stderr = stderr_flags.copy()
                 if cmd_stderr:
-                    cmd_stderr[-1] = cmd_stderr[-1].replace(original_job_name, self.jobs[group_ind])
+                    cmd_stderr[-1] = noquote(
+                        cmd_stderr[-1].replace(original_job_name, self.jobs[group_ind])
+                    )
                 _container_flags = get_container_flags(
                     base_mounts=self.executor.container_mounts,
                     src_job_dir=os.path.join(
