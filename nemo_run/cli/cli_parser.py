@@ -21,6 +21,7 @@ import logging
 import operator
 import re
 import sys
+import types
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -518,8 +519,8 @@ class PythonicParser:
             return self._contains_unsafe_operations(node.operand)
         elif isinstance(node, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
             return any(self._contains_unsafe_operations(elt) for elt in ast.iter_child_nodes(node))
-        elif isinstance(node, (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Ellipsis)):
-            # Allow basic literals
+        elif isinstance(node, ast.Constant):
+            # Allow basic literals (numbers, strings, bytes, True/False/None, Ellipsis)
             return False
         return True
 
@@ -685,7 +686,7 @@ class TypeParser:
                 return self.parse_list
             elif origin in (dict, Dict):
                 return self.parse_dict
-            elif origin is Union:
+            elif origin is Union or origin is types.UnionType:
                 return self.parse_union
             # Add other mappings as needed
 
@@ -704,7 +705,7 @@ class TypeParser:
                 return self.parse_list
             elif origin is dict or origin is Dict:
                 return self.parse_dict
-            elif origin is Union:
+            elif origin is Union or origin is types.UnionType:
                 return self.parse_union
 
             # Check for parsers registered for the origin

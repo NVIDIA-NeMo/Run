@@ -291,7 +291,7 @@ nemo experiment cancel {exp_id} 0
         parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         exp_dir = _get_latest_dir(parent_dir)
 
-        assert os.path.isdir(exp_dir), f"Experiment {id} not found."
+        assert os.path.isdir(exp_dir), f"Experiment {title} not found."
 
         exp = cls._from_config(exp_dir)
         return exp
@@ -333,7 +333,7 @@ nemo experiment cancel {exp_id} 0
             assert id, "Cannot reconstruct an experiment without id."
 
         self._title = title
-        self._id = id or f"{title}_{int(time.time())}"
+        self._id = id or f"{title}_{time.time_ns()}"
         self._enable_goodbye_message = enable_goodbye_message
         self._threadpool_workers = threadpool_workers
         self._skip_status_at_exit = skip_status_at_exit
@@ -908,10 +908,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             idx: int, job: Job | JobGroup
         ) -> tuple[list[str], dict[str, str]]:
             job_info = []
+            job_status = job.status(runner=self._runner)
             job_info.append(f"[bold green]Task {idx}[/bold green]: [bold orange1]{job.id}")
-            job_info.append(
-                f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}"
-            )
+            job_info.append(f"- [bold green]Status[/bold green]: {str(job_status)}")
             job_info.append(f"- [bold green]Executor[/bold green]: {job.executor.info()}")
 
             try:
@@ -927,7 +926,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             ]
             job_dict = {
                 "name": job.id,
-                "status": job.status(runner=self._runner),
+                "status": job_status,
                 "executor": job.executor.info(),
                 "job_id": app_id,
                 "handle": job.handle,
@@ -1068,7 +1067,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             return self
 
         old_id, old_exp_dir, old_launched = self._id, self._exp_dir, self._launched
-        self._id = f"{self._title}_{int(time.time())}"
+        self._id = f"{self._title}_{time.time_ns()}"
         self._exp_dir = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
         self._launched = False
         self._live_progress = None
