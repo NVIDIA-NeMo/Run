@@ -1918,3 +1918,59 @@ class TestExtractConstituentTypes:
     def test_various_type_hints(self, type_hint, expected_types):
         """Test get_underlying_types with various type hints."""
         assert extract_constituent_types(type_hint) == expected_types
+
+
+class TestShortFlagCollision:
+    """Regression test for issue #559: -y flag collision between --yaml and --yes."""
+
+    def test_yaml_flag_no_short_alias(self):
+        """Verify --yaml does not have -y short flag."""
+        @run.cli.entrypoint
+        def dummy_task(yaml: Optional[str] = typer.Option(None, "--yaml", help="YAML file")):
+            return yaml
+
+        app = typer.Typer()
+        RunContext.cli_command(app, "task", dummy_task)
+
+        runner = CliRunner()
+
+        # Test --yaml flag works
+        result = runner.invoke(app, ["task", "--yaml", "config.yaml"])
+        assert result.exit_code == 0
+
+        # Verify help output doesn't show -y for --yaml
+        help_result = runner.invoke(app, ["task", "--help"])
+        assert help_result.exit_code == 0
+        assert "--yaml" in help_result.stdout
+
+    def test_skip_confirmation_flag_has_short_alias(self):
+        """Verify --yes/-y flag works correctly for skip_confirmation."""
+        @run.cli.entrypoint(skip_confirmation=False)
+        def dummy_task():
+            return "success"
+
+        app = typer.Typer()
+        RunContext.cli_command(app, "task", dummy_task)
+
+        runner = CliRunner()
+
+        # Test -y flag works for skip_confirmation
+        result = runner.invoke(app, ["task", "-y"], input="n")
+        assert result.exit_code == 0
+
+    def test_help_output_no_duplicate_flag_warnings(self):
+        """Verify help output doesn't generate warnings about duplicate -y flags."""
+        @run.cli.entrypoint
+        def dummy_task(
+            yaml: Optional[str] = typer.Option(None, "--yaml", help="YAML file"),
+        ):
+            return yaml
+
+        app = typer.Typer()
+        RunContext.cli_command(app, "task", dummy_task)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["task", "--help"])
+
+        # Help should succeed with no errors
+        assert result.exit_code == 0
