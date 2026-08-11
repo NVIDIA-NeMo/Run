@@ -29,6 +29,7 @@ from typing import Any, Iterable, Optional
 import yaml
 
 from nemo_run.core.execution.base import Executor, ExecutorMacros
+from nemo_run.core.execution.launcher import Launcher
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
@@ -107,6 +108,13 @@ class XCaliburExecutor(Executor):
     # expert_tensor_model_pipeline_parallel divisibility check.
     use_torchrun: bool = True
 
+    # ── Scheduling ────────────────────────────────────────────────────────────
+    gang_scheduler_name: Optional[str] = None  # e.g. "kai-scheduler"
+
+    # ── Profiling ─────────────────────────────────────────────────────────────
+    # Set by NsysPlugin.setup(); holds nsys configuration when profiling is enabled.
+    launcher: Optional[Launcher] = None
+
     # ── xcalctl / kubectl config ──────────────────────────────────────────────
     xcalctl_bin: str = "xcalctl"
     kubeconfig: Optional[str] = None
@@ -125,6 +133,15 @@ class XCaliburExecutor(Executor):
         self.experiment_dir = exp_dir
         self.job_name = task_id
         self.job_dir = os.path.join(exp_dir, task_dir)
+
+    def get_launcher_prefix(self) -> Optional[list[str]]:
+        """Return nsys prefix when profiling is enabled, else None."""
+        launcher = self.get_launcher()
+        if launcher.nsys_profile:
+            nsys_dir = os.path.join(self.job_dir, launcher.nsys_folder)
+            os.makedirs(nsys_dir, exist_ok=True)
+            return launcher.get_nsys_prefix(profile_dir=self.job_dir)
+        return None
 
     def nnodes(self) -> int:
         return self.num_nodes
@@ -189,6 +206,9 @@ class XCaliburExecutor(Executor):
 
         if self.max_restarts:
             spec["checkpoint"] = {"maxRestarts": self.max_restarts}
+
+        if self.gang_scheduler_name:
+            spec["gangScheduler"] = {"schedulerName": self.gang_scheduler_name}
 
         return {
             "apiVersion": _XCALIBUR_WORKLOADRUN_API,
@@ -374,16 +394,6 @@ class XCaliburExecutor(Executor):
         else:
             logger.info("Cancelled WorkloadRun '%s'", name)
 
-    def post_run_cleanup(self, name: str) -> None:
-        """Pull rank-0 pod logs into job_dir then cancel the WorkloadRun.
-
-        Called after a job reaches a terminal state so that:
-        - At least one node's logs are preserved locally for verification.
-        - The WorkloadRun CRD and its associated resources are cleaned up.
-        """
-        self._pull_rank0_logs(name)
-        self.cancel(name)
-
     def _get_xcalibur_job_name(self, workloadrun_name: str) -> str | None:
         """Return the XCalibur internal job name from the WorkloadRun CRD.
 
@@ -410,8 +420,8 @@ class XCaliburExecutor(Executor):
             val = labels.get("excalibur.nvidia.com/job")
             if val and val != workloadrun_name:
                 return val
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.debug("Could not parse WorkloadRun JSON for '%s': %s", workloadrun_name, e)
 
         # CRD doesn't expose the internal name — find the most recently created
         # JobSet in the namespace.  XCalibur names JobSets <internal_job>-workload,
@@ -429,44 +439,6 @@ class XCaliburExecutor(Executor):
             if jobsets:
                 return jobsets[-1][:-len("-workload")]
         return None
-
-    def _pull_rank0_logs(self, workloadrun_name: str) -> None:
-        """Write rank-0 (job-completion-index=0) pod logs to job_dir."""
-        xcalibur_job = self._get_xcalibur_job_name(workloadrun_name)
-        if xcalibur_job:
-            label_selector = (
-                f"excalibur.nvidia.com/job={xcalibur_job},"
-                "batch.kubernetes.io/job-completion-index=0"
-            )
-        else:
-            label_selector = (
-                f"excalibur.nvidia.com/job={workloadrun_name},"
-                "batch.kubernetes.io/job-completion-index=0"
-            )
-
-        # Resolve pod name
-        cmd = self._kubectl_base() + [
-            "get", "pods",
-            "-l", label_selector,
-            "-n", self.namespace,
-            "-o", "jsonpath={.items[0].metadata.name}",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0 or not result.stdout.strip():
-            logger.warning("Could not find rank-0 pod for '%s'; skipping log pull", workloadrun_name)
-            return
-
-        pod_name = result.stdout.strip()
-        logger.info("Pulling logs from rank-0 pod '%s'", pod_name)
-
-        cmd = self._kubectl_base() + [
-            "logs", pod_name,
-            "-n", self.namespace,
-            "--tail", "-1",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            logger.warning("Failed to fetch logs from pod '%s': %s", pod_name, result.stderr.strip())
 
     def fetch_logs(
         self,
@@ -687,6 +659,9 @@ class XCaliburExecutor(Executor):
 
     def materialize_launch_script(self, cmd: list[str], max_retries: int = 0) -> None:
         """Write a launch.sh to job_dir that the WorkloadRun exec framework will run."""
+        nsys_prefix = self.get_launcher_prefix()
+        if nsys_prefix:
+            cmd = ["nsys"] + nsys_prefix + cmd
         env_exports = "\n".join(f"export {k}={v}" for k, v in self.env_vars.items())
         if max_retries > 0:
             cmd_str = " ".join(cmd)
@@ -716,5 +691,5 @@ cd {self.code_dir}
         launch_path = os.path.join(self.job_dir, "launch.sh")
         with open(launch_path, "w") as f:
             f.write(script)
-        os.chmod(launch_path, 0o755)
+        os.chmod(launch_path, 0o555)
         logger.info("Wrote launch script to %s", launch_path)

@@ -136,7 +136,8 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
             # No PVC: code is assumed to be in the container image.
             # Run the training command directly; env vars are injected via the
             # WorkloadRun spec rather than through a launch.sh wrapper.
-            wl_cmd = req.cmd
+            nsys_prefix = executor.get_launcher_prefix()
+            wl_cmd = (["nsys"] + nsys_prefix + req.cmd) if nsys_prefix else req.cmd
 
         # Write WorkloadRun YAML
         yaml_path = os.path.join(executor.job_dir, "workloadrun.yaml")
