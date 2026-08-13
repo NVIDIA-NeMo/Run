@@ -378,6 +378,43 @@ class TestOpenSSHSession:
         session.get("/remote/file", "local")
         assert "test_user@[2001:db8::1]:/remote/file" in context.run.call_args.args[0]
 
+    def test_creation_rejects_unsafe_control_directory(self, context, tmp_path):
+        unsafe_directory = tmp_path / "unsafe"
+        unsafe_directory.mkdir(mode=0o777)
+        unsafe_directory.chmod(0o777)
+        session = _OpenSSHSession(
+            host="test.host",
+            user="test_user",
+            port=None,
+            identity=None,
+            control_persist="10m",
+            control_path=str(unsafe_directory / "control-%C"),
+            require_existing_master=False,
+        )
+        context.run.return_value.ok = False
+
+        with pytest.raises(RuntimeError, match="not group/world-writable"):
+            session.open()
+
+    def test_creation_rejects_symlinked_control_directory(self, context, tmp_path):
+        safe_directory = tmp_path / "safe"
+        safe_directory.mkdir(mode=0o700)
+        symlink = tmp_path / "linked"
+        symlink.symlink_to(safe_directory, target_is_directory=True)
+        session = _OpenSSHSession(
+            host="test.host",
+            user="test_user",
+            port=None,
+            identity=None,
+            control_persist="10m",
+            control_path=str(symlink / "control-%C"),
+            require_existing_master=False,
+        )
+        context.run.return_value.ok = False
+
+        with pytest.raises(RuntimeError, match="must not contain symlinks"):
+            session.open()
+
     def test_close_leaves_control_master_running(self, session, context):
         session.close()
 
@@ -421,6 +458,52 @@ class TestOpenSSHSession:
         assert tunnel.session.control_persist is None
         open_session.assert_not_called()
 
+    def test_reuse_only_operations_cannot_fall_back_or_prompt(self, context):
+        session = _OpenSSHSession(
+            host="login-ptyche",
+            user="test_user",
+            port=None,
+            identity=None,
+            control_persist=None,
+            control_path=None,
+            require_existing_master=True,
+        )
+        context.run.return_value.ok = True
+
+        session.run("squeue")
+        run_command = context.run.call_args_list[-1].args[0]
+        session.put("local", "/remote/file")
+        put_command = context.run.call_args_list[-1].args[0]
+
+        for command in (run_command, put_command, session.ssh_options):
+            assert "ControlMaster=no" in command
+            assert "BatchMode=yes" in command
+            assert "ProxyCommand=false" in command
+
+    def test_recovery_command_includes_explicit_overrides(self, context, tmp_path):
+        control_path = tmp_path / "socket path-%C"
+        session = _OpenSSHSession(
+            host="login-ptyche",
+            user="test user",
+            port=2222,
+            identity="/key path/id_ed25519",
+            control_persist=None,
+            control_path=str(control_path),
+            require_existing_master=True,
+        )
+        context.run.return_value.ok = False
+
+        with pytest.raises(RuntimeError, match="No existing OpenSSH control master") as error:
+            session.open()
+
+        message = str(error.value)
+        assert "ControlPath=" in message
+        assert str(control_path) in message
+        assert "-p 2222" in message
+        assert "/key path/id_ed25519" in message
+        assert "ControlMaster=yes" in message
+        assert "test user@login-ptyche" in message
+
     def test_existing_master_mode_does_not_create_connection(self, context):
         session = _OpenSSHSession(
             host="login-ptyche",
@@ -433,7 +516,7 @@ class TestOpenSSHSession:
         )
         context.run.return_value.ok = False
 
-        with pytest.raises(RuntimeError, match=r"ssh -fN login-ptyche"):
+        with pytest.raises(RuntimeError, match=r"ControlMaster=yes.*test_user@login-ptyche"):
             session.open()
 
         context.run.assert_called_once()

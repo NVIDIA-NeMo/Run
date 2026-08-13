@@ -208,6 +208,18 @@ class _OpenSSHSession:
             )
         if self.control_path:
             options.extend(["-o", f"ControlPath={self.control_path}"])
+        if self.require_existing_master:
+            # A vanished master must fail instead of opening a direct connection or prompting.
+            options.extend(
+                [
+                    "-o",
+                    "ControlMaster=no",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ProxyCommand=false",
+                ]
+            )
         return options
 
     def _connection_options(self, executable: str) -> list[str]:
@@ -234,18 +246,43 @@ class _OpenSSHSession:
     def _command(self, executable: str, *args: str) -> str:
         return shlex.join([executable, *self._connection_options(executable), *args])
 
+    def _master_start_command(self) -> str:
+        options: list[str] = []
+        if self.control_path:
+            options.extend(["-o", f"ControlPath={self.control_path}"])
+        if self.port is not None:
+            options.extend(["-p", str(self.port)])
+        if self.connect_kwargs:
+            options.extend(["-i", self.connect_kwargs["key_filename"][0]])
+        return shlex.join(["ssh", *options, "-o", "ControlMaster=yes", "-fN", self._target])
+
+    def _prepare_control_directory(self) -> None:
+        assert self.control_path
+        parent = Path(self.control_path).parent
+        parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        resolved_parent = parent.resolve(strict=True)
+        if parent.absolute() != resolved_parent:
+            raise RuntimeError(
+                f"OpenSSH control socket directory must not contain symlinks: {parent}"
+            )
+        directory_mode = resolved_parent.stat()
+        if directory_mode.st_uid != os.getuid() or directory_mode.st_mode & 0o022:
+            raise RuntimeError(
+                f"OpenSSH control socket directory must be owned by the current user and not "
+                f"group/world-writable: {resolved_parent}"
+            )
+
     def open(self) -> None:
         if self.is_connected:
             return
         if self.require_existing_master:
-            command = shlex.join(["ssh", "-fN", self.host])
             raise RuntimeError(
                 f"No existing OpenSSH control master found for {self._target}. "
-                f"Start one first (for example, `{command}`) and retry."
+                f"Start one first (for example, `{self._master_start_command()}`) and retry."
             )
         assert self.control_persist
         if self.control_path:
-            Path(self.control_path).parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            self._prepare_control_directory()
         self._context.run(self._command("ssh", "-fN", self._target), hide=False)
 
     def run(self, command: str, hide: bool = True, warn: bool = False, **kwargs) -> RunResult:

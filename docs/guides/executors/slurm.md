@@ -71,8 +71,9 @@ an actionable startup command.
 
 Existing-master mode reads `ControlPath`, `ControlPersist`, and other connection settings from
 OpenSSH configuration unless explicitly overridden. Creation mode defaults to the stable
-`~/.nemo_run/.ssh/control-%C` path when `control_path` is omitted. Keep an override stable and
-include a token such as `%C` for multiple destinations.
+`~/.nemo_run/.ssh/control-%C` path when `control_path` is omitted. Keep an override stable,
+include a token such as `%C` for multiple destinations, and place it in a directory owned by the
+current user that is not group/world-writable and does not traverse symlinks.
 
 This mode requires working `ssh` and `scp` executables and key-based, agent-based, or otherwise
 non-interactive OpenSSH authentication. Configuration errors and OpenSSH connection failures are
