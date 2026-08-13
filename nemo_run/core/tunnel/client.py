@@ -270,14 +270,17 @@ class _OpenSSHSession:
         stop = self._command("ssh", "-O", "cancel", "-L", forward, self._target)
 
         class ForwardContext:
-            def __enter__(context):
-                self._context.run(start, hide=True)
-                return context
+            def __enter__(self):
+                self._session._context.run(start, hide=True)
+                return self
 
-            def __exit__(context, *_):
-                self._context.run(stop, hide=True, warn=True)
+            def __exit__(self, *_):
+                self._session._context.run(stop, hide=True, warn=True)
 
-        return ForwardContext()
+            def __init__(self, session):
+                self._session = session
+
+        return ForwardContext(self)
 
     def close(self) -> None:
         # The control master intentionally outlives this Python process. OpenSSH exits it after
