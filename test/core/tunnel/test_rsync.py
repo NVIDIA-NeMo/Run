@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -110,6 +110,14 @@ class TestRsync(unittest.TestCase):
 
         cmd = self.mock_connection.local.call_args[0][0]
         self.assertIn(ssh_opts, cmd)
+
+    def test_rsync_with_session_ssh_options(self):
+        self.mock_connection.ssh_options = "-o ControlMaster=auto -o ControlPath=/tmp/control-%C"
+
+        rsync(self.mock_connection, self.source, self.target)
+
+        cmd = self.mock_connection.local.call_args[0][0]
+        self.assertIn(self.mock_connection.ssh_options, cmd)
 
     def test_rsync_with_custom_rsync_opts(self):
         """Test rsync with custom rsync options."""

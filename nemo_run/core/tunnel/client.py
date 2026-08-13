@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2024-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 import getpass
 import logging
 import os
+import shlex
 import shutil
 import socket
 import subprocess
@@ -166,6 +167,124 @@ class LocalTunnel(Tunnel):
         self.session.clear()
 
 
+class _OpenSSHSession:
+    """Fabric-compatible subset backed by a persistent OpenSSH control master."""
+
+    def __init__(
+        self,
+        *,
+        host: str,
+        user: str,
+        port: Optional[int],
+        identity: Optional[str],
+        control_persist: str,
+        control_path: str,
+    ):
+        self.host = host
+        self.user = user
+        self.port = port or 22
+        self.connect_kwargs = {"key_filename": [identity]} if identity else {}
+        self.control_persist = control_persist
+        self.control_path = os.path.expanduser(control_path)
+        self._context = Context()
+        self._connected = False
+
+    @property
+    def _target(self) -> str:
+        return f"{self.user}@{self.host}"
+
+    @property
+    def _control_options(self) -> list[str]:
+        return [
+            "-o",
+            "ControlMaster=auto",
+            "-o",
+            f"ControlPersist={self.control_persist}",
+            "-o",
+            f"ControlPath={self.control_path}",
+        ]
+
+    def _connection_options(self, executable: str) -> list[str]:
+        port_flag = "-P" if executable == "scp" else "-p"
+        options = [*self._control_options, port_flag, str(self.port)]
+        if self.connect_kwargs:
+            options.extend(["-i", self.connect_kwargs["key_filename"][0]])
+        return options
+
+    @property
+    def ssh_options(self) -> str:
+        """Options which let rsync reuse this session's control master."""
+        return shlex.join(self._control_options)
+
+    @property
+    def is_connected(self) -> bool:
+        if self._connected:
+            return True
+        result = self._context.run(
+            self._command("ssh", "-O", "check", self._target), hide=True, warn=True
+        )
+        self._connected = result.ok
+        return self._connected
+
+    def _command(self, executable: str, *args: str) -> str:
+        return shlex.join([executable, *self._connection_options(executable), *args])
+
+    def open(self) -> None:
+        if self.is_connected:
+            return
+        Path(self.control_path).parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self._context.run(self._command("ssh", "-fN", self._target), hide=False)
+        self._connected = True
+
+    def run(self, command: str, hide: bool = True, warn: bool = False, **kwargs) -> RunResult:
+        self.open()
+        return self._context.run(
+            self._command("ssh", self._target, command), hide=hide, warn=warn, **kwargs
+        )
+
+    def local(self, command: str, hide: bool = True, **kwargs) -> RunResult:
+        return self._context.run(command, hide=hide, **kwargs)
+
+    def put(self, local_path: str, remote_path: str) -> None:
+        self.open()
+        self._context.run(
+            self._command("scp", local_path, f"{self._target}:{remote_path}"), hide=True
+        )
+
+    def get(self, remote_path: str, local_path: str) -> None:
+        self.open()
+        self._context.run(
+            self._command("scp", f"{self._target}:{remote_path}", local_path), hide=True
+        )
+
+    def forward_local(
+        self,
+        local_port: int,
+        remote_port: Optional[int] = None,
+        remote_host: str = "localhost",
+        local_host: str = "localhost",
+    ):
+        self.open()
+        forward = f"{local_host}:{local_port}:{remote_host}:{remote_port or local_port}"
+        start = self._command("ssh", "-O", "forward", "-L", forward, self._target)
+        stop = self._command("ssh", "-O", "cancel", "-L", forward, self._target)
+
+        class ForwardContext:
+            def __enter__(context):
+                self._context.run(start, hide=True)
+                return context
+
+            def __exit__(context, *_):
+                self._context.run(stop, hide=True, warn=True)
+
+        return ForwardContext()
+
+    def close(self) -> None:
+        # The control master intentionally outlives this Python process. OpenSSH exits it after
+        # ControlPersist has elapsed without clients.
+        self._connected = False
+
+
 @dataclass(kw_only=True)
 class SSHTunnel(Tunnel):
     """
@@ -173,6 +292,10 @@ class SSHTunnel(Tunnel):
     Currently only supports SlurmExecutor.
 
     Uses key based authentication if *identity* is provided else password authentication.
+    Set *control_persist* to an OpenSSH duration such as ``"10m"`` to multiplex commands and
+    transfers through a control master which remains available to later NeMo Run processes.
+    This mode requires the ``ssh`` and ``scp`` executables. Without *control_persist*, the existing
+    in-process Fabric/Paramiko connection is used.
 
     Examples
     --------
@@ -188,7 +311,8 @@ class SSHTunnel(Tunnel):
             host=os.environ["ANOTHER_SSH_HOST"],
             user=os.environ["ANOTHER_SSH_USER"],
             job_dir=os.environ["ANOTHER_REMOTE_JOBDIR"],
-            identity="path_to_private_key"
+            identity="path_to_private_key",
+            control_persist="10m",
         )
 
     """
@@ -199,8 +323,18 @@ class SSHTunnel(Tunnel):
     identity: Optional[str] = None
     shell: Optional[str] = None
     pre_command: Optional[str] = None
+    control_persist: Optional[str] = None
+    control_path: Optional[str] = None
 
     def __post_init__(self):
+        if self.control_path and not self.control_persist:
+            raise ValueError("control_path requires control_persist")
+        if self.control_persist == "":
+            raise ValueError("control_persist must not be empty")
+        if self.control_persist and not shutil.which("ssh"):
+            raise RuntimeError("OpenSSH multiplexing requires the ssh executable")
+        if self.control_persist and not shutil.which("scp"):
+            raise RuntimeError("OpenSSH multiplexing requires the scp executable")
         self.console = CONSOLE
         self.session = None
         self.auth_handler: Callable = authentication_handler
@@ -224,8 +358,18 @@ class SSHTunnel(Tunnel):
         tunnel.run(command)
 
     def connect(self):
+        if self.control_persist and not self.session:
+            self.session = _OpenSSHSession(
+                host=self.host,
+                user=self.user,
+                port=self.port,
+                identity=self.identity,
+                control_persist=self.control_persist,
+                control_path=self.control_path
+                or os.path.join(get_nemorun_home(), ".ssh", "control-%C"),
+            )
         if not (self.session and self.session.is_connected):
-            self._authenticate()
+            self.session.open() if self.control_persist else self._authenticate()
 
     def _check_connect(self):
         if not (self.session and self.session.is_connected):

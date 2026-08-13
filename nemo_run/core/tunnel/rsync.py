@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,6 +67,9 @@ def rsync(
     disable_keys = "-o StrictHostKeyChecking=no"
     if not strict_host_keys and disable_keys not in ssh_opts:
         ssh_opts += " {}".format(disable_keys)
+    session_ssh_opts = getattr(c, "ssh_options", "")
+    if session_ssh_opts:
+        ssh_opts = f"{session_ssh_opts} {ssh_opts}".strip()
     rsh_parts = [key_string, port_string, ssh_opts]
     if any(rsh_parts):
         rsh_string = "--rsh='ssh {}'".format(" ".join(rsh_parts))
