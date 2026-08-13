@@ -217,6 +217,7 @@ nemo experiment cancel {exp_id} 0
         SkypilotJobsExecutor,
         DGXCloudExecutor,
         LeptonExecutor,
+        XCaliburExecutor,
     )
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)
     _RUNNER_DEPENDENT_EXECUTORS = (LocalExecutor,)
