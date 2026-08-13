@@ -6,6 +6,7 @@ Launch tasks on a Slurm HPC cluster, optionally from your local machine over SSH
 
 - Access to a Slurm cluster with Pyxis installed
 - SSH key authentication set up (for remote launch via `SSHTunnel`)
+- OpenSSH `ssh` and `scp` executables when using persistent connection multiplexing
 - A container image accessible from the cluster (e.g. on a shared registry or pulled to the nodes)
 
 ## Executor configuration
@@ -20,6 +21,11 @@ ssh_tunnel = run.SSHTunnel(
     user="your-username",
     job_dir="/scratch/your-username/nemo-runs",  # where NeMo-Run stores metadata on the cluster
     identity="~/.ssh/id_ed25519",                # optional SSH key path
+    # Opt into an OpenSSH master that remains for 10 minutes after its last client.
+    control_persist="10m",
+    # Optional override; by default NeMo Run uses ~/.nemo_run/.ssh/control-%C.
+    # Keep this stable so later NeMo Run processes find the same control socket.
+    # control_path="~/.ssh/nemo-run-%C",
 )
 
 executor = run.SlurmExecutor(
@@ -37,6 +43,25 @@ executor = run.SlurmExecutor(
 ```
 
 Use `run.LocalTunnel()` instead of `SSHTunnel` when launching from a login node directly.
+
+### Persistent SSH multiplexing
+
+`control_persist` is configured on the `SSHTunnel` passed to `SlurmExecutor`, as shown above.
+It accepts an OpenSSH duration such as `"10m"`. When enabled, NeMo Run starts an OpenSSH
+control master and routes remote commands, SCP transfers, rsync transfers, and port forwarding
+through its control socket. The master is a separate process, so it can be reused by later NeMo
+Run invocations until it has had no clients for the configured `ControlPersist` duration.
+
+Unless `control_path` is set, NeMo Run uses the stable
+`~/.nemo_run/.ssh/control-%C` path. OpenSSH expands `%C` to a hash of connection attributes,
+allowing the same user, host, port, and identity settings to find the same master across Python
+processes without path collisions. Keep a custom `control_path` stable and include an OpenSSH
+token such as `%C` when connecting to more than one destination.
+
+This mode requires working `ssh` and `scp` executables and key-based, agent-based, or otherwise
+non-interactive OpenSSH authentication. Configuration errors and OpenSSH connection failures are
+reported directly; NeMo Run does **not** dynamically fall back to Paramiko after multiplexing is
+selected. Omit `control_persist` to retain the existing in-process Fabric/Paramiko behavior.
 
 Key parameters:
 

@@ -187,11 +187,15 @@ class _OpenSSHSession:
         self.control_persist = control_persist
         self.control_path = os.path.expanduser(control_path)
         self._context = Context()
-        self._connected = False
 
     @property
     def _target(self) -> str:
         return f"{self.user}@{self.host}"
+
+    @property
+    def _scp_target(self) -> str:
+        host = f"[{self.host}]" if self.host.count(":") > 1 else self.host
+        return f"{self.user}@{host}"
 
     @property
     def _control_options(self) -> list[str]:
@@ -218,13 +222,10 @@ class _OpenSSHSession:
 
     @property
     def is_connected(self) -> bool:
-        if self._connected:
-            return True
         result = self._context.run(
             self._command("ssh", "-O", "check", self._target), hide=True, warn=True
         )
-        self._connected = result.ok
-        return self._connected
+        return result.ok
 
     def _command(self, executable: str, *args: str) -> str:
         return shlex.join([executable, *self._connection_options(executable), *args])
@@ -234,7 +235,6 @@ class _OpenSSHSession:
             return
         Path(self.control_path).parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         self._context.run(self._command("ssh", "-fN", self._target), hide=False)
-        self._connected = True
 
     def run(self, command: str, hide: bool = True, warn: bool = False, **kwargs) -> RunResult:
         self.open()
@@ -248,13 +248,13 @@ class _OpenSSHSession:
     def put(self, local_path: str, remote_path: str) -> None:
         self.open()
         self._context.run(
-            self._command("scp", local_path, f"{self._target}:{remote_path}"), hide=True
+            self._command("scp", local_path, f"{self._scp_target}:{remote_path}"), hide=True
         )
 
     def get(self, remote_path: str, local_path: str) -> None:
         self.open()
         self._context.run(
-            self._command("scp", f"{self._target}:{remote_path}", local_path), hide=True
+            self._command("scp", f"{self._scp_target}:{remote_path}", local_path), hide=True
         )
 
     def forward_local(
@@ -271,10 +271,12 @@ class _OpenSSHSession:
 
         class ForwardContext:
             def __enter__(self):
+                self._session.open()
                 self._session._context.run(start, hide=True)
                 return self
 
             def __exit__(self, *_):
+                self._session.open()
                 self._session._context.run(stop, hide=True, warn=True)
 
             def __init__(self, session):
@@ -284,8 +286,8 @@ class _OpenSSHSession:
 
     def close(self) -> None:
         # The control master intentionally outlives this Python process. OpenSSH exits it after
-        # ControlPersist has elapsed without clients.
-        self._connected = False
+        # ControlPersist has elapsed without clients; later operations probe the socket first.
+        pass
 
 
 @dataclass(kw_only=True)

@@ -301,19 +301,20 @@ class TestOpenSSHSession:
         second_session.open()
 
         context.run.assert_called_once()
-        assert second_session._connected is True
 
     def test_run_uses_control_master(self, session, context):
-        session._connected = True
+        context.run.side_effect = [MagicMock(ok=True), MagicMock()]
 
         session.run("squeue", hide=False, warn=True)
 
-        command = context.run.call_args.args[0]
+        check_command = context.run.call_args_list[0].args[0]
+        command = context.run.call_args_list[1].args[0]
+        assert "-O check" in check_command
         assert command.endswith("test_user@test.host squeue")
-        context.run.assert_called_once_with(command, hide=False, warn=True)
+        context.run.assert_any_call(command, hide=False, warn=True)
 
     def test_put_and_get_use_control_master(self, session, context):
-        session._connected = True
+        context.run.return_value.ok = True
 
         session.put("local file", "/remote/file")
         put_command = context.run.call_args.args[0]
@@ -329,22 +330,54 @@ class TestOpenSSHSession:
         assert "test_user@test.host:/remote/file 'local file'" in get_command
 
     def test_forward_local_adds_and_cancels_forward(self, session, context):
-        session._connected = True
+        context.run.return_value.ok = True
 
         with session.forward_local(7000, remote_host="compute"):
             pass
 
-        start_command = context.run.call_args_list[0].args[0]
-        stop_command = context.run.call_args_list[1].args[0]
-        assert "-O forward -L localhost:7000:compute:7000" in start_command
-        assert "-O cancel -L localhost:7000:compute:7000" in stop_command
+        commands = [call.args[0] for call in context.run.call_args_list]
+        assert sum("-O check" in command for command in commands) == 3
+        assert any("-O forward -L localhost:7000:compute:7000" in command for command in commands)
+        assert any("-O cancel -L localhost:7000:compute:7000" in command for command in commands)
+
+    def test_expired_master_is_restarted_between_operations(self, session, context):
+        context.run.side_effect = [
+            MagicMock(ok=True),
+            MagicMock(),
+            MagicMock(ok=False),
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        session.run("squeue")
+        session.run("sacct")
+
+        assert "-O check" in context.run.call_args_list[0].args[0]
+        assert "-O check" in context.run.call_args_list[2].args[0]
+        assert "-fN test_user@test.host" in context.run.call_args_list[3].args[0]
+        assert context.run.call_args_list[4].args[0].endswith("test_user@test.host sacct")
+
+    def test_ipv6_put_and_get_bracket_host(self, context, tmp_path):
+        session = _OpenSSHSession(
+            host="2001:db8::1",
+            user="test_user",
+            port=22,
+            identity=None,
+            control_persist="10m",
+            control_path=str(tmp_path / "control-%C"),
+        )
+        context.run.return_value.ok = True
+
+        session.put("local", "/remote/file")
+        assert "test_user@[2001:db8::1]:/remote/file" in context.run.call_args.args[0]
+
+        context.reset_mock()
+        session.get("/remote/file", "local")
+        assert "test_user@[2001:db8::1]:/remote/file" in context.run.call_args.args[0]
 
     def test_close_leaves_control_master_running(self, session, context):
-        session._connected = True
-
         session.close()
 
-        assert session._connected is False
         context.run.assert_not_called()
 
     @patch("nemo_run.core.tunnel.client.shutil.which", return_value="/usr/bin/ssh")
