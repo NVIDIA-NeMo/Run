@@ -270,6 +270,7 @@ class TestOpenSSHSession:
             identity="/path/to/key",
             control_persist="10m",
             control_path=str(tmp_path / "control-%C"),
+            require_existing_master=False,
         )
 
     def test_connect_starts_control_master(self, session, context):
@@ -296,6 +297,7 @@ class TestOpenSSHSession:
             identity=session.connect_kwargs["key_filename"][0],
             control_persist=session.control_persist,
             control_path=session.control_path,
+            require_existing_master=False,
         )
 
         second_session.open()
@@ -365,6 +367,7 @@ class TestOpenSSHSession:
             identity=None,
             control_persist="10m",
             control_path=str(tmp_path / "control-%C"),
+            require_existing_master=False,
         )
         context.run.return_value.ok = True
 
@@ -398,13 +401,82 @@ class TestOpenSSHSession:
         assert tunnel.session.control_path.endswith("/.ssh/control-%C")
         open_session.assert_called_once()
 
-    def test_control_path_requires_control_persist(self):
-        with pytest.raises(ValueError, match="control_path requires control_persist"):
+    @patch("nemo_run.core.tunnel.client.shutil.which", return_value="/usr/bin/ssh")
+    def test_tunnel_reuses_master_from_ssh_config(self, _):
+        tunnel = SSHTunnel(
+            host="login-ptyche",
+            user="test_user",
+            job_dir="/remote/job",
+            use_openssh=True,
+            require_existing_master=True,
+        )
+
+        with patch.object(_OpenSSHSession, "is_connected", new_callable=PropertyMock) as connected:
+            connected.return_value = True
+            with patch.object(_OpenSSHSession, "open") as open_session:
+                tunnel.connect()
+
+        assert isinstance(tunnel.session, _OpenSSHSession)
+        assert tunnel.session.control_path is None
+        assert tunnel.session.control_persist is None
+        open_session.assert_not_called()
+
+    def test_existing_master_mode_does_not_create_connection(self, context):
+        session = _OpenSSHSession(
+            host="login-ptyche",
+            user="test_user",
+            port=None,
+            identity=None,
+            control_persist=None,
+            control_path=None,
+            require_existing_master=True,
+        )
+        context.run.return_value.ok = False
+
+        with pytest.raises(RuntimeError, match=r"ssh -fN login-ptyche"):
+            session.open()
+
+        context.run.assert_called_once()
+        check_command = context.run.call_args.args[0]
+        assert "-O check" in check_command
+        assert "ControlPath=" not in check_command
+        assert "ControlPersist=" not in check_command
+        assert " -p " not in check_command
+        assert " -i " not in check_command
+
+    def test_control_path_requires_openssh(self):
+        with pytest.raises(ValueError, match="control_path requires use_openssh"):
             SSHTunnel(
                 host="test.host",
                 user="test_user",
                 job_dir="/remote/job",
                 control_path="/tmp/control-%C",
+            )
+
+    def test_existing_master_requires_openssh(self):
+        with pytest.raises(ValueError, match="require_existing_master requires use_openssh"):
+            SSHTunnel(
+                host="test.host",
+                user="test_user",
+                job_dir="/remote/job",
+                require_existing_master=True,
+            )
+
+    @patch("nemo_run.core.tunnel.client.shutil.which", return_value="/usr/bin/ssh")
+    def test_creation_mode_requires_control_persist(self, _):
+        with pytest.raises(ValueError, match="creation requires control_persist"):
+            SSHTunnel(host="test.host", user="test_user", job_dir="/remote/job", use_openssh=True)
+
+    @patch("nemo_run.core.tunnel.client.shutil.which", return_value="/usr/bin/ssh")
+    def test_existing_master_rejects_control_persist(self, _):
+        with pytest.raises(ValueError, match="cannot be combined"):
+            SSHTunnel(
+                host="test.host",
+                user="test_user",
+                job_dir="/remote/job",
+                use_openssh=True,
+                require_existing_master=True,
+                control_persist="1d",
             )
 
     def test_empty_control_persist_is_rejected(self):

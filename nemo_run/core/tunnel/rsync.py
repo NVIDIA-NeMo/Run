@@ -60,7 +60,7 @@ def rsync(
         key_string = "-i " + " -i ".join(keys)
     # Get base cxn params
     user, host, port = c.user, c.host, c.port
-    port_string = "-p {}".format(port)
+    port_string = "-p {}".format(port) if port is not None else ""
     # Remote shell (SSH) options
     rsh_string = ""
     # Strict host key checking

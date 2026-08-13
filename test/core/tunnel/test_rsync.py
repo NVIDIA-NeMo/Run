@@ -111,6 +111,14 @@ class TestRsync(unittest.TestCase):
         cmd = self.mock_connection.local.call_args[0][0]
         self.assertIn(ssh_opts, cmd)
 
+    def test_rsync_without_explicit_port_uses_ssh_config(self):
+        self.mock_connection.port = None
+
+        rsync(self.mock_connection, "source", "target")
+
+        cmd = self.mock_connection.local.call_args[0][0]
+        self.assertNotIn("-p None", cmd)
+
     def test_rsync_with_session_ssh_options(self):
         self.mock_connection.ssh_options = "-o ControlMaster=auto -o ControlPath=/tmp/control-%C"
 
