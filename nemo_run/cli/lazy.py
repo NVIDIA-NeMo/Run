@@ -833,8 +833,8 @@ def _load_entrypoint_from_script(script_content: str, module_name: str = "__dyna
             if (
                 isinstance(node.test.left, ast.Name)
                 and node.test.left.id == "__name__"
-                and isinstance(node.test.comparators[0], ast.Str)
-                and node.test.comparators[0].s == "__main__"
+                and isinstance(node.test.comparators[0], ast.Constant)
+                and node.test.comparators[0].value == "__main__"
             ):
                 main_block = node.body
                 break

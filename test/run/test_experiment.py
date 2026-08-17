@@ -464,7 +464,7 @@ def test_from_title_nonexistent(temp_dir):
         mock_get_latest_dir.return_value = nonexistent_path
 
         # The assertion should fail because the directory doesn't exist
-        with pytest.raises(AssertionError):
+        with pytest.raises(AssertionError, match=f"Experiment {title} not found"):
             Experiment.from_title(title)
 
 
@@ -682,6 +682,30 @@ def test_experiment_status(mock_get_runner, temp_dir):
         with patch.object(exp.console, "print") as mock_print:
             exp.status()
             mock_print.assert_called()
+
+
+@patch("nemo_run.run.experiment.get_runner")
+def test_experiment_status_polls_job_once(mock_get_runner, temp_dir):
+    """Experiment.status() should call job.status() once per job.
+
+    Previously the display text and returned dict each called job.status(),
+    producing duplicate backend requests (and duplicate error logs on failure).
+    """
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = mock_runner
+
+    with Experiment("test-exp") as exp:
+        task = run.Partial(dummy_function, x=1, y=2)
+        exp.add(task, name="test-job")
+        exp.jobs[0].status = MagicMock(return_value=AppState.SUCCEEDED)
+
+        exp.status(return_dict=True)
+        exp.jobs[0].status.assert_called_once_with(runner=mock_runner)
+
+        exp.jobs[0].status.reset_mock()
+        with patch.object(exp.console, "print"):
+            exp.status()
+        exp.jobs[0].status.assert_called_once_with(runner=mock_runner)
 
 
 @patch("nemo_run.run.experiment.get_runner")
