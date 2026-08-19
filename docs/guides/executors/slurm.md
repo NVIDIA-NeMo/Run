@@ -6,6 +6,7 @@ Launch tasks on a Slurm HPC cluster, optionally from your local machine over SSH
 
 - Access to a Slurm cluster with Pyxis installed
 - SSH key authentication set up (for remote launch via `SSHTunnel`)
+- OpenSSH `ssh` and `scp` executables when using persistent connection multiplexing
 - A container image accessible from the cluster (e.g. on a shared registry or pulled to the nodes)
 
 ## Executor configuration
@@ -20,6 +21,11 @@ ssh_tunnel = run.SSHTunnel(
     user="your-username",
     job_dir="/scratch/your-username/nemo-runs",  # where NeMo-Run stores metadata on the cluster
     identity="~/.ssh/id_ed25519",                # optional SSH key path
+    # Opt into OpenSSH and allow NeMo Run to create a persistent master.
+    use_openssh=True,
+    control_persist="10m",
+    # Optional override; creation mode defaults to ~/.nemo_run/.ssh/control-%C.
+    # control_path="~/.ssh/nemo-run-%C",
 )
 
 executor = run.SlurmExecutor(
@@ -38,6 +44,44 @@ executor = run.SlurmExecutor(
 
 Use `run.LocalTunnel()` instead of `SSHTunnel` when launching from a login node directly.
 
+### Persistent SSH multiplexing
+
+`use_openssh` is configured on the `SSHTunnel` passed to `SlurmExecutor`. In creation mode,
+`control_persist` accepts an OpenSSH duration such as `"10m"`; NeMo Run reuses a compatible master
+or starts one with that lifetime. The master is a separate process, so later NeMo Run invocations
+can reuse it until it has had no clients for the configured duration.
+
+For MFA-protected hosts, create the authenticated master yourself and prevent NeMo Run from opening
+a new connection that could prompt unexpectedly:
+
+```python
+ssh_tunnel = run.SSHTunnel(
+    host="login-ptyche",
+    user="your-username",
+    job_dir="/scratch/your-username/nemo-runs",
+    use_openssh=True,
+    require_existing_master=True,
+)
+```
+
+This mode runs `ssh -O check` and only reuses an existing master. It never creates one. Configure
+`ControlMaster`, `ControlPath`, and `ControlPersist` in `~/.ssh/config`, then start the master (for
+example, `ssh -fN login-ptyche`) before launching NeMo Run. If no master exists, NeMo Run fails with
+an actionable startup command.
+
+Existing-master mode reads `ControlPath`, `ControlPersist`, and other connection settings from
+OpenSSH configuration unless explicitly overridden. Creation mode defaults to the stable
+`~/.nemo_run/.ssh/control-%C` path when `control_path` is omitted. Keep an override stable,
+include a token such as `%C` for multiple destinations, and place it in a directory owned by the
+current user that is not group/world-writable and does not traverse symlinks.
+
+This mode requires working `ssh` and `scp` executables and key-based, agent-based, or otherwise
+non-interactive OpenSSH authentication. Configuration errors and OpenSSH connection failures are
+reported directly; NeMo Run does **not** dynamically fall back to Paramiko after multiplexing is
+selected. Omit `use_openssh`, `control_persist`, and `require_existing_master` to retain the existing
+in-process Fabric/Paramiko behavior. For backward compatibility, setting `control_persist` also
+selects OpenSSH creation mode.
+
 Key parameters:
 
 | Parameter | Description |
@@ -50,6 +94,10 @@ Key parameters:
 | `container_image` | Container image URI |
 | `time` | Wall-time limit (`"HH:MM:SS"`) |
 | `tunnel` | `SSHTunnel` (remote) or `LocalTunnel` (on-cluster) |
+| `use_openssh` | Select the OpenSSH backend instead of Fabric/Paramiko |
+| `require_existing_master` | Reuse a pre-authenticated master and never create a connection |
+| `control_persist` | Lifetime applied only when NeMo Run creates a master |
+| `control_path` | Optional `ControlPath` override |
 | `packager` | Code packaging strategy |
 
 ## E2E workflow

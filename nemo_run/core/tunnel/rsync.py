@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+import shlex
 from typing import Iterable
 
 from fabric import Connection
@@ -38,56 +39,44 @@ def rsync(
     # Turn single-string exclude into a one-item list for consistency
     if isinstance(exclude, str):
         exclude = [exclude]
-    # Create --exclude options from exclude list
-    exclude_opts = ' --exclude "{}"' * len(exclude)
-    # Double-backslash-escape
-    exclusions = tuple([str(s).replace('"', '\\\\"') for s in exclude])
-    # Honor SSH key(s)
-    key_string = ""
-    # TODO: seems plausible we need to look in multiple places if there's too
-    # much deferred evaluation going on in how we eg source SSH config files
-    # and so forth, re: connect_kwargs
-    # TODO: we could get VERY fancy here by eg generating a tempfile from any
-    # in-memory-only keys...but that's also arguably a security risk, so...
+
+    ssh_command = ["ssh"]
     keys = c.connect_kwargs.get("key_filename", [])
-    # TODO: would definitely be nice for Connection/FabricConfig to expose an
-    # always-a-list, always-up-to-date-from-all-sources attribute to save us
-    # from having to do this sort of thing. (may want to wait for Paramiko auth
-    # overhaul tho!)
     if isinstance(keys, str):
         keys = [keys]
-    if keys:
-        key_string = "-i " + " -i ".join(keys)
-    # Get base cxn params
+    for key in keys:
+        ssh_command.extend(["-i", key])
+
     user, host, port = c.user, c.host, c.port
-    port_string = "-p {}".format(port)
-    # Remote shell (SSH) options
-    rsh_string = ""
-    # Strict host key checking
-    disable_keys = "-o StrictHostKeyChecking=no"
-    if not strict_host_keys and disable_keys not in ssh_opts:
-        ssh_opts += " {}".format(disable_keys)
-    rsh_parts = [key_string, port_string, ssh_opts]
-    if any(rsh_parts):
-        rsh_string = "--rsh='ssh {}'".format(" ".join(rsh_parts))
-    # Set up options part of string
-    options_map = {
-        "delete": "--delete" if delete else "",
-        "exclude": exclude_opts.format(*exclusions),
-        "rsh": rsh_string,
-        "extra": rsync_opts,
-    }
-    options = "{delete}{exclude} -pthrvz {extra} {rsh}".format(**options_map)
-    # Create and run final command string
-    # TODO: richer host object exposing stuff like .address_is_ipv6 or whatever
+    if port is not None:
+        ssh_command.extend(["-p", str(port)])
+
+    session_ssh_opts = getattr(c, "ssh_options", "")
+    if not isinstance(session_ssh_opts, str):
+        session_ssh_opts = ""
+    ssh_option_tokens = shlex.split(session_ssh_opts) + shlex.split(ssh_opts)
+    if not strict_host_keys and "StrictHostKeyChecking=no" not in ssh_option_tokens:
+        ssh_option_tokens.extend(["-o", "StrictHostKeyChecking=no"])
+    ssh_command.extend(ssh_option_tokens)
+
+    command = ["rsync"]
+    if delete:
+        command.append("--delete")
+    for pattern in exclude:
+        command.extend(["--exclude", str(pattern)])
+    command.append("-pthrvz")
+    command.extend(shlex.split(rsync_opts))
+    if len(ssh_command) > 1:
+        command.extend(["--rsh", shlex.join(ssh_command)])
+
     if host.count(":") > 1:
-        # Square brackets are mandatory for IPv6 rsync address,
-        # even if port number is not specified
-        cmd = "rsync {} {} [{}@{}]:{}"
+        destination = f"[{user}@{host}]:{target}"
     else:
-        cmd = "rsync {} {} {}@{}:{}"
-    cmd = cmd.format(options, source, user, host, target)
-    c.run(f"mkdir -p {target}", hide=hide_output)
+        destination = f"{user}@{host}:{target}"
+    command.extend([source, destination])
+    cmd = shlex.join(command)
+
+    c.run(f"mkdir -p {shlex.quote(target)}", hide=hide_output)
     result = c.local(cmd, hide=hide_output)
     if result:
         logger.info(f"Successfully ran `{result.command}`")

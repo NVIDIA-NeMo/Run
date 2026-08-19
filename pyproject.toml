@@ -51,14 +51,14 @@ kubeflow = "nemo_run.run.torchx_backend.schedulers.kubeflow:create_scheduler"
 
 [project.optional-dependencies]
 skypilot = [
-    "skypilot[kubernetes]>=0.10.0",
+    "skypilot[kubernetes]>=0.12.3",
 ]
 skypilot-all = [
-    "skypilot[all]>=0.10.0",
+    "skypilot[all]>=0.12.3",
 ]
 ray = [
     "kubernetes",
-    "ray[default]>=2.49.2",
+    "ray[default]>=2.56.0",
 ]
 kubeflow = [
     "kubernetes",
@@ -95,7 +95,7 @@ docs = [
 ]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=70.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -118,8 +118,21 @@ conflicts = [
     ]
 ]
 override-dependencies = [
-    "cryptography>=46.0.0,<47", # To address GHSA-r6ph-v2qm-q3c2
-    "urllib3>=2.6.3",           # To address GHSA-38jv-5279-wg99
+    "aiohttp>=3.14.0",                # CVE-2026-50269
+    "cryptography>=46.0.6,<47",       # CVE-2026-34073
+    "fonttools>=4.60.2",              # CVE-2025-66034
+    "h11>=0.16.0",                    # CVE-2025-43859
+    "httpcore>=1.0.9",                # Supports h11 0.16
+    "ibm-cos-sdk>=2.16.2",            # Supports patched urllib3
+    "microsoft-kiota-http>=1.9.9",    # CVE-2026-44503
+    "pillow>=12.3.0",                 # Pillow findings in the compiler report
+    "pygments>=2.20.0",               # CVE-2026-4539
+    "oci>=2.169.0",                   # Compatible with the security-patched crypto stack
+    "python-multipart>=0.0.22",       # CVE-2026-24486
+    "runpod>=1.9.0",                  # Compatible with the security-patched crypto stack
+    "setuptools>=70.0.0",             # CVE-2024-6345
+    "simpleeval>=1.0.5",              # CVE-2026-32640
+    "urllib3>=2.7.0",                 # CVE-2026-44432
 ]
 
 [tool.pytest.ini_options]
