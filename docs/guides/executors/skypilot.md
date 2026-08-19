@@ -44,6 +44,8 @@ Key parameters:
 | `container_image` | Docker image for the job |
 | `cluster_name` | Optional: name of an existing cluster to reuse |
 | `setup` | Shell commands to run once on the cluster before the job |
+| `autodown` | Tear the cluster down once jobs finish. Defaults to `False`, so the cluster stays up |
+| `idle_minutes_to_autostop` | Stop (or tear down, with `autodown=True`) after this many idle minutes |
 
 ## E2E workflow
 
@@ -89,6 +91,28 @@ executor = SkypilotJobsExecutor(
     use_spot=True,
 )
 ```
+
+### Cluster lifecycle and teardown
+
+By default a `SkypilotExecutor` cluster outlives the job. `autodown` and `idle_minutes_to_autostop` are
+both off, and `cleanup()` only downloads logs, so on Kubernetes the pod stays `Running` and keeps its GPUs
+allocated until the cluster is brought down. That is SkyPilot's behaviour for an unmanaged cluster, not a
+NeMo Run defect, but the knobs are worth knowing:
+
+```python
+executor = SkypilotExecutor(
+    ...,
+    autodown=True,                  # tear down once all jobs finish
+    idle_minutes_to_autostop=10,    # or wait for 10 idle minutes first
+)
+```
+
+These map onto `sky.launch(down=..., idle_minutes_to_autostop=...)`. `autodown=True` on its own tears the
+cluster down after all jobs reach a terminal state, and combining it with `idle_minutes_to_autostop` delays
+that until the cluster has been idle for the given time. A cluster that fails during provisioning, data
+sync or setup is deliberately left up by SkyPilot for debugging, so those need `sky down <cluster>` by hand.
+To keep the cluster but stop paying for idle GPUs, set `idle_minutes_to_autostop` with `autodown=False`,
+which stops rather than deletes it.
 
 ### Package code from git
 
