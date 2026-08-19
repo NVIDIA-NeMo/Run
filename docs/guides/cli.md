@@ -346,7 +346,7 @@ Train a model using the specified configuration.
 │ --dryrun                                                   Print the scheduler request without submitting
 │ --factory               -f                           TEXT  Predefined factory to use [default: None]
 │ --load                  -l                           TEXT  Load a factory from a directory [default: None]
-│ --yaml                  -y                           TEXT  Path to a YAML file to load [default: None]
+│ --yaml                                               TEXT  Path to a YAML file to load [default: None]
 │ --repl                  -r                                 Enter interactive mode
 │ --detach                                                   Detach from the run
 │ --yes,--no-confirm      -y                                 Skip confirmation before execution

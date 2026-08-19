@@ -890,9 +890,7 @@ class RunContext:
             load: Optional[str] = typer.Option(
                 None, "--load", "-l", help="Load a factory from a directory"
             ),
-            yaml: Optional[str] = typer.Option(
-                None, "--yaml", "-y", help="Path to a YAML file to load"
-            ),
+            yaml: Optional[str] = typer.Option(None, "--yaml", help="Path to a YAML file to load"),
             repl: bool = typer.Option(False, "--repl", "-r", help="Enter interactive mode"),
             detach: bool = typer.Option(False, "--detach", help="Detach from the run"),
             skip_confirmation: bool = typer.Option(
