@@ -306,6 +306,9 @@ class SlurmExecutor(Executor):
     time: str = "00:10:00"
     nodes: int = 1
     ntasks_per_node: int = 1
+    #: Total task count for the allocation, mapped to sbatch --ntasks.
+    #: Mutually exclusive with ntasks_per_node, which is dropped when this is set.
+    ntasks: Optional[int] = None
     cpus_per_task: Optional[int] = None
     cpus_per_gpu: Optional[int] = None
     gpus_per_node: Optional[int] = None
@@ -430,6 +433,11 @@ class SlurmExecutor(Executor):
         if self.wait_time_for_group_job < 0:
             self.wait_time_for_group_job = 0
 
+        assert self.ntasks is None or not self.heterogeneous, (
+            "ntasks cannot be combined with heterogeneous=True, "
+            "size each group via resource_group instead."
+        )
+
     def info(self) -> str:
         return f"{self.__class__.__qualname__} on {self.tunnel.key}"
 
@@ -463,6 +471,10 @@ class SlurmExecutor(Executor):
             for arg in self.SRUN_ARGS
             if getattr(self, arg.replace("-", "_"), None) is not None
         }
+        if _arg_dict.get("ntasks") is not None:
+            # Same exclusion as sbatch: ntasks-per-node would cap an explicit ntasks.
+            _arg_dict.pop("ntasks-per-node", None)
+
         _arg_dict["container-mounts"] = ",".join(self.container_mounts)
         if env_vars:
             _arg_dict["container-env"] = ",".join(list(env_vars.keys()))
@@ -813,6 +825,11 @@ class SlurmBatchRequest:
         parameters = {
             k: v for k, v in args.items() if v is not None and k in SlurmExecutor.SBATCH_FLAGS
         }
+
+        # --ntasks-per-node acts as a per-node maximum when --ntasks is also present, so
+        # leaving its default of 1 in place would cap an explicit --ntasks request.
+        if parameters.get("ntasks") is not None:
+            parameters.pop("ntasks_per_node", None)
 
         # rename and reformat parameters
 
