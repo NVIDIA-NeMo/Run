@@ -434,7 +434,7 @@ class SlurmExecutor(Executor):
         return f"{self.__class__.__qualname__} on {self.tunnel.key}"
 
     def alloc(self, job_name="interactive"):
-        self.job_name = f"{self.job_name_prefix}{job_name}"
+        self.job_name = f"{self.job_name_prefix or ''}{job_name}"
         args = [
             f"--{arg}={getattr(self, arg.replace('-', '_'))}"
             for arg in self.ALLOC_ARGS
@@ -457,7 +457,7 @@ class SlurmExecutor(Executor):
         arg_dict=None,
         **kwargs,
     ):
-        self.job_name = f"{self.job_name_prefix}{job_name}"
+        self.job_name = f"{self.job_name_prefix or ''}{job_name}"
         _arg_dict = {
             arg: getattr(self, arg.replace("-", "_"))
             for arg in self.SRUN_ARGS

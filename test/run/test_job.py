@@ -102,7 +102,7 @@ def test_job_status_launched(simple_task, docker_executor, mock_runner):
     mock_runner.status.assert_called_once_with("test-handle")
 
 
-def test_job_status_exception(simple_task, docker_executor, mock_runner):
+def test_job_status_exception(simple_task, docker_executor, mock_runner, caplog):
     job = Job(
         id="test-job",
         task=simple_task,
@@ -113,7 +113,10 @@ def test_job_status_exception(simple_task, docker_executor, mock_runner):
     )
 
     mock_runner.status.side_effect = Exception("Test exception")
-    assert job.status(mock_runner) == AppState.RUNNING
+    with caplog.at_level("ERROR", logger="nemo_run.run.job"):
+        assert job.status(mock_runner) == AppState.RUNNING
+    assert "Failed to get status for job test-handle" in caplog.text
+    assert "Test exception" in caplog.text
 
 
 def test_job_logs(simple_task, docker_executor, mock_runner):
@@ -437,7 +440,7 @@ def test_job_group_status_launched(simple_task, docker_executor, mock_runner):
     mock_runner.status.assert_called_once_with("handle1")
 
 
-def test_job_group_status_exception(simple_task, docker_executor, mock_runner):
+def test_job_group_status_exception(simple_task, docker_executor, mock_runner, caplog):
     job_group = JobGroup(
         id="test-group",
         tasks=[simple_task, simple_task],
@@ -448,9 +451,12 @@ def test_job_group_status_exception(simple_task, docker_executor, mock_runner):
     )
 
     mock_runner.status.side_effect = Exception("Test exception")
-    status = job_group.status(mock_runner)
+    with caplog.at_level("ERROR", logger="nemo_run.run.job"):
+        status = job_group.status(mock_runner)
     assert status == AppState.UNKNOWN
     assert job_group.states == [AppState.UNKNOWN]
+    assert "Failed to get status for job handle handle1" in caplog.text
+    assert "Test exception" in caplog.text
 
 
 def test_job_group_logs(simple_task, docker_executor, mock_runner):
