@@ -561,7 +561,7 @@ class SlurmExecutor(Executor):
                 nsys_prefix += ["$GPU_METRICS_FLAG"]
         return nsys_prefix
 
-    def get_nsys_entrypoint(self) -> str:
+    def get_nsys_entrypoint(self) -> tuple[str, str]:
         launcher = self.get_launcher()
         entrypoint, postfix = "nsys", ""
         if launcher.nsys_gpu_metrics:
