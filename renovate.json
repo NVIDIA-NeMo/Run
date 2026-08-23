@@ -1,0 +1,9 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>NVIDIA-NeMo/FW-CI-templates//renovate-config/safe-python#add-renovate-config"
+  ],
+  "dependencyDashboardApproval": true,
+  "prConcurrentLimit": 1,
+  "prHourlyLimit": 1
+}
