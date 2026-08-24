@@ -54,6 +54,7 @@ overrides = [
     { name = "simpleeval", specifier = ">=1.0.5" },
     { name = "urllib3", specifier = ">=2.7.0" },
 ]
+build-constraints = [{ name = "setuptools", specifier = "<82" }]
 
 [[package]]
 name = "absl-py"
