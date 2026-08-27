@@ -20,6 +20,7 @@ from pathlib import Path
 import yaml
 from fiddle._src import config as config_lib
 
+from nemo_run.cli._paths import split_config_path
 from nemo_run.core.serialization.yaml import YamlSerializer
 
 
@@ -321,7 +322,8 @@ class ConfigSerializer:
         """
         from pathlib import Path
 
-        path = Path(output_path)
+        path_str, path_section = split_config_path(output_path)
+        path = Path(path_str)
 
         # Extract section if specified
         if section:
@@ -330,15 +332,11 @@ class ConfigSerializer:
             data = data[section]
 
         # Handle potential section specifier in output_path
-        if ":" in str(path):
-            # Split off any section specifier from the path
-            path_str, section = str(path).split(":", 1)
-            path = Path(path_str)
-
+        if path_section is not None:
             # Extract the specified section from data
-            if section not in data:
-                raise KeyError(f"Section '{section}' not found in configuration")
-            data = data[section]
+            if path_section not in data:
+                raise KeyError(f"Section '{path_section}' not found in configuration")
+            data = data[path_section]
 
         # Determine format from explicit parameter or file extension
         if format:
