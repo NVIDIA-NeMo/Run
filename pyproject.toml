@@ -48,6 +48,7 @@ dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
 lepton = "nemo_run.run.torchx_backend.schedulers.lepton:create_scheduler"
 skypilot_jobs = "nemo_run.run.torchx_backend.schedulers.skypilot_jobs:create_scheduler"
 kubeflow = "nemo_run.run.torchx_backend.schedulers.kubeflow:create_scheduler"
+xcalibur = "nemo_run.run.torchx_backend.schedulers.xcalibur:create_scheduler"
 
 [project.optional-dependencies]
 skypilot = [
