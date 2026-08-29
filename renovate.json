@@ -3,7 +3,28 @@
   "extends": [
     "github>NVIDIA-NeMo/FW-CI-templates//renovate-config/safe-python#add-renovate-config"
   ],
+  "baseBranchPatterns": [
+    "$default",
+    "r0.11.0"
+  ],
   "dependencyDashboardApproval": true,
+  "automerge": false,
   "prConcurrentLimit": 1,
-  "prHourlyLimit": 1
+  "prHourlyLimit": 1,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "dependencyDashboardApproval": false,
+    "minimumReleaseAge": null,
+    "rangeStrategy": "update-lockfile",
+    "prCreation": "immediate",
+    "vulnerabilityFixStrategy": "lowest",
+    "automerge": false,
+    "groupName": "security updates",
+    "groupSlug": "security-updates",
+    "groupSingleUpdates": true,
+    "separateMajorMinor": false,
+    "addLabels": [
+      "dependencies"
+    ]
+  }
 }
