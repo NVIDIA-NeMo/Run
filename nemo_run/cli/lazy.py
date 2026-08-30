@@ -33,6 +33,7 @@ from fiddle._src.building import _state
 from fiddle.experimental import serialization
 from omegaconf import DictConfig, OmegaConf
 
+from nemo_run.cli._paths import split_config_path
 from nemo_run.config import Partial
 
 if TYPE_CHECKING:
@@ -761,9 +762,7 @@ def _is_config_file_path(path_str: str) -> bool:
     Returns:
         bool: True if the string appears to be a config file path, False otherwise
     """
-    # Check if there's a section specifier
-    if ":" in path_str:
-        path_str = path_str.split(":", 1)[0]
+    path_str, _ = split_config_path(path_str)
 
     # Check for supported extensions
     SUPPORTED_EXTENSIONS = (".yaml", ".yml", ".json", ".toml")
@@ -916,14 +915,14 @@ def load_config_from_path(path_with_syntax: str) -> Any:
     """
     from nemo_run.cli.config import ConfigSerializer
     from omegaconf import OmegaConf
-    import os
 
     # Extract file path and optional section
-    section_match = re.match(r"^@([\w\./\\-]+)(?::(\w+))?$", path_with_syntax)
-    if not section_match:
+    if not path_with_syntax.startswith("@"):
         raise ValueError(f"Invalid config file format: {path_with_syntax}")
 
-    config_path, section = section_match.groups()
+    config_path, section = split_config_path(path_with_syntax[1:])
+    if not config_path or (section is not None and not re.fullmatch(r"\w+", section)):
+        raise ValueError(f"Invalid config file format: {path_with_syntax}")
 
     # Validate the path exists
     if not os.path.exists(config_path):

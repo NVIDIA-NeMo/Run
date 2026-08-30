@@ -60,7 +60,10 @@ from typing_extensions import NotRequired, ParamSpec, TypedDict
 
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
+from nemo_run.cli._paths import split_config_path
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
+from nemo_run.cli.config import ConfigSerializer
+from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.config import (
     Config,
     Partial,
@@ -71,8 +74,6 @@ from nemo_run.config import (
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
-from nemo_run.cli.config import ConfigSerializer
-from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
@@ -1732,10 +1733,7 @@ def _serialize_configuration(
 
         try:
             # Handle section extraction from path
-            section = None
-            file_path = output_path
-            if ":" in output_path:
-                file_path, section = output_path.split(":", 1)
+            file_path, section = split_config_path(output_path)
 
             # Create appropriate section message for display
             section_msg = f" (section: {section})" if section else ""
