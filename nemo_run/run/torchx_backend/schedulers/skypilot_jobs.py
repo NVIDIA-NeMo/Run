@@ -141,6 +141,12 @@ class SkypilotJobsScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type:
         task = cfg.to_task(name=role.name, cmd=cmd, env_vars=role.env)
 
         req = SkypilotJobsRequest(task=task, executor=cfg)
+
+        if cfg.experiment_dir:
+            path = os.path.join(cfg.experiment_dir, f"{cfg.job_name}.yaml")
+            with open(path, "w") as f:
+                f.write(common_utils.dump_yaml_str(req.task.to_yaml_config()))
+
         return AppDryRunInfo(req, lambda req: common_utils.dump_yaml_str(req.task.to_yaml_config()))
 
     def _validate(self, app: AppDef, scheduler: str) -> None:

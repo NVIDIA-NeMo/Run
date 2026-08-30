@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import tempfile
 from unittest import mock
 
@@ -57,6 +58,18 @@ def test_submit_dryrun(local_scheduler, mock_app_def, local_executor):
     assert dryrun_info.request is not None
     # AppDryRunInfo has changed and no longer has a fmt attribute
     # assert callable(dryrun_info.fmt)
+
+
+def test_submit_dryrun_writes_script(local_scheduler, mock_app_def, local_executor):
+    with tempfile.TemporaryDirectory() as exp_dir:
+        local_executor.experiment_dir = exp_dir
+        local_scheduler._submit_dryrun(mock_app_def, local_executor)
+        script = os.path.join(exp_dir, f"{mock_app_def.name}.sh")
+        assert os.path.isfile(script)
+        with open(script) as f:
+            content = f.read()
+        assert "#!/bin/bash" in content
+        assert oct(os.stat(script).st_mode)[-3:] == "700"
 
 
 @mock.patch("nemo_run.run.torchx_backend.schedulers.local._save_job_dir")
