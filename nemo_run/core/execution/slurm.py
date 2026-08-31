@@ -357,6 +357,10 @@ class SlurmExecutor(Executor):
     run_as_group: bool = field(init=False, default=False)
 
     @classmethod
+    def supports_job_group(cls) -> bool:
+        return True
+
+    @classmethod
     def merge(
         cls: Type["SlurmExecutor"], executors: list["SlurmExecutor"], num_tasks: int
     ) -> "SlurmExecutor":

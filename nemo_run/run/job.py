@@ -266,13 +266,16 @@ class JobGroup(ConfigurableMixin):
 
         assert len(executor_types) == 1, "All executors must be of the same type."
         executor_type = list(executor_types)[0]
-        assert executor_type in self.SUPPORTED_EXECUTORS, "Unsupported executor type."
-        if executor_type == SlurmExecutor:
+        assert executor_type.supports_job_group() or executor_type in self.SUPPORTED_EXECUTORS, (
+            f"Unsupported executor type {executor_type.__name__}. Executors opt in to JobGroup "
+            "by overriding Executor.supports_job_group()."
+        )
+        if issubclass(executor_type, SlurmExecutor):
             self._merge = True
             self.executors = SlurmExecutor.merge(
                 cast(list[SlurmExecutor], executors), num_tasks=len(self.tasks)
             )
-        elif executor_type == DockerExecutor:
+        elif issubclass(executor_type, DockerExecutor):
             self._merge = True
             self.executors = DockerExecutor.merge(
                 cast(list[DockerExecutor], executors), num_tasks=len(self.tasks)
