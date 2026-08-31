@@ -1918,3 +1918,23 @@ class TestExtractConstituentTypes:
     def test_various_type_hints(self, type_hint, expected_types):
         """Test get_underlying_types with various type hints."""
         assert extract_constituent_types(type_hint) == expected_types
+
+
+class TestShortFlagCollision:
+    """Regression test for issue #559: -y was bound to both --yaml and --yes."""
+
+    def test_short_flag_y_belongs_only_to_yes(self):
+        @run.cli.entrypoint
+        def dummy_task(yaml: Optional[str] = typer.Option(None, "--yaml", help="YAML file")):
+            return yaml
+
+        app = typer.Typer()
+        RunContext.cli_command(app, "task", dummy_task)
+        params = typer.main.get_command(app).params
+
+        opts = {param.name: param.opts for param in params}
+        assert opts["yaml"] == ["--yaml"]
+        assert "-y" in opts["skip_confirmation"]
+
+        shorts = [opt for param in params for opt in param.opts if len(opt) == 2]
+        assert len(shorts) == len(set(shorts)), f"duplicate short flags: {shorts}"
