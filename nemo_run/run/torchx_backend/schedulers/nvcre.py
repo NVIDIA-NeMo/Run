@@ -37,48 +37,48 @@ from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runo
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
-from nemo_run.core.execution.xcalibur import XCaliburExecutor, XCaliburPhase
+from nemo_run.core.execution.nvcre import NvcreExecutor, NvcrePhase
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
 logger = logging.getLogger(__name__)
 
-XCALIBUR_JOB_DIRS = os.path.join(get_nemorun_home(), ".xcalibur_jobs.json")
+NVCRE_JOB_DIRS = os.path.join(get_nemorun_home(), ".nvcre_jobs.json")
 
-XCALIBUR_STATES: dict[XCaliburPhase, AppState] = {
-    XCaliburPhase.PENDING: AppState.PENDING,
-    XCaliburPhase.IN_PROGRESS: AppState.RUNNING,
-    XCaliburPhase.SUCCEEDED: AppState.SUCCEEDED,
-    XCaliburPhase.FAILED: AppState.FAILED,
-    XCaliburPhase.UNKNOWN: AppState.PENDING,
+NVCRE_STATES: dict[NvcrePhase, AppState] = {
+    NvcrePhase.PENDING: AppState.PENDING,
+    NvcrePhase.IN_PROGRESS: AppState.RUNNING,
+    NvcrePhase.SUCCEEDED: AppState.SUCCEEDED,
+    NvcrePhase.FAILED: AppState.FAILED,
+    NvcrePhase.UNKNOWN: AppState.PENDING,
 }
 
 
 @dataclass
-class XCaliburRequest:
-    """Wraps the AppDef and XCaliburExecutor for dryrun/schedule."""
+class NvcreRequest:
+    """Wraps the AppDef and NvcreExecutor for dryrun/schedule."""
 
     app: AppDef
-    executor: XCaliburExecutor
+    executor: NvcreExecutor
     cmd: list[str]
     name: str
 
 
-class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
+class NvcreScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
     def __init__(self, session_name: str) -> None:
-        super().__init__("xcalibur", session_name)
+        super().__init__("nvcre", session_name)
 
     def _run_opts(self) -> runopts:
         opts = runopts()
         opts.add("job_dir", type_=str, help="Directory for job outputs.")
         return opts
 
-    def _submit_dryrun(self, app: AppDef, cfg: Executor) -> AppDryRunInfo[XCaliburRequest]:
-        assert isinstance(cfg, XCaliburExecutor), (
-            f"{cfg.__class__} is not supported by XCaliburScheduler."
+    def _submit_dryrun(self, app: AppDef, cfg: Executor) -> AppDryRunInfo[NvcreRequest]:
+        assert isinstance(cfg, NvcreExecutor), (
+            f"{cfg.__class__} is not supported by NvcreScheduler."
         )
         executor = cfg
-        assert len(app.roles) == 1, "XCaliburScheduler only supports single-role apps."
+        assert len(app.roles) == 1, "NvcreScheduler only supports single-role apps."
 
         role = app.roles[0]
         values = executor.macro_values()
@@ -91,7 +91,7 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
         cmd = [role.entrypoint] + role.args
 
         # Wrap with torchrun so that torch.distributed is initialised correctly
-        # across all nodes.  XCalibur injects PET_* rendezvous env vars per-pod
+        # across all nodes.  Nvcre injects PET_* rendezvous env vars per-pod
         # (via the JobSet downward-API); torchrun reads them via --nnodes /
         # --nproc_per_node / --node_rank / --master_addr / --master_port and
         # sets the standard RANK, WORLD_SIZE, LOCAL_RANK, MASTER_ADDR vars that
@@ -109,9 +109,9 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
                 "--master_port=$PET_MASTER_PORT",
             ] + script_and_args
 
-        req = XCaliburRequest(app=app, executor=executor, cmd=cmd, name=role.name)
+        req = NvcreRequest(app=app, executor=executor, cmd=cmd, name=role.name)
 
-        def _wl_cmd(r: XCaliburRequest) -> list[str]:
+        def _wl_cmd(r: NvcreRequest) -> list[str]:
             if r.executor.workdir_pvc:
                 return ["/bin/bash", f"{r.executor.code_dir}/launch.sh"]
             return r.cmd
@@ -121,7 +121,7 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
             lambda r: yaml.dump(r.executor.build_workloadrun_yaml(_wl_cmd(r))),
         )
 
-    def schedule(self, dryrun_info: AppDryRunInfo[XCaliburRequest]) -> str:
+    def schedule(self, dryrun_info: AppDryRunInfo[NvcreRequest]) -> str:
         req = dryrun_info.request
         executor = req.executor
 
@@ -148,7 +148,7 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
         # Submit
         workloadrun_name = executor.submit(yaml_path)
 
-        experiment_id = getattr(executor, "experiment_id", "xcalibur_experiment")
+        experiment_id = getattr(executor, "experiment_id", "nvcre_experiment")
         app_id = f"{experiment_id}___{req.name}___{workloadrun_name}"
 
         _save_job(app_id, workloadrun_name, executor)
@@ -166,12 +166,12 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
             parts[-1] if len(parts) > 2 else app_id
         )
 
-        executor: Optional[XCaliburExecutor] = job_info.get("executor")
+        executor: Optional[NvcreExecutor] = job_info.get("executor")
         if not executor:
             return None
 
         phase = executor.status(workloadrun_name)
-        app_state = XCALIBUR_STATES.get(phase, AppState.PENDING)
+        app_state = NVCRE_STATES.get(phase, AppState.PENDING)
 
         roles = [Role(name=role_name, image="", num_replicas=executor.num_nodes)]
         roles_statuses = [
@@ -212,7 +212,7 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
         workloadrun_name = job_info.get("workloadrun_name") or (
             parts[-1] if len(parts) > 2 else app_id
         )
-        executor: Optional[XCaliburExecutor] = job_info.get("executor")
+        executor: Optional[NvcreExecutor] = job_info.get("executor")
         if not executor:
             return []
 
@@ -235,7 +235,7 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
         workloadrun_name = job_info.get("workloadrun_name") or (
             parts[-1] if len(parts) > 2 else app_id
         )
-        executor: Optional[XCaliburExecutor] = job_info.get("executor")
+        executor: Optional[NvcreExecutor] = job_info.get("executor")
         if executor:
             executor.cancel(workloadrun_name)
 
@@ -246,18 +246,18 @@ class XCaliburScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
         pass
 
 
-def create_scheduler(session_name: str, **kwargs: Any) -> XCaliburScheduler:
-    return XCaliburScheduler(session_name=session_name)
+def create_scheduler(session_name: str, **kwargs: Any) -> NvcreScheduler:
+    return NvcreScheduler(session_name=session_name)
 
 
-def _save_job(app_id: str, workloadrun_name: str, executor: XCaliburExecutor) -> None:
+def _save_job(app_id: str, workloadrun_name: str, executor: NvcreExecutor) -> None:
     original_apps: dict = {}
-    os.makedirs(os.path.dirname(XCALIBUR_JOB_DIRS), exist_ok=True)
-    if not os.path.isfile(XCALIBUR_JOB_DIRS):
-        Path(XCALIBUR_JOB_DIRS).touch()
+    os.makedirs(os.path.dirname(NVCRE_JOB_DIRS), exist_ok=True)
+    if not os.path.isfile(NVCRE_JOB_DIRS):
+        Path(NVCRE_JOB_DIRS).touch()
 
     serializer = ZlibJSONSerializer()
-    with open(XCALIBUR_JOB_DIRS, "r+") as f:
+    with open(NVCRE_JOB_DIRS, "r+") as f:
         try:
             original_apps = json.load(f)
         except Exception:
@@ -277,13 +277,13 @@ def _save_job(app_id: str, workloadrun_name: str, executor: XCaliburExecutor) ->
             temp_path = fp.name
 
         f.close()
-        shutil.move(temp_path, XCALIBUR_JOB_DIRS)
+        shutil.move(temp_path, NVCRE_JOB_DIRS)
 
 
 def _get_jobs() -> dict[str, dict]:
-    if not os.path.isfile(XCALIBUR_JOB_DIRS):
+    if not os.path.isfile(NVCRE_JOB_DIRS):
         return {}
-    with open(XCALIBUR_JOB_DIRS) as f:
+    with open(NVCRE_JOB_DIRS) as f:
         try:
             data = json.load(f)
         except Exception:
@@ -294,5 +294,5 @@ def _get_jobs() -> dict[str, dict]:
         try:
             entry["executor"] = fdl.build(serializer.deserialize(entry["executor"]))
         except Exception as e:
-            logger.debug("Failed to deserialize XCalibur executor: %s", e)
+            logger.debug("Failed to deserialize Nvcre executor: %s", e)
     return data

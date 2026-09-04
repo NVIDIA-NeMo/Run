@@ -35,11 +35,11 @@ from nemo_run.core.packaging.git import GitArchivePackager
 
 logger = logging.getLogger(__name__)
 
-_XCALIBUR_WORKLOADRUN_API = "excalibur.nvidia.com/v1alpha1"
+_NVCRE_WORKLOADRUN_API = "nvcre.nvidia.com/v1alpha1"
 _DATA_MOVER_IMAGE = "alpine:3.19"
 
 
-class XCaliburPhase(Enum):
+class NvcrePhase(Enum):
     PENDING = "Pending"
     IN_PROGRESS = "InProgress"
     SUCCEEDED = "Succeeded"
@@ -48,17 +48,17 @@ class XCaliburPhase(Enum):
 
 
 @dataclass(kw_only=True)
-class XCaliburExecutor(Executor):
+class NvcreExecutor(Executor):
     """
-    Dataclass to configure an XCalibur executor.
+    Dataclass to configure an Nvcre executor.
 
-    Submits jobs to an XCalibur-managed Kubernetes cluster via the ``xcalctl``
-    CLI using the WorkloadRun API.  Requires ``xcalctl`` (and ``kubectl``) to be
+    Submits jobs to an Nvcre-managed Kubernetes cluster via the ``nvcrectl``
+    CLI using the WorkloadRun API.  Requires ``nvcrectl`` (and ``kubectl``) to be
     on the PATH of the machine running NeMo-Run.
 
     Example::
 
-        executor = XCaliburExecutor(
+        executor = NvcreExecutor(
             namespace="nemo-perf",
             container_image="nvcr.io/nvidia/nemo:dev",
             num_nodes=8,
@@ -74,7 +74,7 @@ class XCaliburExecutor(Executor):
     num_nodes: int = 1
 
     # ── Compute shape ─────────────────────────────────────────────────────────
-    gpus_per_node: int = 0  # 0 = auto-detect by XCalibur
+    gpus_per_node: int = 0  # 0 = auto-detect by Nvcre
 
     # ── Registry auth ─────────────────────────────────────────────────────────
     image_pull_secret: Optional[str] = None
@@ -100,7 +100,7 @@ class XCaliburExecutor(Executor):
 
     # ── Launcher ──────────────────────────────────────────────────────────────
     # When True, wrap the python entrypoint with torchrun using the PET_* env
-    # vars that XCalibur injects per-pod (PET_NNODES, PET_NPROC_PER_NODE,
+    # vars that Nvcre injects per-pod (PET_NNODES, PET_NPROC_PER_NODE,
     # PET_NODE_RANK, PET_MASTER_ADDR, PET_MASTER_PORT).  This causes
     # torch.distributed to be initialised correctly so that WORLD_SIZE,
     # RANK, LOCAL_RANK, and MASTER_ADDR are set for every spawned process.
@@ -115,8 +115,8 @@ class XCaliburExecutor(Executor):
     # Set by NsysPlugin.setup(); holds nsys configuration when profiling is enabled.
     launcher: Optional[Launcher] = None
 
-    # ── xcalctl / kubectl config ──────────────────────────────────────────────
-    xcalctl_bin: str = "xcalctl"
+    # ── nvcrectl / kubectl config ──────────────────────────────────────────────
+    nvcrectl_bin: str = "nvcrectl"
     kubeconfig: Optional[str] = None
     kube_context: Optional[str] = None
 
@@ -150,7 +150,7 @@ class XCaliburExecutor(Executor):
         return self.gpus_per_node or 1
 
     def macro_values(self) -> ExecutorMacros:
-        # XCalibur uses the Kubeflow Training Operator under the hood; the
+        # Nvcre uses the Kubeflow Training Operator under the hood; the
         # PET_* vars are injected by the torchrun entrypoint of the TrainJob.
         return ExecutorMacros(
             head_node_ip_var="PET_MASTER_ADDR",
@@ -211,7 +211,7 @@ class XCaliburExecutor(Executor):
             spec["gangScheduler"] = {"schedulerName": self.gang_scheduler_name}
 
         return {
-            "apiVersion": _XCALIBUR_WORKLOADRUN_API,
+            "apiVersion": _NVCRE_WORKLOADRUN_API,
             "kind": "WorkloadRun",
             "metadata": {"name": self._safe_name(), "namespace": self.namespace},
             "spec": spec,
@@ -219,13 +219,13 @@ class XCaliburExecutor(Executor):
 
     def _safe_name(self) -> str:
         """RFC-1123 safe WorkloadRun name derived from job_name."""
-        name = (self.job_name or "xcalibur-job").lower().replace("_", "-").replace(".", "-")
+        name = (self.job_name or "nvcre-job").lower().replace("_", "-").replace(".", "-")
         return name[:63].rstrip("-")
 
-    # ── xcalctl / kubectl helpers ─────────────────────────────────────────────
+    # ── nvcrectl / kubectl helpers ─────────────────────────────────────────────
 
-    def _xcalctl_base(self) -> list[str]:
-        args = [self.xcalctl_bin]
+    def _nvcrectl_base(self) -> list[str]:
+        args = [self.nvcrectl_bin]
         if self.kubeconfig:
             args += ["--kubeconfig", self.kubeconfig]
         if self.kube_context:
@@ -243,13 +243,13 @@ class XCaliburExecutor(Executor):
     def submit(self, yaml_path: str) -> str:
         """Submit a WorkloadRun YAML and return the workloadrun name.
 
-        xcalctl generates its own WorkloadRun name and does not necessarily
+        nvcrectl generates its own WorkloadRun name and does not necessarily
         use the ``--name`` flag we pass.  We parse the actual name from
-        xcalctl's stdout so that subsequent ``status()`` and ``fetch_logs()``
+        nvcrectl's stdout so that subsequent ``status()`` and ``fetch_logs()``
         calls use the right resource name.
         """
         name = self._safe_name()
-        cmd = self._xcalctl_base() + [
+        cmd = self._nvcrectl_base() + [
             "workloadrun", "run", yaml_path,
             "--namespace", self.namespace,
             "--name", name,
@@ -258,17 +258,17 @@ class XCaliburExecutor(Executor):
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(
-                f"xcalctl workloadrun run failed (rc={result.returncode}):\n{result.stderr}"
+                f"nvcrectl workloadrun run failed (rc={result.returncode}):\n{result.stderr}"
             )
 
         actual_name = self._parse_submitted_name(result.stdout)
         if not actual_name:
-            # xcalctl output format not recognised — ask kubectl for the most
+            # nvcrectl output format not recognised — ask kubectl for the most
             # recently created WorkloadRun in our namespace as a fallback.
             actual_name = self._latest_workloadrun_name() or name
         if actual_name != name:
             logger.info(
-                "WorkloadRun submitted: xcalctl used name '%s' (we requested '%s')",
+                "WorkloadRun submitted: nvcrectl used name '%s' (we requested '%s')",
                 actual_name, name,
             )
         else:
@@ -279,7 +279,7 @@ class XCaliburExecutor(Executor):
     def _latest_workloadrun_name(self) -> str | None:
         """Return the name of the most recently created WorkloadRun in our namespace.
 
-        Used as a last-resort fallback when xcalctl output cannot be parsed.
+        Used as a last-resort fallback when nvcrectl output cannot be parsed.
         A short sleep is applied first to allow the API server to reflect the
         newly created resource.
         """
@@ -297,10 +297,10 @@ class XCaliburExecutor(Executor):
         return None
 
     def _parse_submitted_name(self, output: str) -> str | None:
-        """Extract the WorkloadRun name xcalctl actually assigned from its output.
+        """Extract the WorkloadRun name nvcrectl actually assigned from its output.
 
-        xcalctl may output the name in several formats, e.g.:
-          - kubectl-style: ``workloadrun.excalibur.nvidia.com/name created``
+        nvcrectl may output the name in several formats, e.g.:
+          - kubectl-style: ``workloadrun.nvcre.nvidia.com/name created``
           - plain:         ``name``
           - JSON:          ``{"name": "name", ...}``
         Returns None if no recognisable name is found.
@@ -320,14 +320,14 @@ class XCaliburExecutor(Executor):
             return m.group(1)
         return None
 
-    def status(self, name: str) -> XCaliburPhase:
+    def status(self, name: str) -> NvcrePhase:
         """Return the current phase of WorkloadRun *name*.
 
-        Tries xcalctl first.  Falls back to inspecting pod phases via kubectl
-        when xcalctl returns a non-zero exit code (e.g. the WorkloadRun was
+        Tries nvcrectl first.  Falls back to inspecting pod phases via kubectl
+        when nvcrectl returns a non-zero exit code (e.g. the WorkloadRun was
         cleaned up after completion) or reports an unrecognised phase string.
         """
-        cmd = self._xcalctl_base() + [
+        cmd = self._nvcrectl_base() + [
             "workloadrun", "status", name,
             "-n", self.namespace,
         ]
@@ -335,26 +335,26 @@ class XCaliburExecutor(Executor):
         if result.returncode == 0:
             phase_str = result.stdout.strip()
             try:
-                return XCaliburPhase(phase_str)
+                return NvcrePhase(phase_str)
             except ValueError:
                 logger.warning(
-                    "Unrecognised xcalctl phase '%s' for '%s'; falling back to kubectl CRD check",
+                    "Unrecognised nvcrectl phase '%s' for '%s'; falling back to kubectl CRD check",
                     phase_str, name,
                 )
         else:
             logger.warning(
-                "xcalctl status failed for '%s' (rc=%d): %s; falling back to kubectl CRD check",
+                "nvcrectl status failed for '%s' (rc=%d): %s; falling back to kubectl CRD check",
                 name, result.returncode, result.stderr.strip(),
             )
 
         return self._kubectl_workloadrun_crd_phase(name)
 
-    def _kubectl_workloadrun_crd_phase(self, name: str) -> XCaliburPhase:
+    def _kubectl_workloadrun_crd_phase(self, name: str) -> NvcrePhase:
         """Read phase directly from the WorkloadRun CRD via kubectl.
 
-        xcalctl is a thin wrapper over the same CRD.  Reading it directly
-        avoids xcalctl output-format surprises and works regardless of whether
-        XCalibur's internal job name differs from the WorkloadRun CRD name.
+        nvcrectl is a thin wrapper over the same CRD.  Reading it directly
+        avoids nvcrectl output-format surprises and works regardless of whether
+        Nvcre's internal job name differs from the WorkloadRun CRD name.
         """
         cmd = self._kubectl_base() + [
             "get", "workloadrun", name,
@@ -367,37 +367,37 @@ class XCaliburExecutor(Executor):
                 "kubectl workloadrun CRD check failed for '%s': %s",
                 name, result.stderr.strip(),
             )
-            return XCaliburPhase.UNKNOWN
+            return NvcrePhase.UNKNOWN
 
         phase_str = result.stdout.strip()
         if not phase_str:
             logger.warning("Empty phase from WorkloadRun CRD '%s'", name)
-            return XCaliburPhase.UNKNOWN
+            return NvcrePhase.UNKNOWN
 
         try:
-            return XCaliburPhase(phase_str)
+            return NvcrePhase(phase_str)
         except ValueError:
             logger.warning(
                 "Unrecognised WorkloadRun CRD phase '%s' for '%s'", phase_str, name,
             )
-            return XCaliburPhase.UNKNOWN
+            return NvcrePhase.UNKNOWN
 
     def cancel(self, name: str) -> None:
         """Cancel WorkloadRun *name*."""
-        cmd = self._xcalctl_base() + [
+        cmd = self._nvcrectl_base() + [
             "workloadrun", "cancel", name,
             "-n", self.namespace,
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            logger.warning("xcalctl cancel failed for '%s': %s", name, result.stderr)
+            logger.warning("nvcrectl cancel failed for '%s': %s", name, result.stderr)
         else:
             logger.info("Cancelled WorkloadRun '%s'", name)
 
-    def _get_xcalibur_job_name(self, workloadrun_name: str) -> str | None:
-        """Return the XCalibur internal job name from the WorkloadRun CRD.
+    def _get_nvcre_job_name(self, workloadrun_name: str) -> str | None:
+        """Return the Nvcre internal job name from the WorkloadRun CRD.
 
-        XCalibur stamps pods with ``excalibur.nvidia.com/job=<internal_name>``
+        Nvcre stamps pods with ``nvcre.nvidia.com/job=<internal_name>``
         which may differ from the WorkloadRun CRD name we submitted.  Try to
         retrieve it from the CRD status/labels so log and pod queries work.
         """
@@ -412,19 +412,19 @@ class XCaliburExecutor(Executor):
         try:
             data = json.loads(result.stdout)
             status = data.get("status", {})
-            for field in ("jobName", "xcaliburJobName", "workloadJobName"):
+            for field in ("jobName", "nvcreJobName", "workloadJobName"):
                 val = status.get(field)
                 if val and val != workloadrun_name:
                     return val
             labels = data.get("metadata", {}).get("labels", {})
-            val = labels.get("excalibur.nvidia.com/job")
+            val = labels.get("nvcre.nvidia.com/job")
             if val and val != workloadrun_name:
                 return val
         except json.JSONDecodeError as e:
             logger.debug("Could not parse WorkloadRun JSON for '%s': %s", workloadrun_name, e)
 
         # CRD doesn't expose the internal name — find the most recently created
-        # JobSet in the namespace.  XCalibur names JobSets <internal_job>-workload,
+        # JobSet in the namespace.  Nvcre names JobSets <internal_job>-workload,
         # so strip the suffix to get the internal job name.
         cmd = self._kubectl_base() + [
             "get", "jobsets",
@@ -449,15 +449,15 @@ class XCaliburExecutor(Executor):
     ) -> Iterable[str]:
         """Yield log lines from WorkloadRun pods via kubectl logs.
 
-        Uses the label ``excalibur.nvidia.com/job=<name>`` that
-        XCalibur stamps on the pods it creates.
+        Uses the label ``nvcre.nvidia.com/job=<name>`` that
+        Nvcre stamps on the pods it creates.
         """
-        # Pods are labelled with the JobSet name, not the excalibur.nvidia.com/job
-        # label.  Derive the XCalibur internal job name from the WorkloadRun CRD
+        # Pods are labelled with the JobSet name, not the nvcre.nvidia.com/job
+        # label.  Derive the Nvcre internal job name from the WorkloadRun CRD
         # (it may differ from `name` which is the CRD name we submitted), then
-        # form the JobSet name as <xcalibur_job>-workload.
-        xcalibur_job = self._get_xcalibur_job_name(name) or name
-        jobset_name = f"{xcalibur_job}-workload"
+        # form the JobSet name as <nvcre_job>-workload.
+        nvcre_job = self._get_nvcre_job_name(name) or name
+        jobset_name = f"{nvcre_job}-workload"
         label_selector = f"jobset.sigs.k8s.io/jobset-name={jobset_name}"
         base_cmd = self._kubectl_base() + [
             "logs",

@@ -20,17 +20,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from nemo_run.core.execution.launcher import Launcher
-from nemo_run.core.execution.xcalibur import XCaliburExecutor, XCaliburPhase
+from nemo_run.core.execution.nvcre import NvcreExecutor, NvcrePhase
 
 
 def _completed(returncode=0, stdout="", stderr=""):
     return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
 
 
-class TestXCaliburExecutor:
+class TestNvcreExecutor:
     @pytest.fixture
     def executor(self):
-        e = XCaliburExecutor(
+        e = NvcreExecutor(
             namespace="nemo-perf",
             container_image="nvcr.io/nvidia/nemo:dev",
             num_nodes=2,
@@ -44,11 +44,11 @@ class TestXCaliburExecutor:
     # ── build_workloadrun_yaml ────────────────────────────────────────────────
 
     def test_build_workloadrun_yaml_minimal(self):
-        e = XCaliburExecutor(namespace="ns", container_image="img:latest", num_nodes=1)
+        e = NvcreExecutor(namespace="ns", container_image="img:latest", num_nodes=1)
         e.job_name = "job1"
         manifest = e.build_workloadrun_yaml(["python", "train.py"])
 
-        assert manifest["apiVersion"] == "excalibur.nvidia.com/v1alpha1"
+        assert manifest["apiVersion"] == "nvcre.nvidia.com/v1alpha1"
         assert manifest["kind"] == "WorkloadRun"
         assert manifest["metadata"] == {"name": "job1", "namespace": "ns"}
         spec = manifest["spec"]
@@ -94,18 +94,18 @@ class TestXCaliburExecutor:
         "job_name,expected",
         [
             ("My_Job.Name", "my-job-name"),
-            ("", "xcalibur-job"),
+            ("", "nvcre-job"),
             ("Already-Safe", "already-safe"),
             ("trailing-dot.", "trailing-dot"),
         ],
     )
     def test_safe_name(self, job_name, expected):
-        e = XCaliburExecutor(namespace="ns", container_image="img")
+        e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = job_name
         assert e._safe_name() == expected
 
     def test_safe_name_truncates_to_63_chars(self):
-        e = XCaliburExecutor(namespace="ns", container_image="img")
+        e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "x" * 100
         name = e._safe_name()
         assert len(name) <= 63
@@ -113,35 +113,35 @@ class TestXCaliburExecutor:
     # ── submit ─────────────────────────────────────────────────────────────────
 
     def test_submit_parses_kubectl_style_name(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(
-                stdout="workloadrun.excalibur.nvidia.com/my-job-abcd created\n"
+                stdout="workloadrun.nvcre.nvidia.com/my-job-abcd created\n"
             )
             name = executor.submit("/tmp/wl.yaml")
 
         assert name == "my-job-abcd"
         assert executor._workloadrun_name == "my-job-abcd"
         cmd = mock_run.call_args[0][0]
-        assert cmd[0] == "xcalctl"
+        assert cmd[0] == "nvcrectl"
         assert "workloadrun" in cmd and "run" in cmd
         assert "--namespace" in cmd and executor.namespace in cmd
 
     def test_submit_parses_json_name(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(stdout='{"name": "my-job-xyz", "ok": true}\n')
             name = executor.submit("/tmp/wl.yaml")
         assert name == "my-job-xyz"
 
     def test_submit_parses_plain_name(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(stdout="my-job-plain\n")
             name = executor.submit("/tmp/wl.yaml")
         assert name == "my-job-plain"
 
     def test_submit_falls_back_to_kubectl_when_unparseable(self, executor):
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.xcalibur.time.sleep"),
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch("nemo_run.core.execution.nvcre.time.sleep"),
         ):
             mock_run.side_effect = [
                 _completed(stdout="!!! unrecognisable output !!!"),
@@ -157,8 +157,8 @@ class TestXCaliburExecutor:
 
     def test_submit_fallback_returns_requested_name_when_kubectl_also_fails(self, executor):
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.xcalibur.time.sleep"),
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch("nemo_run.core.execution.nvcre.time.sleep"),
         ):
             mock_run.side_effect = [
                 _completed(stdout="!!! unrecognisable !!!"),
@@ -168,69 +168,69 @@ class TestXCaliburExecutor:
         assert name == executor._safe_name()
 
     def test_submit_raises_on_failure(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=1, stderr="boom")
             with pytest.raises(RuntimeError, match="boom"):
                 executor.submit("/tmp/wl.yaml")
 
     # ── status ─────────────────────────────────────────────────────────────────
 
-    def test_status_via_xcalctl(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+    def test_status_via_nvcrectl(self, executor):
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(stdout="Succeeded\n")
             phase = executor.status("wl-name")
-        assert phase == XCaliburPhase.SUCCEEDED
+        assert phase == NvcrePhase.SUCCEEDED
         mock_run.assert_called_once()
 
-    def test_status_falls_back_to_crd_on_xcalctl_failure(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+    def test_status_falls_back_to_crd_on_nvcrectl_failure(self, executor):
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _completed(returncode=1, stderr="not found"),
                 _completed(stdout="Failed\n"),
             ]
             phase = executor.status("wl-name")
-        assert phase == XCaliburPhase.FAILED
+        assert phase == NvcrePhase.FAILED
         assert mock_run.call_count == 2
         crd_cmd = mock_run.call_args_list[1][0][0]
         assert crd_cmd[0] == "kubectl"
         assert "workloadrun" in crd_cmd
 
     def test_status_falls_back_to_crd_on_unrecognised_phase(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _completed(stdout="SomeWeirdPhase\n"),
                 _completed(stdout="InProgress\n"),
             ]
             phase = executor.status("wl-name")
-        assert phase == XCaliburPhase.IN_PROGRESS
+        assert phase == NvcrePhase.IN_PROGRESS
 
     def test_status_crd_fallback_returns_unknown_on_empty_or_error(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _completed(returncode=1, stderr="gone"),
                 _completed(returncode=0, stdout=""),
             ]
             phase = executor.status("wl-name")
-        assert phase == XCaliburPhase.UNKNOWN
+        assert phase == NvcrePhase.UNKNOWN
 
     # ── cancel ─────────────────────────────────────────────────────────────────
 
     def test_cancel_success(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=0)
             executor.cancel("wl-name")
         cmd = mock_run.call_args[0][0]
         assert "cancel" in cmd and "wl-name" in cmd
 
     def test_cancel_logs_warning_on_failure(self, executor, caplog):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=1, stderr="cannot cancel")
             executor.cancel("wl-name")  # should not raise
 
     # ── fetch_logs (non-streaming) ────────────────────────────────────────────
 
     def test_fetch_logs_non_streaming(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
                 _completed(returncode=0, stdout=""),  # jobsets lookup (fallback)
@@ -239,21 +239,21 @@ class TestXCaliburExecutor:
             lines = list(executor.fetch_logs("wl-name", stream=False, lines=100))
         assert lines == ["line1", "line2"]
 
-    def test_get_xcalibur_job_name_from_status_field(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+    def test_get_nvcre_job_name_from_status_field(self, executor):
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(
                 returncode=0, stdout='{"status": {"jobName": "internal-job"}, "metadata": {"labels": {}}}'
             )
-            job_name = executor._get_xcalibur_job_name("wl-name")
+            job_name = executor._get_nvcre_job_name("wl-name")
         assert job_name == "internal-job"
 
-    def test_get_xcalibur_job_name_falls_back_to_jobsets(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+    def test_get_nvcre_job_name_falls_back_to_jobsets(self, executor):
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
                 _completed(returncode=0, stdout="foo-workload\nbar-workload\n"),
             ]
-            job_name = executor._get_xcalibur_job_name("wl-name")
+            job_name = executor._get_nvcre_job_name("wl-name")
         assert job_name == "bar-workload"[: -len("-workload")]
 
     # ── macro_values / nnodes / nproc_per_node ────────────────────────────────
@@ -263,7 +263,7 @@ class TestXCaliburExecutor:
         assert executor.nproc_per_node() == 8
 
     def test_nproc_per_node_defaults_to_one(self):
-        e = XCaliburExecutor(namespace="ns", container_image="img", gpus_per_node=0)
+        e = NvcreExecutor(namespace="ns", container_image="img", gpus_per_node=0)
         assert e.nproc_per_node() == 1
 
     def test_macro_values(self, executor):
@@ -274,7 +274,7 @@ class TestXCaliburExecutor:
         assert macros.node_rank_var == "PET_NODE_RANK"
 
     def test_code_dir(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.getpass.getuser", return_value="alice"):
+        with patch("nemo_run.core.execution.nvcre.getpass.getuser", return_value="alice"):
             assert executor.code_dir == "/nemo_run/alice/exp1/my-job/code"
 
     # ── package / materialize_launch_script (no PVC = no-op) ─────────────────
@@ -285,7 +285,7 @@ class TestXCaliburExecutor:
         mock_packager.package.assert_not_called()
 
     def test_copy_to_workspace_is_noop_without_pvc(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             executor.copy_to_workspace("/local", "/remote")
         mock_run.assert_not_called()
 
@@ -320,7 +320,7 @@ class TestXCaliburExecutor:
     # ── assign ─────────────────────────────────────────────────────────────────
 
     def test_assign_sets_job_metadata(self):
-        e = XCaliburExecutor(namespace="ns", container_image="img")
+        e = NvcreExecutor(namespace="ns", container_image="img")
         e.assign("exp1", "/exp/dir", "task1", "task1_dir")
         assert e.experiment_id == "exp1"
         assert e.experiment_dir == "/exp/dir"
@@ -342,7 +342,7 @@ class TestXCaliburExecutor:
     # ── build_workloadrun_yaml orchestration branches ─────────────────────────
 
     def test_build_workloadrun_yaml_no_orchestration_when_both_empty(self):
-        e = XCaliburExecutor(namespace="ns", container_image="img")
+        e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "job1"
         e.timeout_per_job = ""
         e.test_scale = None
@@ -350,24 +350,24 @@ class TestXCaliburExecutor:
         assert "orchestration" not in manifest["spec"]
 
     def test_build_workloadrun_yaml_orchestration_test_scale_only(self):
-        e = XCaliburExecutor(namespace="ns", container_image="img")
+        e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "job1"
         e.timeout_per_job = ""
         e.test_scale = "intra-node"
         manifest = e.build_workloadrun_yaml(["python"])
         assert manifest["spec"]["orchestration"] == {"testScale": "intra-node"}
 
-    # ── xcalctl_base / kubectl_base kubeconfig/context ────────────────────────
+    # ── nvcrectl_base / kubectl_base kubeconfig/context ────────────────────────
 
-    def test_xcalctl_base_includes_kubeconfig_and_context(self):
-        e = XCaliburExecutor(
+    def test_nvcrectl_base_includes_kubeconfig_and_context(self):
+        e = NvcreExecutor(
             namespace="ns", container_image="img", kubeconfig="/path/kubeconfig", kube_context="ctx1"
         )
-        args = e._xcalctl_base()
-        assert args == ["xcalctl", "--kubeconfig", "/path/kubeconfig", "--context", "ctx1"]
+        args = e._nvcrectl_base()
+        assert args == ["nvcrectl", "--kubeconfig", "/path/kubeconfig", "--context", "ctx1"]
 
     def test_kubectl_base_includes_kubeconfig_and_context(self):
-        e = XCaliburExecutor(
+        e = NvcreExecutor(
             namespace="ns", container_image="img", kubeconfig="/path/kubeconfig", kube_context="ctx1"
         )
         args = e._kubectl_base()
@@ -376,60 +376,60 @@ class TestXCaliburExecutor:
     # ── _kubectl_workloadrun_crd_phase (direct) ───────────────────────────────
 
     def test_crd_phase_returns_unknown_on_kubectl_failure(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=1, stderr="not found")
             phase = executor._kubectl_workloadrun_crd_phase("wl-name")
-        assert phase == XCaliburPhase.UNKNOWN
+        assert phase == NvcrePhase.UNKNOWN
 
     def test_crd_phase_returns_unknown_on_empty_output(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=0, stdout="   ")
             phase = executor._kubectl_workloadrun_crd_phase("wl-name")
-        assert phase == XCaliburPhase.UNKNOWN
+        assert phase == NvcrePhase.UNKNOWN
 
     def test_crd_phase_returns_unknown_on_unrecognised_phase(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=0, stdout="Weird\n")
             phase = executor._kubectl_workloadrun_crd_phase("wl-name")
-        assert phase == XCaliburPhase.UNKNOWN
+        assert phase == NvcrePhase.UNKNOWN
 
     def test_crd_phase_returns_recognised_phase(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=0, stdout="Pending\n")
             phase = executor._kubectl_workloadrun_crd_phase("wl-name")
-        assert phase == XCaliburPhase.PENDING
+        assert phase == NvcrePhase.PENDING
 
-    # ── _get_xcalibur_job_name edge cases ─────────────────────────────────────
+    # ── _get_nvcre_job_name edge cases ─────────────────────────────────────
 
-    def test_get_xcalibur_job_name_returns_none_on_kubectl_failure(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+    def test_get_nvcre_job_name_returns_none_on_kubectl_failure(self, executor):
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=1, stderr="gone")
-            assert executor._get_xcalibur_job_name("wl-name") is None
+            assert executor._get_nvcre_job_name("wl-name") is None
 
-    def test_get_xcalibur_job_name_handles_invalid_json(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+    def test_get_nvcre_job_name_handles_invalid_json(self, executor):
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _completed(returncode=0, stdout="not json"),
                 _completed(returncode=0, stdout=""),
             ]
-            assert executor._get_xcalibur_job_name("wl-name") is None
+            assert executor._get_nvcre_job_name("wl-name") is None
 
-    def test_get_xcalibur_job_name_from_labels(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+    def test_get_nvcre_job_name_from_labels(self, executor):
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(
                 returncode=0,
-                stdout='{"status": {}, "metadata": {"labels": {"excalibur.nvidia.com/job": "label-job"}}}',
+                stdout='{"status": {}, "metadata": {"labels": {"nvcre.nvidia.com/job": "label-job"}}}',
             )
-            job_name = executor._get_xcalibur_job_name("wl-name")
+            job_name = executor._get_nvcre_job_name("wl-name")
         assert job_name == "label-job"
 
-    def test_get_xcalibur_job_name_returns_none_when_no_jobsets(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+    def test_get_nvcre_job_name_returns_none_when_no_jobsets(self, executor):
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
                 _completed(returncode=0, stdout=""),
             ]
-            assert executor._get_xcalibur_job_name("wl-name") is None
+            assert executor._get_nvcre_job_name("wl-name") is None
 
     # ── fetch_logs streaming ───────────────────────────────────────────────────
 
@@ -440,8 +440,8 @@ class TestXCaliburExecutor:
         mock_proc.wait.return_value = None
 
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.xcalibur.subprocess.Popen", return_value=mock_proc),
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch("nemo_run.core.execution.nvcre.subprocess.Popen", return_value=mock_proc),
         ):
             mock_run.side_effect = [
                 _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
@@ -462,8 +462,8 @@ class TestXCaliburExecutor:
         mock_proc.wait.return_value = None
 
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.xcalibur.subprocess.Popen", return_value=mock_proc),
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch("nemo_run.core.execution.nvcre.subprocess.Popen", return_value=mock_proc),
         ):
             mock_run.side_effect = [
                 _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
@@ -480,8 +480,8 @@ class TestXCaliburExecutor:
     def test_start_data_mover_pod_reaches_running(self, executor):
         executor.workdir_pvc = "my-pvc"
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.xcalibur.subprocess.check_call") as mock_check_call,
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch("nemo_run.core.execution.nvcre.subprocess.check_call") as mock_check_call,
         ):
             mock_run.side_effect = [
                 _completed(returncode=0),  # delete stale pod (via _delete_data_mover_pod)
@@ -495,10 +495,10 @@ class TestXCaliburExecutor:
     def test_start_data_mover_pod_times_out(self, executor):
         executor.workdir_pvc = "my-pvc"
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.xcalibur.subprocess.check_call"),
-            patch("nemo_run.core.execution.xcalibur.time.sleep"),
-            patch("nemo_run.core.execution.xcalibur.time.time", side_effect=[0, 0, 100]),
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch("nemo_run.core.execution.nvcre.subprocess.check_call"),
+            patch("nemo_run.core.execution.nvcre.time.sleep"),
+            patch("nemo_run.core.execution.nvcre.time.time", side_effect=[0, 0, 100]),
         ):
             mock_run.side_effect = [
                 _completed(returncode=0),  # delete stale pod
@@ -508,19 +508,19 @@ class TestXCaliburExecutor:
                 executor._start_data_mover_pod("mover-pod", timeout=10)
 
     def test_delete_data_mover_pod_success(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=0)
             executor._delete_data_mover_pod("mover-pod")
         cmd = mock_run.call_args[0][0]
         assert "delete" in cmd and "mover-pod" in cmd
 
     def test_delete_data_mover_pod_logs_warning_on_failure(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run:
+        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(returncode=1, stderr="cannot delete")
             executor._delete_data_mover_pod("mover-pod")  # should not raise
 
     def test_rsync_to_pod(self, executor):
-        with patch("nemo_run.core.execution.xcalibur.subprocess.check_call") as mock_check_call:
+        with patch("nemo_run.core.execution.nvcre.subprocess.check_call") as mock_check_call:
             executor._rsync_to_pod("mover-pod", "/local/path", "/remote/path")
         assert mock_check_call.call_count == 2
         mkdir_cmd = mock_check_call.call_args_list[0][0][0]
@@ -531,9 +531,9 @@ class TestXCaliburExecutor:
     def test_copy_to_workspace_with_pvc_runs_full_lifecycle(self, executor):
         executor.workdir_pvc = "my-pvc"
         with (
-            patch.object(XCaliburExecutor, "_start_data_mover_pod") as mock_start,
-            patch.object(XCaliburExecutor, "_rsync_to_pod") as mock_rsync,
-            patch.object(XCaliburExecutor, "_delete_data_mover_pod") as mock_delete,
+            patch.object(NvcreExecutor, "_start_data_mover_pod") as mock_start,
+            patch.object(NvcreExecutor, "_rsync_to_pod") as mock_rsync,
+            patch.object(NvcreExecutor, "_delete_data_mover_pod") as mock_delete,
         ):
             executor.copy_to_workspace("/local", "/remote", label="mylabel")
 
@@ -544,9 +544,9 @@ class TestXCaliburExecutor:
     def test_copy_to_workspace_deletes_pod_even_on_rsync_failure(self, executor):
         executor.workdir_pvc = "my-pvc"
         with (
-            patch.object(XCaliburExecutor, "_start_data_mover_pod"),
-            patch.object(XCaliburExecutor, "_rsync_to_pod", side_effect=RuntimeError("rsync failed")),
-            patch.object(XCaliburExecutor, "_delete_data_mover_pod") as mock_delete,
+            patch.object(NvcreExecutor, "_start_data_mover_pod"),
+            patch.object(NvcreExecutor, "_rsync_to_pod", side_effect=RuntimeError("rsync failed")),
+            patch.object(NvcreExecutor, "_delete_data_mover_pod") as mock_delete,
         ):
             with pytest.raises(RuntimeError, match="rsync failed"):
                 executor.copy_to_workspace("/local", "/remote")
@@ -562,9 +562,9 @@ class TestXCaliburExecutor:
         mock_packager.package.return_value = None
 
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.xcalibur.subprocess.check_call"),
-            patch.object(XCaliburExecutor, "copy_to_workspace") as mock_copy,
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch("nemo_run.core.execution.nvcre.subprocess.check_call"),
+            patch.object(NvcreExecutor, "copy_to_workspace") as mock_copy,
         ):
             mock_run.return_value = _completed(returncode=0, stdout=str(tmp_path).encode())
             executor.package(mock_packager, job_name="job1")
@@ -585,8 +585,8 @@ class TestXCaliburExecutor:
         mock_packager.package.return_value = None
 
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.run") as mock_run,
-            patch.object(XCaliburExecutor, "copy_to_workspace"),
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch.object(NvcreExecutor, "copy_to_workspace"),
         ):
             mock_run.return_value = _completed(returncode=0)
             executor.package(mock_packager, job_name="job1")
@@ -601,8 +601,8 @@ class TestXCaliburExecutor:
         mock_packager.package.return_value = None
 
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.check_call") as mock_check_call,
-            patch.object(XCaliburExecutor, "copy_to_workspace"),
+            patch("nemo_run.core.execution.nvcre.subprocess.check_call") as mock_check_call,
+            patch.object(NvcreExecutor, "copy_to_workspace"),
         ):
             executor.package(mock_packager, job_name="job1")
 
@@ -619,8 +619,8 @@ class TestXCaliburExecutor:
         mock_packager.package.return_value = str(fake_tarball)
 
         with (
-            patch("nemo_run.core.execution.xcalibur.subprocess.check_call") as mock_check_call,
-            patch.object(XCaliburExecutor, "copy_to_workspace"),
+            patch("nemo_run.core.execution.nvcre.subprocess.check_call") as mock_check_call,
+            patch.object(NvcreExecutor, "copy_to_workspace"),
         ):
             executor.package(mock_packager, job_name="job1")
 

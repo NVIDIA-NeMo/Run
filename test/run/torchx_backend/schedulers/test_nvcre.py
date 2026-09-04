@@ -19,17 +19,17 @@ import pytest
 from torchx.schedulers.api import AppDryRunInfo
 from torchx.specs import AppDef, AppState, Role
 
-from nemo_run.core.execution.xcalibur import XCaliburExecutor, XCaliburPhase
-from nemo_run.run.torchx_backend.schedulers.xcalibur import (
-    XCALIBUR_STATES,
-    XCaliburScheduler,
+from nemo_run.core.execution.nvcre import NvcreExecutor, NvcrePhase
+from nemo_run.run.torchx_backend.schedulers.nvcre import (
+    NVCRE_STATES,
+    NvcreScheduler,
     create_scheduler,
 )
 
 
 @pytest.fixture
 def executor(tmp_path):
-    e = XCaliburExecutor(
+    e = NvcreExecutor(
         namespace="nemo-perf",
         container_image="nvcr.io/nvidia/nemo:dev",
         num_nodes=2,
@@ -67,13 +67,13 @@ def mock_app_def():
 
 def test_create_scheduler():
     s = create_scheduler(session_name="test")
-    assert isinstance(s, XCaliburScheduler)
+    assert isinstance(s, NvcreScheduler)
     assert s.session_name == "test"
 
 
 def test_state_mapping_covers_all_phases():
-    for phase in XCaliburPhase:
-        assert phase in XCALIBUR_STATES
+    for phase in NvcrePhase:
+        assert phase in NVCRE_STATES
 
 
 # ── _submit_dryrun ─────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ def test_submit_dryrun_no_torchrun_wrap_when_disabled(scheduler, mock_app_def, e
     assert dryrun_info.request.cmd == ["python", "train.py"]
 
 
-def test_submit_dryrun_rejects_non_xcalibur_executor(scheduler, mock_app_def):
+def test_submit_dryrun_rejects_non_nvcre_executor(scheduler, mock_app_def):
     with pytest.raises(AssertionError):
         scheduler._submit_dryrun(mock_app_def, mock.MagicMock())
 
@@ -126,10 +126,10 @@ def test_submit_dryrun_apply_yaml_uses_launch_sh_when_pvc_set(scheduler, mock_ap
 
 def test_schedule_without_pvc(scheduler, mock_app_def, executor):
     with (
-        mock.patch.object(XCaliburExecutor, "submit", return_value="wl-name-123") as mock_submit,
-        mock.patch.object(XCaliburExecutor, "package") as mock_pkg,
+        mock.patch.object(NvcreExecutor, "submit", return_value="wl-name-123") as mock_submit,
+        mock.patch.object(NvcreExecutor, "package") as mock_pkg,
         mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.xcalibur._save_job"
+            "nemo_run.run.torchx_backend.schedulers.nvcre._save_job"
         ) as mock_save,
     ):
         dryrun_info = scheduler._submit_dryrun(mock_app_def, executor)
@@ -144,10 +144,10 @@ def test_schedule_without_pvc(scheduler, mock_app_def, executor):
 def test_schedule_with_pvc_packages_and_writes_launch_script(scheduler, mock_app_def, executor):
     executor.workdir_pvc = "my-pvc"
     with (
-        mock.patch.object(XCaliburExecutor, "submit", return_value="wl-name-456"),
-        mock.patch.object(XCaliburExecutor, "materialize_launch_script") as mock_mat,
-        mock.patch.object(XCaliburExecutor, "package") as mock_pkg,
-        mock.patch("nemo_run.run.torchx_backend.schedulers.xcalibur._save_job"),
+        mock.patch.object(NvcreExecutor, "submit", return_value="wl-name-456"),
+        mock.patch.object(NvcreExecutor, "materialize_launch_script") as mock_mat,
+        mock.patch.object(NvcreExecutor, "package") as mock_pkg,
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job"),
     ):
         dryrun_info = scheduler._submit_dryrun(mock_app_def, executor)
         app_id = scheduler.schedule(dryrun_info)
@@ -162,7 +162,7 @@ def test_schedule_with_pvc_packages_and_writes_launch_script(scheduler, mock_app
 
 def test_describe_returns_none_when_job_missing(scheduler):
     with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs", return_value={}
+        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}
     ):
         assert scheduler.describe("nonexistent") is None
 
@@ -171,10 +171,10 @@ def test_describe_maps_phase_to_state(scheduler, executor):
     app_id = "test_exp___test_role___wl-name"
     with (
         mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs",
+            "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs",
             return_value={app_id: {"workloadrun_name": "wl-name", "executor": executor}},
         ),
-        mock.patch.object(XCaliburExecutor, "status", return_value=XCaliburPhase.IN_PROGRESS),
+        mock.patch.object(NvcreExecutor, "status", return_value=NvcrePhase.IN_PROGRESS),
     ):
         resp = scheduler.describe(app_id)
 
@@ -187,7 +187,7 @@ def test_describe_maps_phase_to_state(scheduler, executor):
 def test_describe_returns_none_without_stored_executor(scheduler):
     app_id = "test_exp___test_role___wl-name"
     with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs",
+        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs",
         return_value={app_id: {"workloadrun_name": "wl-name", "executor": None}},
     ):
         assert scheduler.describe(app_id) is None
@@ -198,7 +198,7 @@ def test_describe_returns_none_without_stored_executor(scheduler):
 
 def test_log_iter_returns_empty_when_job_missing(scheduler):
     with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs", return_value={}
+        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}
     ):
         assert list(scheduler.log_iter("nonexistent", "role")) == []
 
@@ -207,7 +207,7 @@ def test_log_iter_delegates_to_executor_fetch_logs(scheduler, executor):
     app_id = "test_exp___test_role___wl-name"
     with (
         mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs",
+            "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs",
             return_value={
                 app_id: {
                     "workloadrun_name": "wl-name",
@@ -217,7 +217,7 @@ def test_log_iter_delegates_to_executor_fetch_logs(scheduler, executor):
             },
         ),
         mock.patch.object(
-            XCaliburExecutor, "fetch_logs", return_value=iter(["line1", "line2"])
+            NvcreExecutor, "fetch_logs", return_value=iter(["line1", "line2"])
         ) as mock_fetch,
     ):
         lines = list(scheduler.log_iter(app_id, "role"))
@@ -231,7 +231,7 @@ def test_log_iter_delegates_to_executor_fetch_logs(scheduler, executor):
 
 def test_cancel_existing_noop_when_job_missing(scheduler):
     with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs", return_value={}
+        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}
     ):
         scheduler._cancel_existing("nonexistent")  # should not raise
 
@@ -240,10 +240,10 @@ def test_cancel_existing_calls_executor_cancel(scheduler, executor):
     app_id = "test_exp___test_role___wl-name"
     with (
         mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs",
+            "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs",
             return_value={app_id: {"workloadrun_name": "wl-name", "executor": executor}},
         ),
-        mock.patch.object(XCaliburExecutor, "cancel") as mock_cancel,
+        mock.patch.object(NvcreExecutor, "cancel") as mock_cancel,
     ):
         scheduler._cancel_existing(app_id)
 
@@ -254,11 +254,11 @@ def test_cancel_existing_calls_executor_cancel(scheduler, executor):
 
 
 def test_save_and_get_jobs_round_trip(executor, tmp_path, monkeypatch):
-    from nemo_run.run.torchx_backend.schedulers import xcalibur as xcalibur_mod
+    from nemo_run.run.torchx_backend.schedulers import nvcre as nvcre_mod
 
-    job_file = tmp_path / ".xcalibur_jobs.json"
-    monkeypatch.setattr(xcalibur_mod, "XCALIBUR_JOB_DIRS", str(job_file))
-    _get_jobs, _save_job = xcalibur_mod._get_jobs, xcalibur_mod._save_job
+    job_file = tmp_path / ".nvcre_jobs.json"
+    monkeypatch.setattr(nvcre_mod, "NVCRE_JOB_DIRS", str(job_file))
+    _get_jobs, _save_job = nvcre_mod._get_jobs, nvcre_mod._save_job
 
     app_id = "test_exp___test_role___wl-name"
     _save_job(app_id, "wl-name", executor)
@@ -267,37 +267,37 @@ def test_save_and_get_jobs_round_trip(executor, tmp_path, monkeypatch):
     jobs = _get_jobs()
     assert app_id in jobs
     assert jobs[app_id]["workloadrun_name"] == "wl-name"
-    assert isinstance(jobs[app_id]["executor"], XCaliburExecutor)
+    assert isinstance(jobs[app_id]["executor"], NvcreExecutor)
     assert jobs[app_id]["executor"].namespace == executor.namespace
 
 
 def test_get_jobs_returns_empty_when_file_missing(tmp_path, monkeypatch):
-    from nemo_run.run.torchx_backend.schedulers import xcalibur as xcalibur_mod
+    from nemo_run.run.torchx_backend.schedulers import nvcre as nvcre_mod
 
     job_file = tmp_path / "does_not_exist.json"
-    monkeypatch.setattr(xcalibur_mod, "XCALIBUR_JOB_DIRS", str(job_file))
+    monkeypatch.setattr(nvcre_mod, "NVCRE_JOB_DIRS", str(job_file))
 
-    assert xcalibur_mod._get_jobs() == {}
+    assert nvcre_mod._get_jobs() == {}
 
 
 def test_get_jobs_returns_empty_on_corrupt_json(tmp_path, monkeypatch):
-    from nemo_run.run.torchx_backend.schedulers import xcalibur as xcalibur_mod
+    from nemo_run.run.torchx_backend.schedulers import nvcre as nvcre_mod
 
-    job_file = tmp_path / ".xcalibur_jobs.json"
+    job_file = tmp_path / ".nvcre_jobs.json"
     job_file.write_text("{not valid json")
-    monkeypatch.setattr(xcalibur_mod, "XCALIBUR_JOB_DIRS", str(job_file))
+    monkeypatch.setattr(nvcre_mod, "NVCRE_JOB_DIRS", str(job_file))
 
-    assert xcalibur_mod._get_jobs() == {}
+    assert nvcre_mod._get_jobs() == {}
 
 
 def test_get_jobs_skips_entry_with_undeserializable_executor(tmp_path, monkeypatch):
-    from nemo_run.run.torchx_backend.schedulers import xcalibur as xcalibur_mod
+    from nemo_run.run.torchx_backend.schedulers import nvcre as nvcre_mod
 
-    job_file = tmp_path / ".xcalibur_jobs.json"
+    job_file = tmp_path / ".nvcre_jobs.json"
     job_file.write_text('{"app1": {"workloadrun_name": "wl", "executor": "not-a-valid-blob"}}')
-    monkeypatch.setattr(xcalibur_mod, "XCALIBUR_JOB_DIRS", str(job_file))
+    monkeypatch.setattr(nvcre_mod, "NVCRE_JOB_DIRS", str(job_file))
 
-    jobs = xcalibur_mod._get_jobs()
+    jobs = nvcre_mod._get_jobs()
     assert "app1" in jobs
     assert jobs["app1"]["executor"] == "not-a-valid-blob"  # left unmodified on deserialize failure
 
@@ -315,7 +315,7 @@ def test_list_returns_empty(scheduler):
 
 
 def test_validate_is_noop(scheduler, mock_app_def):
-    assert scheduler._validate(mock_app_def, "xcalibur") is None
+    assert scheduler._validate(mock_app_def, "nvcre") is None
 
 
 # ── log_iter additional branches ────────────────────────────────────────────────
@@ -324,7 +324,7 @@ def test_validate_is_noop(scheduler, mock_app_def):
 def test_log_iter_returns_empty_when_executor_missing(scheduler):
     app_id = "test_exp___test_role___wl-name"
     with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs",
+        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs",
         return_value={app_id: {"workloadrun_name": "wl-name", "executor": None}},
     ):
         assert list(scheduler.log_iter(app_id, "role")) == []
@@ -335,7 +335,7 @@ def test_log_iter_restores_job_dir_when_executor_missing_it(scheduler, executor)
     executor.job_dir = ""
     with (
         mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs",
+            "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs",
             return_value={
                 app_id: {
                     "workloadrun_name": "wl-name",
@@ -344,7 +344,7 @@ def test_log_iter_restores_job_dir_when_executor_missing_it(scheduler, executor)
                 }
             },
         ),
-        mock.patch.object(XCaliburExecutor, "fetch_logs", return_value=iter([])) as mock_fetch,
+        mock.patch.object(NvcreExecutor, "fetch_logs", return_value=iter([])) as mock_fetch,
     ):
         list(scheduler.log_iter(app_id, "role"))
 
@@ -358,7 +358,7 @@ def test_log_iter_restores_job_dir_when_executor_missing_it(scheduler, executor)
 def test_cancel_existing_noop_when_executor_missing(scheduler):
     app_id = "test_exp___test_role___wl-name"
     with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.xcalibur._get_jobs",
+        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs",
         return_value={app_id: {"workloadrun_name": "wl-name", "executor": None}},
     ):
         scheduler._cancel_existing(app_id)  # should not raise

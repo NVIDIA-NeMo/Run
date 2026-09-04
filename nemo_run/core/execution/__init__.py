@@ -19,7 +19,7 @@ from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
-from nemo_run.core.execution.xcalibur import XCaliburExecutor
+from nemo_run.core.execution.nvcre import NvcreExecutor
 
 __all__ = [
     "LocalExecutor",
@@ -28,5 +28,5 @@ __all__ = [
     "DGXCloudExecutor",
     "LeptonExecutor",
     "KubeflowExecutor",
-    "XCaliburExecutor",
+    "NvcreExecutor",
 ]

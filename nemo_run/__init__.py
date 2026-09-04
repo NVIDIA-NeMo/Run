@@ -26,7 +26,7 @@ from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.kubeflow import KubeflowExecutor
 from nemo_run.core.execution.launcher import FaultTolerance, SlurmRay, SlurmTemplate, Torchrun
-from nemo_run.core.execution.xcalibur import XCaliburExecutor
+from nemo_run.core.execution.nvcre import NvcreExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
@@ -69,7 +69,7 @@ __all__ = [
     "Partial",
     "Plugin",
     "KubeflowExecutor",
-    "XCaliburExecutor",
+    "NvcreExecutor",
     "run",
     "Script",
     "SkypilotExecutor",
