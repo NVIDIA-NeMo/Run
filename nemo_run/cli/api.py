@@ -1521,6 +1521,10 @@ class Entrypoint(Generic[Params, ReturnType]):
         class CLITaskCommand(EntrypointCommand):
             _entrypoint = self
 
+        cmd_defaults = dict(cmd_defaults) if cmd_defaults else {}
+        if self.skip_confirmation:
+            cmd_defaults.setdefault("skip_confirmation", True)
+
         return self.run_ctx_cls.cli_command(
             parent,
             self.name,
