@@ -736,6 +736,32 @@ class TestEntrypointRunner:
         assert partial.dummy.hidden == 100
         assert partial.dummy.activation == "tanh"
 
+    @patch("typer.confirm", return_value=False)
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_skip_confirmation_entrypoint_does_not_prompt(
+        self, mock_run, mock_dryrun_fn, mock_confirm, runner
+    ):
+        """@run.cli.entrypoint(skip_confirmation=True) must skip the confirmation prompt."""
+
+        @run.cli.entrypoint(namespace="test_skip_confirm", skip_confirmation=True)
+        def task(value: int = 1):
+            return value
+
+        @run.cli.entrypoint(namespace="test_skip_confirm")
+        def other_task(value: int = 1):
+            return value
+
+        app = typer.Typer()
+        other_task.cli_entrypoint.cli(app)
+        task.cli_entrypoint.cli(app)
+
+        result = runner.invoke(app, ["task", "value=2"], env={"INCLUDE_WORKSPACE_FILE": "false"})
+
+        assert result.exit_code == 0, result.output
+        mock_confirm.assert_not_called()
+        mock_run.assert_called_once()
+
     def test_with_factory(self, runner, app):
         # Test CLI execution with default factory
         result = runner.invoke(
