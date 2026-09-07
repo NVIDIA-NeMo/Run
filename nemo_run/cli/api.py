@@ -1659,19 +1659,22 @@ def _parse_prefixed_args(
     """
     prefixed_arg_value, prefixed_args, other_args = None, [], []
     for arg in args:
-        if arg.startswith(prefix):
-            if arg.startswith(f"{prefix}="):
-                prefixed_arg_value = arg.split("=")[1]
-            else:
-                if not arg.startswith(f"{prefix}.") and not arg.startswith(f"{prefix}["):
-                    raise ValueError(
-                        f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}"
-                    )
-                if arg.startswith(f"{prefix}."):
-                    prefixed_args.append(arg.replace(f"{prefix}.", ""))
-                elif arg.startswith(f"{prefix}["):
-                    prefixed_args.append(arg.replace(prefix, ""))
+        if arg.startswith(f"{prefix}="):
+            prefixed_arg_value = arg.split("=", 1)[1]
+        elif arg.startswith(f"{prefix}."):
+            prefixed_args.append(arg.replace(f"{prefix}.", "", 1))
+        elif arg.startswith(f"{prefix}["):
+            prefixed_args.append(arg.replace(prefix, "", 1))
+        elif arg.startswith(prefix) and "=" not in arg:
+            # A bare token starting with the prefix (e.g. a positional value)
+            # cannot address a task parameter, so treat it as a malformed overwrite.
+            raise ValueError(
+                f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}"
+            )
         else:
+            # Keyword arguments for parameters whose names merely start with the
+            # prefix (e.g. runtime=3600 for prefix "run") belong to the task,
+            # not to the prefixed namespace.
             other_args.append(arg)
     return prefixed_arg_value, prefixed_args, other_args
 
