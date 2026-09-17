@@ -46,11 +46,13 @@ class TestNvcreExecutor:
     def test_build_workloadrun_yaml_minimal(self):
         e = NvcreExecutor(namespace="ns", container_image="img:latest", num_nodes=1)
         e.job_name = "job1"
+        e.experiment_id = "my-exp_123456789"
         manifest = e.build_workloadrun_yaml(["python", "train.py"])
 
         assert manifest["apiVersion"] == "nvcre.nvidia.com/v1alpha1"
         assert manifest["kind"] == "WorkloadRun"
-        assert manifest["metadata"] == {"name": "job1", "namespace": "ns"}
+        assert manifest["metadata"]["namespace"] == "ns"
+        assert manifest["metadata"]["name"] == e._safe_name()
         spec = manifest["spec"]
         assert spec["image"] == "img:latest"
         assert spec["numNodes"] == 1
@@ -92,82 +94,41 @@ class TestNvcreExecutor:
 
     # ── _safe_name ─────────────────────────────────────────────────────────────
 
-    @pytest.mark.parametrize(
-        "job_name,expected",
-        [
-            ("My_Job.Name", "my-job-name"),
-            ("", "nvcre-job"),
-            ("Already-Safe", "already-safe"),
-            ("trailing-dot.", "trailing-dot"),
-        ],
-    )
-    def test_safe_name(self, job_name, expected):
+    @pytest.mark.parametrize("job_name", ["My_Job.Name", "", "Already-Safe", "trailing-dot."])
+    def test_safe_name(self, job_name):
         e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = job_name
-        assert e._safe_name() == expected
+        e.experiment_id = "my-exp_123456789"
+        name = e._safe_name()
+        # Name must be RFC-1123 compliant and end with the 6-char hash suffix.
+        assert len(name) <= 63
+        assert name == name.lower()
+        assert not name.endswith("-")
+        suffix = name.rsplit("-", 1)[-1]
+        assert len(suffix) == 6
 
     def test_safe_name_truncates_to_63_chars(self):
         e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "x" * 100
+        e.experiment_id = "my-exp_123456789"
         name = e._safe_name()
         assert len(name) <= 63
 
     # ── submit ─────────────────────────────────────────────────────────────────
 
-    def test_submit_parses_kubectl_style_name(self, executor):
+    def test_submit_uses_safe_name(self, executor):
         with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
-            mock_run.return_value = _completed(
-                stdout="workloadrun.nvcre.nvidia.com/my-job-abcd created\n"
-            )
+            mock_run.return_value = _completed(stdout="workloadrun created\n")
             name = executor.submit("/tmp/wl.yaml")
 
-        assert name == "my-job-abcd"
-        assert executor._workloadrun_name == "my-job-abcd"
+        expected = executor._safe_name()
+        assert name == expected
+        assert executor._workloadrun_name == expected
         cmd = mock_run.call_args[0][0]
         assert cmd[0] == "nvcrectl"
         assert "workloadrun" in cmd and "run" in cmd
         assert "--namespace" in cmd and executor.namespace in cmd
-
-    def test_submit_parses_json_name(self, executor):
-        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
-            mock_run.return_value = _completed(stdout='{"name": "my-job-xyz", "ok": true}\n')
-            name = executor.submit("/tmp/wl.yaml")
-        assert name == "my-job-xyz"
-
-    def test_submit_parses_plain_name(self, executor):
-        with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
-            mock_run.return_value = _completed(stdout="my-job-plain\n")
-            name = executor.submit("/tmp/wl.yaml")
-        assert name == "my-job-plain"
-
-    def test_submit_falls_back_to_kubectl_when_unparseable(self, executor):
-        with (
-            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.nvcre.time.sleep"),
-        ):
-            mock_run.side_effect = [
-                _completed(stdout="!!! unrecognisable output !!!"),
-                _completed(stdout="fallback-name\n"),
-            ]
-            name = executor.submit("/tmp/wl.yaml")
-
-        assert name == "fallback-name"
-        assert mock_run.call_count == 2
-        fallback_cmd = mock_run.call_args_list[1][0][0]
-        assert fallback_cmd[0] == "kubectl"
-        assert "get" in fallback_cmd and "workloadruns" in fallback_cmd
-
-    def test_submit_fallback_returns_requested_name_when_kubectl_also_fails(self, executor):
-        with (
-            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.nvcre.time.sleep"),
-        ):
-            mock_run.side_effect = [
-                _completed(stdout="!!! unrecognisable !!!"),
-                _completed(returncode=1, stderr="not found"),
-            ]
-            name = executor.submit("/tmp/wl.yaml")
-        assert name == executor._safe_name()
+        assert "--name" in cmd and expected in cmd
 
     def test_submit_raises_on_failure(self, executor):
         with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
@@ -235,7 +196,6 @@ class TestNvcreExecutor:
         with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
-                _completed(returncode=0, stdout=""),  # jobsets lookup (fallback)
                 _completed(returncode=0, stdout="line1\nline2\n"),  # logs
             ]
             lines = list(executor.fetch_logs("wl-name", stream=False, lines=100))
@@ -249,14 +209,13 @@ class TestNvcreExecutor:
             job_name = executor._get_nvcre_job_name("wl-name")
         assert job_name == "internal-job"
 
-    def test_get_nvcre_job_name_falls_back_to_jobsets(self, executor):
+    def test_get_nvcre_job_name_returns_none_when_not_in_crd(self, executor):
         with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
-            mock_run.side_effect = [
-                _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
-                _completed(returncode=0, stdout="foo-workload\nbar-workload\n"),
-            ]
+            mock_run.return_value = _completed(
+                returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'
+            )
             job_name = executor._get_nvcre_job_name("wl-name")
-        assert job_name == "bar-workload"[: -len("-workload")]
+        assert job_name is None
 
     # ── macro_values / nnodes / nproc_per_node ────────────────────────────────
 
@@ -346,6 +305,7 @@ class TestNvcreExecutor:
     def test_build_workloadrun_yaml_no_orchestration_when_both_empty(self):
         e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "job1"
+        e.experiment_id = "my-exp_123456789"
         e.timeout_per_job = ""
         e.test_scale = None
         manifest = e.build_workloadrun_yaml(["python"])
@@ -354,6 +314,7 @@ class TestNvcreExecutor:
     def test_build_workloadrun_yaml_orchestration_test_scale_only(self):
         e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "job1"
+        e.experiment_id = "my-exp_123456789"
         e.timeout_per_job = ""
         e.test_scale = "intra-node"
         manifest = e.build_workloadrun_yaml(["python"])
@@ -425,12 +386,11 @@ class TestNvcreExecutor:
             job_name = executor._get_nvcre_job_name("wl-name")
         assert job_name == "label-job"
 
-    def test_get_nvcre_job_name_returns_none_when_no_jobsets(self, executor):
+    def test_get_nvcre_job_name_returns_none_when_not_in_crd_or_labels(self, executor):
         with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
-            mock_run.side_effect = [
-                _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
-                _completed(returncode=0, stdout=""),
-            ]
+            mock_run.return_value = _completed(
+                returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'
+            )
             assert executor._get_nvcre_job_name("wl-name") is None
 
     # ── fetch_logs streaming ───────────────────────────────────────────────────
@@ -445,10 +405,9 @@ class TestNvcreExecutor:
             patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
             patch("nemo_run.core.execution.nvcre.subprocess.Popen", return_value=mock_proc),
         ):
-            mock_run.side_effect = [
-                _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
-                _completed(returncode=0, stdout=""),
-            ]
+            mock_run.return_value = _completed(
+                returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'
+            )
             lines = list(executor.fetch_logs("wl-name", stream=True))
 
         assert lines == ["line1\n", "line2\n"]
@@ -467,10 +426,9 @@ class TestNvcreExecutor:
             patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
             patch("nemo_run.core.execution.nvcre.subprocess.Popen", return_value=mock_proc),
         ):
-            mock_run.side_effect = [
-                _completed(returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'),
-                _completed(returncode=0, stdout=""),
-            ]
+            mock_run.return_value = _completed(
+                returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'
+            )
             lines = list(executor.fetch_logs("wl-name", stream=True))
         assert lines == []
 

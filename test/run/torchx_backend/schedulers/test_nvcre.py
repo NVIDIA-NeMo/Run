@@ -85,8 +85,8 @@ def test_submit_dryrun_wraps_torchrun_by_default(scheduler, mock_app_def, execut
     assert isinstance(dryrun_info, AppDryRunInfo)
     req = dryrun_info.request
     assert req.cmd[0] == "torchrun"
-    assert "--nnodes=$PET_NNODES" in req.cmd
     assert "train.py" in req.cmd
+    assert "--nnodes" not in " ".join(req.cmd)
     assert req.name == "test_role"
 
 

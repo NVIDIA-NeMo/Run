@@ -93,6 +93,9 @@ class NvcreExecutor(Executor):
     # ── Extra pod config ──────────────────────────────────────────────────────
     volumes: list[dict[str, Any]] = field(default_factory=list)
     volume_mounts: list[dict[str, Any]] = field(default_factory=list)
+    # Env vars sourced from K8s Secrets: {ENV_VAR_NAME: (secret_name, secret_key)}.
+    # Use this instead of env_vars for sensitive values such as HF_TOKEN or NGC_API_KEY.
+    secret_env_vars: dict[str, tuple[str, str]] = field(default_factory=dict)
 
     # ── Orchestration ─────────────────────────────────────────────────────────
     timeout_per_job: str = "24h"
@@ -103,13 +106,9 @@ class NvcreExecutor(Executor):
     checkpoint_storage_class: Optional[str] = None  # defaults to cluster default
 
     # ── Launcher ──────────────────────────────────────────────────────────────
-    # When True, wrap the python entrypoint with torchrun using the PET_* env
-    # vars that Nvcre injects per-pod (PET_NNODES, PET_NPROC_PER_NODE,
-    # PET_NODE_RANK, PET_MASTER_ADDR, PET_MASTER_PORT).  This causes
-    # torch.distributed to be initialised correctly so that WORLD_SIZE,
-    # RANK, LOCAL_RANK, and MASTER_ADDR are set for every spawned process.
-    # Without this, Megatron defaults to world_size=1 and fails the
-    # expert_tensor_model_pipeline_parallel divisibility check.
+    # When True, replace the python entrypoint with torchrun. Nvcre injects
+    # PET_* rendezvous env vars per-pod; torchrun picks them up automatically
+    # and sets RANK, WORLD_SIZE, LOCAL_RANK, and MASTER_ADDR for each process.
     use_torchrun: bool = True
 
     # ── Scheduling ────────────────────────────────────────────────────────────
@@ -187,6 +186,10 @@ class NvcreExecutor(Executor):
             spec["target"] = {"nodeSelector": self.node_selector}
 
         env_list = [{"name": k, "value": v} for k, v in self.env_vars.items()]
+        env_list += [
+            {"name": k, "valueFrom": {"secretKeyRef": {"name": secret, "key": key}}}
+            for k, (secret, key) in self.secret_env_vars.items()
+        ]
         if env_list:
             spec["env"] = env_list
 
@@ -231,12 +234,10 @@ class NvcreExecutor(Executor):
         (format: "<title>_<time_ns>") are used as a suffix so that repeated
         submissions of the same job produce unique names.
         """
-        exp_id = getattr(self, "experiment_id", None) or ""
+        if not self.experiment_id:
+            raise RuntimeError("experiment_id is not set: executor was not initialized properly")
         job = (self.job_name or "nvcre-job").lower().replace("_", "-").replace(".", "-")
-        # exp_id format is "<title>_<time_ns>"; take the last 6 digits of the ns part.
-        ns_part = exp_id.rsplit("_", 1)[-1] if "_" in exp_id else ""
-        suffix = ns_part[-6:] if ns_part.isdigit() else hashlib.sha256(exp_id.encode()).hexdigest()[:6]
-        # Reserve 7 chars for "-<suffix>"; truncate base to fit within 63 total.
+        suffix = hashlib.sha256(self.experiment_id.encode()).hexdigest()[:6]
         base = job[:56].rstrip("-")
         return f"{base}-{suffix}"
 
@@ -379,21 +380,6 @@ class NvcreExecutor(Executor):
         except json.JSONDecodeError as e:
             logger.debug("Could not parse WorkloadRun JSON for '%s': %s", workloadrun_name, e)
 
-        # CRD doesn't expose the internal name — find the most recently created
-        # JobSet in the namespace.  Nvcre names JobSets <internal_job>-workload,
-        # so strip the suffix to get the internal job name.
-        cmd = self._kubectl_base() + [
-            "get", "jobsets",
-            "-n", self.namespace,
-            "--sort-by=.metadata.creationTimestamp",
-            "-o", "jsonpath={range .items[*]}{.metadata.name}{\"\\n\"}{end}",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            jobsets = [j.strip() for j in result.stdout.splitlines()
-                       if j.strip().endswith("-workload")]
-            if jobsets:
-                return jobsets[-1][:-len("-workload")]
         return None
 
     def fetch_logs(
@@ -619,7 +605,7 @@ class NvcreExecutor(Executor):
         if nsys_prefix:
             cmd = ["nsys"] + nsys_prefix + cmd
         env_exports = "\n".join(f"export {k}={v}" for k, v in self.env_vars.items())
-        cmd_str = " ".join(shlex.quote(a) for a in cmd)
+        cmd_str = shlex.join(cmd)
         if max_retries > 0:
             run_block = f"""MAX_RETRIES={max_retries}
 attempt=0

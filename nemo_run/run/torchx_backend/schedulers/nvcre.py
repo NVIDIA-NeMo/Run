@@ -90,24 +90,11 @@ class NvcreScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
 
         cmd = [role.entrypoint] + role.args
 
-        # Wrap with torchrun so that torch.distributed is initialised correctly
-        # across all nodes.  Nvcre injects PET_* rendezvous env vars per-pod
-        # (via the JobSet downward-API); torchrun reads them via --nnodes /
-        # --nproc_per_node / --node_rank / --master_addr / --master_port and
-        # sets the standard RANK, WORLD_SIZE, LOCAL_RANK, MASTER_ADDR vars that
-        # Megatron-Bridge's common_utils.py expects.  Without this wrapper each
-        # replica starts as a lone python process (WORLD_SIZE=1) and fails the
-        # parallelism divisibility check.
+        # Wrap with torchrun so torch.distributed is initialised correctly.
+        # Nvcre injects PET_* rendezvous env vars per-pod; torchrun picks them
+        # up automatically without explicit flags.
         if executor.use_torchrun and cmd and cmd[0] == "python":
-            script_and_args = cmd[1:]  # drop the "python" token; torchrun runs the script directly
-            cmd = [
-                "torchrun",
-                "--nnodes=$(PET_NNODES)",
-                "--nproc_per_node=$(PET_NPROC_PER_NODE)",
-                "--node_rank=$(PET_NODE_RANK)",
-                "--master_addr=$(PET_MASTER_ADDR)",
-                "--master_port=$(PET_MASTER_PORT)",
-            ] + script_and_args
+            cmd = ["torchrun", *cmd[1:]]
 
         req = NvcreRequest(app=app, executor=executor, cmd=cmd, name=role.name)
 
