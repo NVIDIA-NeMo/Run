@@ -920,3 +920,33 @@ class TestModernTypeHintParsing:
         # Test invalid list format - use a truly invalid syntax that will fail parsing
         with pytest.raises(ListParseError):
             parse_cli_args(func, ["items=[1, 2, 3"])
+
+    def test_string_and_future_annotations(self):
+        # String annotations (e.g. from __future__ import annotations or ForwardRefs)
+        # should resolve correctly and not fail with UnknownTypeError.
+        # Regression for #374.
+        def func_with_str_annotations(
+            dim: "int", name: "str", active: "bool", count: "int | None" = None
+        ):
+            pass
+
+        result = parse_cli_args(
+            func_with_str_annotations,
+            ["dim=32", "name=test", "active=true", "count=5"],
+        )
+        assert result.dim == 32
+        assert result.name == "test"
+        assert result.active is True
+        assert result.count == 5
+
+    def test_string_container_annotations(self):
+        def func_containers(items: "list[str]", mapping: "dict[str, int]"):
+            pass
+
+        result = parse_cli_args(
+            func_containers,
+            ["items=['a', 'b']", "mapping={'k': 1}"],
+        )
+        assert result.items == ["a", "b"]
+        assert result.mapping == {"k": 1}
+

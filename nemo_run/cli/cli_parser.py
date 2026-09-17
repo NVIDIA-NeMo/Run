@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import ast
+import builtins
 import functools
 import importlib
 import inspect
@@ -22,6 +23,7 @@ import operator
 import re
 import sys
 import types
+import typing
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -674,6 +676,12 @@ class TypeParser:
         # Handle direct type references (int, str, etc.)
         if annotation in self.parsers:
             return self.parsers[annotation]
+
+        # Handle string names for built-in types (e.g. "int", "str")
+        if isinstance(annotation, str):
+            builtin_type = getattr(builtins, annotation, None)
+            if builtin_type in self.parsers:
+                return self.parsers[builtin_type]
 
         # Handle custom parsers
         if annotation in self.custom_parsers:
@@ -1443,66 +1451,19 @@ def parse_attribute(attr, nested):
     return result
 
 
-def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> Any:
-    """Internal function to resolve an annotation to its actual type.
-
-    This function handles string annotations, ForwardRef, and generic types (e.g., Optional, List)
-    by resolving string annotations within them, using TYPE_CHECKING blocks and their imports.
-
-    Args:
-        fn (Callable): The function containing the annotation
-        arg_name (str): The name of the parameter with the annotation
-        annotation (Any): The annotation to resolve (string, ForwardRef, or type)
-
-    Returns:
-        Any: The resolved type, or the original annotation if resolution fails
-    """
-    # Case 1: Annotation is a string
-    if isinstance(annotation, str):
-        resolved = _resolve_type_checking_annotation(fn, annotation)
-        return resolved if resolved != annotation else annotation
-
-    # Case 2: Annotation is a ForwardRef
-    elif isinstance(annotation, ForwardRef):
-        return _resolve_type_checking_annotation(fn, annotation.__forward_arg__)
-
-    # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
-    elif (origin := get_origin(annotation)) is not None:
-        args = get_args(annotation)
-        resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
-        if origin is list:
-            return List[resolved_args[0]]
-        elif origin is dict:
-            return Dict[resolved_args[0], resolved_args[1]]
-        elif origin is tuple:
-            return Tuple[resolved_args]
-        elif origin is set:
-            return Set[resolved_args[0]]
-        elif origin is frozenset:
-            return FrozenSet[resolved_args[0]]
-        elif origin is Union:
-            return Union[resolved_args]
-        else:
-            return annotation  # Unhandled generic types return as-is
-
-    # Case 4: Annotation is a non-generic type (e.g., int, str)
-    else:
-        return annotation
-
-
-def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
-    """Helper function to resolve a string annotation to its actual type using TYPE_CHECKING imports."""
+def _get_type_checking_imports(fn: Callable) -> dict[str, str]:
+    """Helper function to extract imports from inside TYPE_CHECKING blocks of fn's source file."""
     if hasattr(fn, "__fn_or_cls__"):
         fn = fn.__fn_or_cls__
 
     try:
         source_file = inspect.getsourcefile(fn)
         if not source_file:
-            return annotation
+            return {}
         with open(source_file, "r") as f:
             source = f.read()
         tree = ast.parse(source)
-        type_checking_imports = {}
+        type_checking_imports: dict[str, str] = {}
         for node in ast.walk(tree):
             if (
                 isinstance(node, ast.If)
@@ -1519,14 +1480,120 @@ def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
                             for name in stmt.names:
                                 full_name = f"{module}.{name.name}" if module else name.name
                                 type_checking_imports[name.asname or name.name] = full_name
-        if annotation in type_checking_imports:
-            try:
-                full_path = type_checking_imports[annotation]
-                module_name, type_name = full_path.rsplit(".", 1)
-                module = importlib.import_module(module_name)
-                return getattr(module, type_name)
-            except (ImportError, AttributeError):
-                pass
+        return type_checking_imports
+    except Exception:
+        return {}
+
+
+def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
+    """Helper function to resolve a string annotation to its actual type using TYPE_CHECKING imports."""
+    type_checking_imports = _get_type_checking_imports(fn)
+    if annotation in type_checking_imports:
+        try:
+            full_path = type_checking_imports[annotation]
+            module_name, type_name = full_path.rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            return getattr(module, type_name)
+        except (ImportError, AttributeError):
+            pass
+    return annotation
+
+
+def _resolve_string_annotation(fn: Callable, annotation: str) -> Any:
+    """Resolve a string annotation using builtins, module globals, typing, and TYPE_CHECKING imports."""
+    if hasattr(fn, "__fn_or_cls__"):
+        fn = fn.__fn_or_cls__
+
+    # 1. Direct built-in type lookup (e.g., "int", "str", "float", "bool", "list", "dict")
+    if hasattr(builtins, annotation):
+        val = getattr(builtins, annotation)
+        if isinstance(val, type):
+            return val
+
+    # 2. Namespace evaluation with builtins, typing, and module globals
+    ns: dict[str, Any] = {}
+    ns.update(builtins.__dict__)
+    ns.update(typing.__dict__)
+
+    mod_name = getattr(fn, "__module__", None)
+    if mod_name and mod_name in sys.modules:
+        ns.update(sys.modules[mod_name].__dict__)
+    elif hasattr(fn, "__globals__"):
+        ns.update(fn.__globals__)
+    elif inspect.isclass(fn):
+        init = getattr(fn, "__init__", None)
+        if init and hasattr(init, "__globals__"):
+            ns.update(init.__globals__)
+
+    try:
+        return eval(annotation, ns)
     except Exception:
         pass
+
+    # 3. Direct TYPE_CHECKING import lookup
+    resolved = _resolve_type_checking_annotation(fn, annotation)
+    if resolved != annotation:
+        return resolved
+
+    # 4. Complex expressions involving TYPE_CHECKING imports (e.g. "Optional[CustomType]")
+    type_checking_imports = _get_type_checking_imports(fn)
+    if type_checking_imports:
+        for name, full_path in type_checking_imports.items():
+            try:
+                module_name, type_name = full_path.rsplit(".", 1)
+                module = importlib.import_module(module_name)
+                ns[name] = getattr(module, type_name)
+            except Exception:
+                pass
+        try:
+            return eval(annotation, ns)
+        except Exception:
+            pass
+
     return annotation
+
+
+def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> Any:
+    """Internal function to resolve an annotation to its actual type.
+
+    This function handles string annotations, ForwardRef, and generic types (e.g., Optional, List)
+    by resolving string annotations within them, using builtins, typing, module globals, and TYPE_CHECKING blocks.
+
+    Args:
+        fn (Callable): The function containing the annotation
+        arg_name (str): The name of the parameter with the annotation
+        annotation (Any): The annotation to resolve (string, ForwardRef, or type)
+
+    Returns:
+        Any: The resolved type, or the original annotation if resolution fails
+    """
+    # Case 1: Annotation is a string
+    if isinstance(annotation, str):
+        return _resolve_string_annotation(fn, annotation)
+
+    # Case 2: Annotation is a ForwardRef
+    elif isinstance(annotation, ForwardRef):
+        return _resolve_string_annotation(fn, annotation.__forward_arg__)
+
+    # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
+    elif (origin := get_origin(annotation)) is not None:
+        args = get_args(annotation)
+        resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
+        if origin is list:
+            return List[resolved_args[0]]
+        elif origin is dict:
+            return Dict[resolved_args[0], resolved_args[1]]
+        elif origin is tuple:
+            return Tuple[resolved_args]
+        elif origin is set:
+            return Set[resolved_args[0]]
+        elif origin is frozenset:
+            return FrozenSet[resolved_args[0]]
+        elif origin is Union or origin is types.UnionType:
+            return Union[resolved_args]
+        else:
+            return annotation  # Unhandled generic types return as-is
+
+    # Case 4: Annotation is a non-generic type (e.g., int, str)
+    else:
+        return annotation
