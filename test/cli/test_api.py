@@ -1407,7 +1407,7 @@ class TestConfigExport:
 
         mock_console = Mock(spec=Console)
 
-        with pytest.raises(Exception):  # Expecting FileNotFoundError or similar
+        with pytest.raises(FileNotFoundError) as exc_info:
             _serialize_configuration(
                 config,
                 to_yaml=str(non_existent_path),
@@ -1416,12 +1416,10 @@ class TestConfigExport:
             )
 
         # Check that error message was printed
-        expected_error_msg = str(
-            FileNotFoundError(f"[Errno 2] No such file or directory: '{str(non_existent_path)}'")
-        )
         mock_console.print.assert_called_with(
-            f"[bold red]Failed to export configuration to YAML:[/bold red] {expected_error_msg}"
+            f"[bold red]Failed to export configuration to YAML:[/bold red] {exc_info.value}"
         )
+        assert exc_info.value.filename == str(non_existent_path)
 
     def test_export_no_format_error(self):
         from nemo_run.cli.api import _serialize_configuration
