@@ -302,8 +302,14 @@ class PythonicParser:
         if constructor_match:
             constructor, args = constructor_match.groups()
             if constructor == "dict":
-                pairs = re.findall(r"(\w+)\s*=\s*([^,]+)(?:,|$)", args)
-                return {k: self.parse_value(v.strip()) for k, v in pairs}
+                parsed = {}
+                for piece in self._split_constructor_args(args):
+                    pair = re.fullmatch(r"(\w+)\s*=\s*(.+)", piece)
+                    if not pair:
+                        continue
+                    key, raw = pair.groups()
+                    parsed[key] = self.parse_value(raw.strip())
+                return parsed
             else:
                 parsed_args = self.parse_constructor_args(args)
                 if constructor == "list":
@@ -332,21 +338,41 @@ class PythonicParser:
             >>> parser.parse_constructor_args("1, 'two', [3, 4]")
             [1, 'two', [3, 4]]
         """
-        parsed_args = []
+        return [self.parse_value(part) for part in self._split_constructor_args(args)]
+
+    def _split_constructor_args(self, args: str) -> List[str]:
+        parts = []
         current_arg = ""
         nesting_level = 0
+        quote = ""
+        escaped = False
         for char in args + ",":
+            if quote:
+                current_arg += char
+                if escaped:
+                    escaped = False
+                    continue
+                if char == "\\":
+                    escaped = True
+                    continue
+                if char == quote:
+                    quote = ""
+                continue
+            if char in ("'", '"'):
+                quote = char
+                current_arg += char
+                continue
             if char == "," and nesting_level == 0:
                 if current_arg:
-                    parsed_args.append(self.parse_value(current_arg.strip()))
+                    parts.append(current_arg.strip())
                     current_arg = ""
-            else:
-                current_arg += char
-                if char in "([{":
-                    nesting_level += 1
-                elif char in ")]}":
-                    nesting_level -= 1
-        return parsed_args
+                continue
+            current_arg += char
+            if char in "([{":
+                nesting_level += 1
+            elif char in ")]}":
+                nesting_level -= 1
+        return parts
 
     def parse_comprehension(self, value: str) -> Any:
         """
