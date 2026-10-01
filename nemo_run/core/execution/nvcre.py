@@ -169,7 +169,9 @@ class NvcreExecutor(Executor):
     def code_dir(self) -> str:
         """Remote directory on the PVC where job code is placed."""
         user = getpass.getuser()
-        parts = [p for p in (getattr(self, "experiment_id", None), getattr(self, "job_name", None)) if p]
+        parts = [
+            p for p in (getattr(self, "experiment_id", None), getattr(self, "job_name", None)) if p
+        ]
         scope = "/".join([user, *parts])
         return f"{self.workdir_pvc_path.rstrip('/')}/{scope}/code"
 
@@ -263,9 +265,13 @@ class NvcreExecutor(Executor):
         """Submit a WorkloadRun YAML and return the workloadrun name."""
         name = self._safe_name()
         cmd = self._nvcrectl_base() + [
-            "workloadrun", "run", yaml_path,
-            "--namespace", self.namespace,
-            "--name", name,
+            "workloadrun",
+            "run",
+            yaml_path,
+            "--namespace",
+            self.namespace,
+            "--name",
+            name,
         ]
         logger.info("Submitting WorkloadRun: %s", " ".join(cmd))
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -285,8 +291,11 @@ class NvcreExecutor(Executor):
         cleaned up after completion) or reports an unrecognised phase string.
         """
         cmd = self._nvcrectl_base() + [
-            "workloadrun", "status", name,
-            "-n", self.namespace,
+            "workloadrun",
+            "status",
+            name,
+            "-n",
+            self.namespace,
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
@@ -296,12 +305,15 @@ class NvcreExecutor(Executor):
             except ValueError:
                 logger.warning(
                     "Unrecognised nvcrectl phase '%s' for '%s'; falling back to kubectl CRD check",
-                    phase_str, name,
+                    phase_str,
+                    name,
                 )
         else:
             logger.warning(
                 "nvcrectl status failed for '%s' (rc=%d): %s; falling back to kubectl CRD check",
-                name, result.returncode, result.stderr.strip(),
+                name,
+                result.returncode,
+                result.stderr.strip(),
             )
 
         return self._kubectl_workloadrun_crd_phase(name)
@@ -314,15 +326,20 @@ class NvcreExecutor(Executor):
         Nvcre's internal job name differs from the WorkloadRun CRD name.
         """
         cmd = self._kubectl_base() + [
-            "get", "workloadrun", name,
-            "-n", self.namespace,
-            "-o", "jsonpath={.status.phase}",
+            "get",
+            "workloadrun",
+            name,
+            "-n",
+            self.namespace,
+            "-o",
+            "jsonpath={.status.phase}",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             logger.warning(
                 "kubectl workloadrun CRD check failed for '%s': %s",
-                name, result.stderr.strip(),
+                name,
+                result.stderr.strip(),
             )
             return NvcrePhase.UNKNOWN
 
@@ -335,15 +352,20 @@ class NvcreExecutor(Executor):
             return NvcrePhase(phase_str)
         except ValueError:
             logger.warning(
-                "Unrecognised WorkloadRun CRD phase '%s' for '%s'", phase_str, name,
+                "Unrecognised WorkloadRun CRD phase '%s' for '%s'",
+                phase_str,
+                name,
             )
             return NvcrePhase.UNKNOWN
 
     def cancel(self, name: str) -> None:
         """Cancel WorkloadRun *name*."""
         cmd = self._nvcrectl_base() + [
-            "workloadrun", "cancel", name,
-            "-n", self.namespace,
+            "workloadrun",
+            "cancel",
+            name,
+            "-n",
+            self.namespace,
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
@@ -359,9 +381,13 @@ class NvcreExecutor(Executor):
         retrieve it from the CRD status/labels so log and pod queries work.
         """
         cmd = self._kubectl_base() + [
-            "get", "workloadrun", workloadrun_name,
-            "-n", self.namespace,
-            "-o", "json",
+            "get",
+            "workloadrun",
+            workloadrun_name,
+            "-n",
+            self.namespace,
+            "-o",
+            "json",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
@@ -403,10 +429,13 @@ class NvcreExecutor(Executor):
         label_selector = f"jobset.sigs.k8s.io/jobset-name={jobset_name}"
         base_cmd = self._kubectl_base() + [
             "logs",
-            "-l", label_selector,
-            "-n", self.namespace,
+            "-l",
+            label_selector,
+            "-n",
+            self.namespace,
             "--prefix",
-            "--max-log-requests", str(max(self.num_nodes * 2, 8)),
+            "--max-log-requests",
+            str(max(self.num_nodes * 2, 8)),
         ]
 
         # Streaming logs are saved to job_dir/pod_logs/streaming.log so they
@@ -463,16 +492,20 @@ class NvcreExecutor(Executor):
             "metadata": {"name": pod_name, "namespace": self.namespace},
             "spec": {
                 "restartPolicy": "Never",
-                "containers": [{
-                    "name": "mover",
-                    "image": _DATA_MOVER_IMAGE,
-                    "command": ["sleep", "infinity"],
-                    "volumeMounts": [{"name": "workdir", "mountPath": self.workdir_pvc_path}],
-                }],
-                "volumes": [{
-                    "name": "workdir",
-                    "persistentVolumeClaim": {"claimName": self.workdir_pvc},
-                }],
+                "containers": [
+                    {
+                        "name": "mover",
+                        "image": _DATA_MOVER_IMAGE,
+                        "command": ["sleep", "infinity"],
+                        "volumeMounts": [{"name": "workdir", "mountPath": self.workdir_pvc_path}],
+                    }
+                ],
+                "volumes": [
+                    {
+                        "name": "workdir",
+                        "persistentVolumeClaim": {"claimName": self.workdir_pvc},
+                    }
+                ],
             },
         }
         # Delete stale pod first
@@ -494,12 +527,18 @@ class NvcreExecutor(Executor):
         deadline = time.time() + timeout
         while time.time() < deadline:
             result = subprocess.run(
-                self._kubectl_base() + [
-                    "get", "pod", pod_name,
-                    "-n", self.namespace,
-                    "-o", "jsonpath={.status.phase}",
+                self._kubectl_base()
+                + [
+                    "get",
+                    "pod",
+                    pod_name,
+                    "-n",
+                    self.namespace,
+                    "-o",
+                    "jsonpath={.status.phase}",
                 ],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
             if result.stdout.strip() == "Running":
                 logger.info("Data-mover pod '%s' is Running", pod_name)
@@ -509,33 +548,50 @@ class NvcreExecutor(Executor):
 
     def _delete_data_mover_pod(self, pod_name: str, timeout: int = 60) -> None:
         result = subprocess.run(
-            self._kubectl_base() + [
-                "delete", "pod", pod_name,
-                "-n", self.namespace,
+            self._kubectl_base()
+            + [
+                "delete",
+                "pod",
+                pod_name,
+                "-n",
+                self.namespace,
                 "--ignore-not-found",
             ],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
             logger.warning("Could not delete data-mover pod '%s': %s", pod_name, result.stderr)
 
     def _rsync_to_pod(self, pod_name: str, local_path: str, remote_path: str) -> None:
         subprocess.check_call(
-            self._kubectl_base() + [
-                "exec", "-n", self.namespace, pod_name,
-                "--", "mkdir", "-p", remote_path,
+            self._kubectl_base()
+            + [
+                "exec",
+                "-n",
+                self.namespace,
+                pod_name,
+                "--",
+                "mkdir",
+                "-p",
+                remote_path,
             ]
         )
         subprocess.check_call(
-            self._kubectl_base() + [
-                "cp", "-n", self.namespace,
+            self._kubectl_base()
+            + [
+                "cp",
+                "-n",
+                self.namespace,
                 f"{local_path.rstrip(os.sep)}/.",
                 f"{pod_name}:{remote_path.rstrip('/')}",
             ]
         )
         logger.info("Copied '%s' -> pod:%s", local_path, remote_path)
 
-    def copy_to_workspace(self, local_path: str, remote_path: str, label: str = "datamover") -> None:
+    def copy_to_workspace(
+        self, local_path: str, remote_path: str, label: str = "datamover"
+    ) -> None:
         """Copy *local_path* directory to *remote_path* on workdir_pvc."""
         if not self.workdir_pvc:
             return
@@ -557,16 +613,20 @@ class NvcreExecutor(Executor):
         if self.workdir_local_path:
             os.makedirs(self.job_dir, exist_ok=True)
             subprocess.check_call(
-                ["rsync", "-a",
-                 f"{self.workdir_local_path.rstrip(os.sep)}/",
-                 f"{self.job_dir.rstrip(os.sep)}/"],
+                [
+                    "rsync",
+                    "-a",
+                    f"{self.workdir_local_path.rstrip(os.sep)}/",
+                    f"{self.job_dir.rstrip(os.sep)}/",
+                ],
             )
             logger.info("Merged '%s' into job_dir '%s'", self.workdir_local_path, self.job_dir)
 
         if isinstance(packager, GitArchivePackager):
             output = subprocess.run(
                 ["git", "rev-parse", "--show-toplevel"],
-                check=True, stdout=subprocess.PIPE,
+                check=True,
+                stdout=subprocess.PIPE,
             )
             base_path = Path(output.stdout.splitlines()[0].decode()).absolute()
         else:
@@ -633,5 +693,5 @@ cd {self.code_dir}
         launch_path = os.path.join(self.job_dir, "launch.sh")
         with open(launch_path, "w") as f:
             f.write(script)
-        os.chmod(launch_path, 0o555)
+        os.chmod(launch_path, 0o550)
         logger.info("Wrote launch script to %s", launch_path)

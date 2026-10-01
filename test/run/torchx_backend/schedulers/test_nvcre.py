@@ -128,9 +128,7 @@ def test_schedule_without_pvc(scheduler, mock_app_def, executor):
     with (
         mock.patch.object(NvcreExecutor, "submit", return_value="wl-name-123") as mock_submit,
         mock.patch.object(NvcreExecutor, "package") as mock_pkg,
-        mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.nvcre._save_job"
-        ) as mock_save,
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job") as mock_save,
     ):
         dryrun_info = scheduler._submit_dryrun(mock_app_def, executor)
         app_id = scheduler.schedule(dryrun_info)
@@ -161,9 +159,7 @@ def test_schedule_with_pvc_packages_and_writes_launch_script(scheduler, mock_app
 
 
 def test_describe_returns_none_when_job_missing(scheduler):
-    with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}
-    ):
+    with mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}):
         assert scheduler.describe("nonexistent") is None
 
 
@@ -197,9 +193,7 @@ def test_describe_returns_none_without_stored_executor(scheduler):
 
 
 def test_log_iter_returns_empty_when_job_missing(scheduler):
-    with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}
-    ):
+    with mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}):
         assert list(scheduler.log_iter("nonexistent", "role")) == []
 
 
@@ -230,9 +224,7 @@ def test_log_iter_delegates_to_executor_fetch_logs(scheduler, executor):
 
 
 def test_cancel_existing_noop_when_job_missing(scheduler):
-    with mock.patch(
-        "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}
-    ):
+    with mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs", return_value={}):
         scheduler._cancel_existing("nonexistent")  # should not raise
 
 

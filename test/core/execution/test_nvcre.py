@@ -89,7 +89,11 @@ class TestNvcreExecutor:
         assert spec["volumeMounts"] == executor.volume_mounts
         assert spec["imagePullSecrets"] == [{"name": "ngc-secret"}]
         assert spec["orchestration"] == {"timeoutPerJob": "2h", "testScale": "full-scale"}
-        assert spec["checkpoint"] == {"storageSize": "500Gi", "storageClassName": "fast-ssd", "maxRestarts": 3}
+        assert spec["checkpoint"] == {
+            "storageSize": "500Gi",
+            "storageClassName": "fast-ssd",
+            "maxRestarts": 3,
+        }
         assert spec["gangScheduler"] == {"schedulerName": "kai-scheduler"}
 
     # ── _safe_name ─────────────────────────────────────────────────────────────
@@ -204,7 +208,8 @@ class TestNvcreExecutor:
     def test_get_nvcre_job_name_from_status_field(self, executor):
         with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
             mock_run.return_value = _completed(
-                returncode=0, stdout='{"status": {"jobName": "internal-job"}, "metadata": {"labels": {}}}'
+                returncode=0,
+                stdout='{"status": {"jobName": "internal-job"}, "metadata": {"labels": {}}}',
             )
             job_name = executor._get_nvcre_job_name("wl-name")
         assert job_name == "internal-job"
@@ -324,14 +329,20 @@ class TestNvcreExecutor:
 
     def test_nvcrectl_base_includes_kubeconfig_and_context(self):
         e = NvcreExecutor(
-            namespace="ns", container_image="img", kubeconfig="/path/kubeconfig", kube_context="ctx1"
+            namespace="ns",
+            container_image="img",
+            kubeconfig="/path/kubeconfig",
+            kube_context="ctx1",
         )
         args = e._nvcrectl_base()
         assert args == ["nvcrectl", "--kubeconfig", "/path/kubeconfig", "--context", "ctx1"]
 
     def test_kubectl_base_includes_kubeconfig_and_context(self):
         e = NvcreExecutor(
-            namespace="ns", container_image="img", kubeconfig="/path/kubeconfig", kube_context="ctx1"
+            namespace="ns",
+            container_image="img",
+            kubeconfig="/path/kubeconfig",
+            kube_context="ctx1",
         )
         args = e._kubectl_base()
         assert args == ["kubectl", "--kubeconfig", "/path/kubeconfig", "--context", "ctx1"]
@@ -450,7 +461,10 @@ class TestNvcreExecutor:
             executor._start_data_mover_pod("mover-pod", timeout=10)
 
         mock_check_call.assert_called_once()
-        assert mock_check_call.call_args[0][0][:2] == ["kubectl", "apply"] or "apply" in mock_check_call.call_args[0][0]
+        assert (
+            mock_check_call.call_args[0][0][:2] == ["kubectl", "apply"]
+            or "apply" in mock_check_call.call_args[0][0]
+        )
 
     def test_start_data_mover_pod_times_out(self, executor):
         executor.workdir_pvc = "my-pvc"
@@ -498,7 +512,9 @@ class TestNvcreExecutor:
             executor.copy_to_workspace("/local", "/remote", label="mylabel")
 
         mock_start.assert_called_once()
-        mock_rsync.assert_called_once_with(executor._data_mover_pod_name("mylabel"), "/local", "/remote")
+        mock_rsync.assert_called_once_with(
+            executor._data_mover_pod_name("mylabel"), "/local", "/remote"
+        )
         mock_delete.assert_called_once()
 
     def test_copy_to_workspace_deletes_pod_even_on_rsync_failure(self, executor):
@@ -538,9 +554,7 @@ class TestNvcreExecutor:
     def test_package_with_pvc_does_not_duplicate_volume_mount(self, executor, tmp_path):
         executor.workdir_pvc = "my-pvc"
         executor.job_dir = str(tmp_path / "job")
-        executor.volumes = [
-            {"name": "existing", "persistentVolumeClaim": {"claimName": "my-pvc"}}
-        ]
+        executor.volumes = [{"name": "existing", "persistentVolumeClaim": {"claimName": "my-pvc"}}]
         mock_packager = MagicMock()
         mock_packager.package.return_value = None
 
