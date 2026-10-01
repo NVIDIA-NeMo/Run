@@ -693,5 +693,5 @@ cd {self.code_dir}
         launch_path = os.path.join(self.job_dir, "launch.sh")
         with open(launch_path, "w") as f:
             f.write(script)
-        os.chmod(launch_path, 0o550)
+        os.chmod(launch_path, 0o500)
         logger.info("Wrote launch script to %s", launch_path)
