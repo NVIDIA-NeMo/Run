@@ -729,12 +729,62 @@ class TestEntrypointRunner:
     def app(self):
         return create_cli(add_verbose_callback=False, nested_entrypoints_creation=False)
 
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_no_stray_debug_output(self, mock_run, mock_dryrun_fn, runner):
+        """Task command output must not contain stray debug prints."""
+
+        @run.cli.entrypoint(namespace="test_no_stray", skip_confirmation=True)
+        def task(value: int = 1):
+            return value
+
+        @run.cli.entrypoint(namespace="test_no_stray")
+        def other_task(value: int = 1):
+            return value
+
+        app = typer.Typer()
+        other_task.cli_entrypoint.cli(app)
+        task.cli_entrypoint.cli(app)
+
+        result = runner.invoke(
+            app, ["task", "value=2", "--dryrun"], env={"INCLUDE_WORKSPACE_FILE": "false"}
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Configuring global options" not in result.output
+
     def test_parse_partial_function_call(self):
         entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
         partial = entrypoint.parse_partial(["dummy=my_dummy_model(hidden=100)"])
         assert isinstance(partial, run.Partial)
         assert partial.dummy.hidden == 100
         assert partial.dummy.activation == "tanh"
+
+    @patch("typer.confirm", return_value=False)
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_skip_confirmation_entrypoint_does_not_prompt(
+        self, mock_run, mock_dryrun_fn, mock_confirm, runner
+    ):
+        """@run.cli.entrypoint(skip_confirmation=True) must skip the confirmation prompt."""
+
+        @run.cli.entrypoint(namespace="test_skip_confirm", skip_confirmation=True)
+        def task(value: int = 1):
+            return value
+
+        @run.cli.entrypoint(namespace="test_skip_confirm")
+        def other_task(value: int = 1):
+            return value
+
+        app = typer.Typer()
+        other_task.cli_entrypoint.cli(app)
+        task.cli_entrypoint.cli(app)
+
+        result = runner.invoke(app, ["task", "value=2"], env={"INCLUDE_WORKSPACE_FILE": "false"})
+
+        assert result.exit_code == 0, result.output
+        mock_confirm.assert_not_called()
+        mock_run.assert_called_once()
 
     def test_with_factory(self, runner, app):
         # Test CLI execution with default factory
@@ -1407,7 +1457,7 @@ class TestConfigExport:
 
         mock_console = Mock(spec=Console)
 
-        with pytest.raises(Exception):  # Expecting FileNotFoundError or similar
+        with pytest.raises(FileNotFoundError) as exc_info:
             _serialize_configuration(
                 config,
                 to_yaml=str(non_existent_path),
@@ -1416,12 +1466,10 @@ class TestConfigExport:
             )
 
         # Check that error message was printed
-        expected_error_msg = str(
-            FileNotFoundError(f"[Errno 2] No such file or directory: '{str(non_existent_path)}'")
-        )
         mock_console.print.assert_called_with(
-            f"[bold red]Failed to export configuration to YAML:[/bold red] {expected_error_msg}"
+            f"[bold red]Failed to export configuration to YAML:[/bold red] {exc_info.value}"
         )
+        assert exc_info.value.filename == str(non_existent_path)
 
     def test_export_no_format_error(self):
         from nemo_run.cli.api import _serialize_configuration
