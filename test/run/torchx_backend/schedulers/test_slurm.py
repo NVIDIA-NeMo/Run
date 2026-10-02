@@ -502,6 +502,9 @@ def test_ray_template_executor(slurm_scheduler, slurm_executor, temp_dir):
         roles=[Role(name="test_role", image="", entrypoint="python", args=["script.py"])],
         metadata={USE_WITH_RAY_CLUSTER_KEY: True},
     )
+    custom_template_path = os.path.join(temp_dir, "custom_ray.sub.j2")
+    with open(custom_template_path, "w", encoding="utf-8") as f:
+        f.write("#!/bin/bash\n# Custom template")
 
     with (
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
@@ -532,6 +535,21 @@ def test_ray_template_executor(slurm_scheduler, slurm_executor, temp_dir):
             dryrun_info = slurm_scheduler._submit_dryrun(app_def, custom_executor)
             assert isinstance(dryrun_info.request, SlurmRayRequest)
             assert dryrun_info.request.template_name == "ray_enroot.sub.j2"
+
+        path_executor = SlurmExecutor(
+            account="test_account",
+            job_dir=temp_dir,
+            nodes=1,
+            ntasks_per_node=1,
+            tunnel=LocalTunnel(job_dir=temp_dir),
+            ray_template=custom_template_path,
+        )
+        with mock.patch("nemo_run.core.execution.utils.fill_template") as mock_fill:
+            mock_fill.return_value = "#!/bin/bash\n# Mock script"
+            dryrun_info = slurm_scheduler._submit_dryrun(app_def, path_executor)
+            assert isinstance(dryrun_info.request, SlurmRayRequest)
+            assert dryrun_info.request.template_name == "custom_ray.sub.j2"
+            assert dryrun_info.request.template_dir == temp_dir
 
 
 def test_heterogeneous_ray_cluster_run_as_group(slurm_scheduler, temp_dir):
