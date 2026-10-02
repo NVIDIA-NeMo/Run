@@ -125,6 +125,16 @@ class TestSlurmExecutorExtended:
         assert executor.ntasks_per_node == 1
         assert executor.torchrun_nproc_per_node == 8
 
+    def test_setup_launcher_rejects_ntasks_with_torchrun(self):
+        # Torchrun needs exactly one Slurm task per node to manage its own worker
+        # processes; an explicit ntasks (total task count) would instead spread
+        # one launcher per task, multiplying workers and colliding node ranks.
+        executor = SlurmExecutor(
+            account="test", nodes=2, ntasks=8, launcher=Torchrun(), torchrun_nproc_per_node=4
+        )
+        with pytest.raises(AssertionError):
+            executor._setup_launcher()
+
     def test_local_is_slurm_true(self):
         """Test the local_is_slurm property when srun is available."""
         executor = SlurmExecutor(account="test")

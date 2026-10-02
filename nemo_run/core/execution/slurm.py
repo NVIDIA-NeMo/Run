@@ -740,6 +740,11 @@ class SlurmExecutor(Executor):
         super()._setup_launcher()
         launcher = self.launcher
         if launcher and isinstance(launcher, (FaultTolerance, Torchrun)):
+            assert self.ntasks is None, (
+                f"ntasks cannot be combined with a {launcher.__class__.__name__} launcher, "
+                "which requires exactly one Slurm task per node so it can manage its own "
+                "worker processes. Set ntasks_per_node and torchrun_nproc_per_node instead."
+            )
             self.torchrun_nproc_per_node = self.torchrun_nproc_per_node or self.ntasks_per_node
             self.ntasks_per_node = 1
             CONSOLE.log(
