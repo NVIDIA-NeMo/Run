@@ -66,6 +66,10 @@ def train_manual(
     return optim
 
 
+def with_falsy_values(count: int = 1, flag: bool = True, label: str = "x"):
+    return count, flag, label
+
+
 @dataclass
 class Data:
     name: str
@@ -221,6 +225,13 @@ class TestPartial:
         fn = fdl.build(partial)
 
         assert fn() == fdl.build(optimizer())
+
+    def test_falsy_primitive_args_are_preserved(self):
+        """Falsy primitive values like 0, False, and '' must not be dropped."""
+        partial = run.Partial(with_falsy_values, count=0, flag=False, label="")
+        fn = fdl.build(partial)
+
+        assert fn() == (0, False, "")
 
     def test_clone(self):
         partial = run.Partial(train, model=dummy_model(), optim=optimizer())

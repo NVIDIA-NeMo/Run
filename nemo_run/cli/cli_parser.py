@@ -21,6 +21,7 @@ import logging
 import operator
 import re
 import sys
+import types
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -518,8 +519,8 @@ class PythonicParser:
             return self._contains_unsafe_operations(node.operand)
         elif isinstance(node, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
             return any(self._contains_unsafe_operations(elt) for elt in ast.iter_child_nodes(node))
-        elif isinstance(node, (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Ellipsis)):
-            # Allow basic literals
+        elif isinstance(node, ast.Constant):
+            # Allow basic literals (numbers, strings, bytes, True/False/None, Ellipsis)
             return False
         return True
 
@@ -685,7 +686,7 @@ class TypeParser:
                 return self.parse_list
             elif origin in (dict, Dict):
                 return self.parse_dict
-            elif origin is Union:
+            elif origin is Union or origin is types.UnionType:
                 return self.parse_union
             # Add other mappings as needed
 
@@ -704,7 +705,7 @@ class TypeParser:
                 return self.parse_list
             elif origin is dict or origin is Dict:
                 return self.parse_dict
-            elif origin is Union:
+            elif origin is Union or origin is types.UnionType:
                 return self.parse_union
 
             # Check for parsers registered for the origin
@@ -868,8 +869,13 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, list):
                 raise ValueError("Not a list")
-            elem_type = get_args(annotation)[0]
-            return [self.parse(str(item), elem_type) for item in parsed]
+            type_args = get_args(annotation)
+            if type_args:
+                elem_type = type_args[0]
+                return [self.parse(str(item), elem_type) for item in parsed]
+            # Unparameterized annotations (e.g. `list`, `List`, `Optional[list]`
+            # resolved to a bare list) have no element type to coerce to.
+            return parsed
         except Exception as e:
             raise ListParseError(value, List, f"Invalid list: {str(e)}")
 
@@ -890,11 +896,16 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, dict):
                 raise ValueError("Not a dict")
-            key_type, val_type = get_args(annotation)
-            return {
-                self.parse(str(k), key_type): self.parse(str(v), val_type)
-                for k, v in parsed.items()
-            }
+            type_args = get_args(annotation)
+            if type_args:
+                key_type, val_type = type_args
+                return {
+                    self.parse(str(k), key_type): self.parse(str(v), val_type)
+                    for k, v in parsed.items()
+                }
+            # Unparameterized annotations (e.g. `dict`, `Dict`, `Optional[dict]`
+            # resolved to a bare dict) have no key/value types to coerce to.
+            return parsed
         except Exception as e:
             raise DictParseError(value, Dict, f"Invalid dict: {str(e)}")
 
@@ -1468,6 +1479,10 @@ def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> A
     # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
     elif (origin := get_origin(annotation)) is not None:
         args = get_args(annotation)
+        if not args:
+            # Unparameterized generics (e.g. bare `List`, `Dict`) have no
+            # arguments to resolve and are handled downstream as-is.
+            return annotation
         resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
         if origin is list:
             return List[resolved_args[0]]

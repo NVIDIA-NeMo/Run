@@ -188,6 +188,14 @@ class KubeflowScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         if not executor:
             return []
 
+        # fetch_logs tails ALL pods of the jobset in a single call (it powers the
+        # log-allranks_0.out capture and the cross-rank dedup). torchx invokes
+        # log_iter once per replica (k = 0..num_nodes-1); streaming on every k
+        # would re-tail the whole jobset N times — each tail with its own dedup
+        # state — and N×-duplicate every console line. Stream only for k == 0.
+        if k != 0:
+            return []
+
         logs = executor.fetch_logs(job_name=job_name, stream=should_tail)
         if isinstance(logs, str):
             if len(logs) == 0:

@@ -1,4 +1,14 @@
+<div align="center">
+
 # NeMo Run
+
+[![Codecov](https://codecov.io/github/NVIDIA-NeMo/Run/graph/badge.svg)](https://codecov.io/github/NVIDIA-NeMo/Run)
+[![Run tests](https://github.com/NVIDIA-NeMo/Run/actions/workflows/test.yml/badge.svg)](https://github.com/NVIDIA-NeMo/Run/actions/workflows/test.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/release/python-3100/)
+[![GitHub Stars](https://img.shields.io/github/stars/NVIDIA-NeMo/Run.svg?style=social&label=Star&cacheSeconds=14400)](https://github.com/NVIDIA-NeMo/Run/stargazers/)
+
+[Documentation](https://docs.nvidia.com/nemo/run/latest/) | [Examples](https://github.com/NVIDIA-NeMo/Run/tree/main/examples) | [Contributing](https://github.com/NVIDIA-NeMo/Run/blob/main/CONTRIBUTING.md) | [FAQs](./docs/faqs.md)
+</div>
 
 > [!IMPORTANT]
 > NeMo Run is still in active development and this is a pre-release. The API is subject to change without notice until the project reaches version 1.0.0
@@ -11,35 +21,17 @@ NeMo Run is a powerful tool designed to streamline the configuration, execution,
 
 To learn more, click on each link. This represents the typical order that NeMo Run users follow for setting up and launching experiments.
 
-- [NeMo Run](#nemo-run)
-  - [Why Use NeMo Run?](#why-use-nemo-run)
-  - [Install NeMo Run](#install-nemo-run)
-  - [Get Started](#get-started)
-  - [Design Philosophy and Inspiration](#design-philosophy-and-inspiration)
-    - [Pythonic](#pythonic)
-    - [Modular](#modular)
-    - [Opinionated but Flexible](#opinionated-but-flexible)
-    - [Set Up Once and Scale Easily](#set-up-once-and-scale-easily)
-  - [Tutorials](#tutorials)
-      - [Hello world](#hello-world)
-  - [Contribute to NeMo Run](#contribute-to-nemo-run)
-  - [FAQs](#faqs)
-
-
 ## Why Use NeMo Run?
 Please see this [detailed guide](./docs/guides/why-use-nemo-run.md) for reasons to use NeMo Run.
 
 ## Install NeMo Run
-To install the project, use the following command:
 
 ```bash
 pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
-Make sure you have `pip` installed and configured properly.
-
 ## Get Started
-To get started with NeMo Run, follow these three steps based on the core responsibilities mentioned above. For this example, we’ll showcase a pre-training example in Nemo 2.0 using Llama3.
+To get started with NeMo Run, follow these three steps based on the core responsibilities mentioned above. For this example, we'll showcase a pre-training example in Nemo 2.0 using Llama3.
 
 1. Configure your function:
 ```python
@@ -50,7 +42,6 @@ partial_func = llm.llama3_8b.pretrain_recipe(name="llama3-8b", ckpt_dir="/path/t
 2. Define your Executor:
 ```python
 import nemo_run as run
-# Local executor
 local_executor = run.LocalExecutor()
 ```
 
@@ -88,7 +79,7 @@ While it may take some time initially for users to become familiar with NeMo Run
 
 ## Tutorials
 
-#### Hello world
+### Hello world
 
 The `hello_world` tutorial series provides a comprehensive introduction to NeMo Run, demonstrating its capabilities through a simple example. The tutorial covers:
 
@@ -98,11 +89,11 @@ The `hello_world` tutorial series provides a comprehensive introduction to NeMo 
 - Creating and managing experiments using `run.Experiment`.
 
 You can find the tutorial series below:
-- [Part 1](examples/hello-world/hello_world.ipynb).
-- [Part 2](examples/hello-world/hello_experiments.ipynb).
-- [Part 3](examples/hello-world/hello_scripts.py).
+- [Part 1](examples/hello-world/hello_world.ipynb)
+- [Part 2](examples/hello-world/hello_experiments.ipynb)
+- [Part 3](examples/hello-world/hello_scripts.py)
 
-## Contribute to NeMo Run
+## Contributing
 Please see the [contribution guide](./CONTRIBUTING.md) to contribute to NeMo Run.
 
 ## FAQs

@@ -122,6 +122,33 @@ class TestComplexTypeParsing:
 
         assert parse_cli_args(func, ["a=[[1, 2], [3, 4]]"]).a == [[1, 2], [3, 4]]
 
+    def test_unparameterized_list_parsing(self):
+        def func(a: list, b: List = None, c: Optional[list] = None):
+            pass
+
+        assert parse_cli_args(func, ["a=[1, 2, 3]"]).a == [1, 2, 3]
+        assert parse_cli_args(func, ["a=[]"]).a == []
+        assert parse_cli_args(func, ["b=[1, 2]"]).b == [1, 2]
+        assert parse_cli_args(func, ["c=[1, 2]"]).c == [1, 2]
+
+    def test_unparameterized_dict_parsing(self):
+        def func(a: dict, b: Dict = None, c: Optional[dict] = None):
+            pass
+
+        assert parse_cli_args(func, ["a={'x': 1}"]).a == {"x": 1}
+        assert parse_cli_args(func, ["a={}"]).a == {}
+        assert parse_cli_args(func, ["b={'x': 1}"]).b == {"x": 1}
+        assert parse_cli_args(func, ["c={'x': 1}"]).c == {"x": 1}
+
+    def test_union_with_list_not_misparsed_as_string(self):
+        def func(a: Union[list, str] = None, b: Union[dict, str] = None):
+            pass
+
+        assert parse_cli_args(func, ["a=[1, 2]"]).a == [1, 2]
+        assert parse_cli_args(func, ["a=hello"]).a == "hello"
+        assert parse_cli_args(func, ["b={'x': 1}"]).b == {"x": 1}
+        assert parse_cli_args(func, ["b=hello"]).b == "hello"
+
     def test_dict_parsing(self):
         def func(a: Dict[str, int]):
             pass
@@ -506,6 +533,18 @@ class TestParseValue:
         with pytest.raises(ParseError, match="Failed to parse"):
             parse_value('{"a": 1, "b": "two"}', Dict[str, int])
 
+    def test_parse_unparameterized_list(self):
+        assert parse_value("[1, 2, 3]", list) == [1, 2, 3]
+        assert parse_value("[1, 2, 3]", List) == [1, 2, 3]
+        assert parse_value("[1, 2, 3]", Optional[list]) == [1, 2, 3]
+        assert parse_value("None", Optional[list]) is None
+
+    def test_parse_unparameterized_dict(self):
+        assert parse_value('{"a": 1}', dict) == {"a": 1}
+        assert parse_value('{"a": 1}', Dict) == {"a": 1}
+        assert parse_value('{"a": 1}', Optional[dict]) == {"a": 1}
+        assert parse_value("None", Optional[dict]) is None
+
     def test_parse_union(self):
         assert parse_value("123", Union[int, str]) == 123
         assert parse_value("hello", Union[int, str]) == "hello"
@@ -880,6 +919,29 @@ class TestModernTypeHintParsing:
         # Test dict case
         result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
         assert result.data == {"x": 1, "y": 2}
+
+    def test_modern_pep604_union_type_hints(self):
+        # PEP 604 unions (X | Y) report get_origin() as types.UnionType, not
+        # typing.Union, so they previously fell through to "Unsupported type".
+        # Regression for #558.
+        if sys.version_info < (3, 10):
+            pytest.skip("Python 3.10+ required for PEP 604 unions")
+
+        def func(data: list[str] | dict[str, int]):
+            pass
+
+        result = parse_cli_args(func, ["data=['a', 'b', 'c']"])
+        assert result.data == ["a", "b", "c"]
+        result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
+        assert result.data == {"x": 1, "y": 2}
+
+        def func_optional(name: str | None):
+            pass
+
+        result = parse_cli_args(func_optional, ["name=hello"])
+        assert result.name == "hello"
+        result = parse_cli_args(func_optional, ["name=None"])
+        assert result.name is None
 
     def test_modern_type_parsing_errors(self):
         # Skip test if running on Python < 3.9

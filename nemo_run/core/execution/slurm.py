@@ -357,6 +357,10 @@ class SlurmExecutor(Executor):
     run_as_group: bool = field(init=False, default=False)
 
     @classmethod
+    def supports_job_group(cls) -> bool:
+        return True
+
+    @classmethod
     def merge(
         cls: Type["SlurmExecutor"], executors: list["SlurmExecutor"], num_tasks: int
     ) -> "SlurmExecutor":
@@ -434,7 +438,7 @@ class SlurmExecutor(Executor):
         return f"{self.__class__.__qualname__} on {self.tunnel.key}"
 
     def alloc(self, job_name="interactive"):
-        self.job_name = f"{self.job_name_prefix}{job_name}"
+        self.job_name = f"{self.job_name_prefix or ''}{job_name}"
         args = [
             f"--{arg}={getattr(self, arg.replace('-', '_'))}"
             for arg in self.ALLOC_ARGS
@@ -457,7 +461,7 @@ class SlurmExecutor(Executor):
         arg_dict=None,
         **kwargs,
     ):
-        self.job_name = f"{self.job_name_prefix}{job_name}"
+        self.job_name = f"{self.job_name_prefix or ''}{job_name}"
         _arg_dict = {
             arg: getattr(self, arg.replace("-", "_"))
             for arg in self.SRUN_ARGS
@@ -561,7 +565,7 @@ class SlurmExecutor(Executor):
                 nsys_prefix += ["$GPU_METRICS_FLAG"]
         return nsys_prefix
 
-    def get_nsys_entrypoint(self) -> str:
+    def get_nsys_entrypoint(self) -> tuple[str, str]:
         launcher = self.get_launcher()
         entrypoint, postfix = "nsys", ""
         if launcher.nsys_gpu_metrics:
