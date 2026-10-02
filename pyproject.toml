@@ -117,6 +117,7 @@ conflicts = [
         { extra = "skypilot-all" }
     ]
 ]
+build-constraint-dependencies = ["setuptools<82"]
 override-dependencies = [
     "aiohttp>=3.14.0",                # CVE-2026-50269
     "cryptography>=46.0.6,<47",       # CVE-2026-34073
