@@ -869,8 +869,13 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, list):
                 raise ValueError("Not a list")
-            elem_type = get_args(annotation)[0]
-            return [self.parse(str(item), elem_type) for item in parsed]
+            type_args = get_args(annotation)
+            if type_args:
+                elem_type = type_args[0]
+                return [self.parse(str(item), elem_type) for item in parsed]
+            # Unparameterized annotations (e.g. `list`, `List`, `Optional[list]`
+            # resolved to a bare list) have no element type to coerce to.
+            return parsed
         except Exception as e:
             raise ListParseError(value, List, f"Invalid list: {str(e)}")
 
@@ -891,11 +896,16 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, dict):
                 raise ValueError("Not a dict")
-            key_type, val_type = get_args(annotation)
-            return {
-                self.parse(str(k), key_type): self.parse(str(v), val_type)
-                for k, v in parsed.items()
-            }
+            type_args = get_args(annotation)
+            if type_args:
+                key_type, val_type = type_args
+                return {
+                    self.parse(str(k), key_type): self.parse(str(v), val_type)
+                    for k, v in parsed.items()
+                }
+            # Unparameterized annotations (e.g. `dict`, `Dict`, `Optional[dict]`
+            # resolved to a bare dict) have no key/value types to coerce to.
+            return parsed
         except Exception as e:
             raise DictParseError(value, Dict, f"Invalid dict: {str(e)}")
 
@@ -1469,6 +1479,10 @@ def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> A
     # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
     elif (origin := get_origin(annotation)) is not None:
         args = get_args(annotation)
+        if not args:
+            # Unparameterized generics (e.g. bare `List`, `Dict`) have no
+            # arguments to resolve and are handled downstream as-is.
+            return annotation
         resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
         if origin is list:
             return List[resolved_args[0]]
