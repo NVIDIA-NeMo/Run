@@ -94,8 +94,8 @@ Every release `dev` and `main` will sync to be the same.
 
 PR CI runs on pushes to the copy-pr-bot `pull-request/<number>` mirror branch.
 Ready PRs from branches in this repository sync automatically; draft PRs do not.
-For fork PRs, only `svcnemo-autobot` is configured as a trusted author. Other fork
-PRs require maintainer review and an in-repository branch before CI can run.
+Fork PRs follow the NVIDIA copy-pr-bot's default trustee policy; this repository
+does not define a trustee override.
 The NVIDIA copy-pr-bot GitHub App must be installed and enabled for this repository.
 
 Tests, installation, lint, formatting, spelling, copyright, secret detection,
