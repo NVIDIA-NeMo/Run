@@ -1457,7 +1457,7 @@ class TestConfigExport:
 
         mock_console = Mock(spec=Console)
 
-        with pytest.raises(Exception):  # Expecting FileNotFoundError or similar
+        with pytest.raises(FileNotFoundError) as exc_info:
             _serialize_configuration(
                 config,
                 to_yaml=str(non_existent_path),
@@ -1466,12 +1466,10 @@ class TestConfigExport:
             )
 
         # Check that error message was printed
-        expected_error_msg = str(
-            FileNotFoundError(f"[Errno 2] No such file or directory: '{str(non_existent_path)}'")
-        )
         mock_console.print.assert_called_with(
-            f"[bold red]Failed to export configuration to YAML:[/bold red] {expected_error_msg}"
+            f"[bold red]Failed to export configuration to YAML:[/bold red] {exc_info.value}"
         )
+        assert exc_info.value.filename == str(non_existent_path)
 
     def test_export_no_format_error(self):
         from nemo_run.cli.api import _serialize_configuration
@@ -1968,3 +1966,23 @@ class TestExtractConstituentTypes:
     def test_various_type_hints(self, type_hint, expected_types):
         """Test get_underlying_types with various type hints."""
         assert extract_constituent_types(type_hint) == expected_types
+
+
+class TestShortFlagCollision:
+    """Regression test for issue #559: -y was bound to both --yaml and --yes."""
+
+    def test_short_flag_y_belongs_only_to_yes(self):
+        @run.cli.entrypoint
+        def dummy_task(yaml: Optional[str] = typer.Option(None, "--yaml", help="YAML file")):
+            return yaml
+
+        app = typer.Typer()
+        RunContext.cli_command(app, "task", dummy_task)
+        params = typer.main.get_command(app).params
+
+        opts = {param.name: param.opts for param in params}
+        assert opts["yaml"] == ["--yaml"]
+        assert "-y" in opts["skip_confirmation"]
+
+        shorts = [opt for param in params for opt in param.opts if len(opt) == 2]
+        assert len(shorts) == len(set(shorts)), f"duplicate short flags: {shorts}"
