@@ -167,6 +167,20 @@ class TestRunContext:
         mock_dryrun_fn.assert_called_once()
         mock_run.assert_called_once()
 
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_run_context_execute_task_with_run_prefixed_parameter(self, mock_run, mock_dryrun_fn):
+        """Task parameters whose names start with a reserved prefix (run/executor/plugins)
+        must be treated as task args, not as malformed prefixed overwrites."""
+        ctx = RunContext(name="test_run", skip_confirmation=True)
+
+        def sample_function(runtime: int = 60, lr: float = 0.1):
+            return None
+
+        ctx.cli_execute(sample_function, ["runtime=120", "lr=0.2"])
+        mock_dryrun_fn.assert_called_once()
+        mock_run.assert_called_once()
+
     def test_run_context_to_config(self):
         ctx = RunContext(name="test_run")
         config = ctx.to_config()
@@ -729,12 +743,62 @@ class TestEntrypointRunner:
     def app(self):
         return create_cli(add_verbose_callback=False, nested_entrypoints_creation=False)
 
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_no_stray_debug_output(self, mock_run, mock_dryrun_fn, runner):
+        """Task command output must not contain stray debug prints."""
+
+        @run.cli.entrypoint(namespace="test_no_stray", skip_confirmation=True)
+        def task(value: int = 1):
+            return value
+
+        @run.cli.entrypoint(namespace="test_no_stray")
+        def other_task(value: int = 1):
+            return value
+
+        app = typer.Typer()
+        other_task.cli_entrypoint.cli(app)
+        task.cli_entrypoint.cli(app)
+
+        result = runner.invoke(
+            app, ["task", "value=2", "--dryrun"], env={"INCLUDE_WORKSPACE_FILE": "false"}
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Configuring global options" not in result.output
+
     def test_parse_partial_function_call(self):
         entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
         partial = entrypoint.parse_partial(["dummy=my_dummy_model(hidden=100)"])
         assert isinstance(partial, run.Partial)
         assert partial.dummy.hidden == 100
         assert partial.dummy.activation == "tanh"
+
+    @patch("typer.confirm", return_value=False)
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_skip_confirmation_entrypoint_does_not_prompt(
+        self, mock_run, mock_dryrun_fn, mock_confirm, runner
+    ):
+        """@run.cli.entrypoint(skip_confirmation=True) must skip the confirmation prompt."""
+
+        @run.cli.entrypoint(namespace="test_skip_confirm", skip_confirmation=True)
+        def task(value: int = 1):
+            return value
+
+        @run.cli.entrypoint(namespace="test_skip_confirm")
+        def other_task(value: int = 1):
+            return value
+
+        app = typer.Typer()
+        other_task.cli_entrypoint.cli(app)
+        task.cli_entrypoint.cli(app)
+
+        result = runner.invoke(app, ["task", "value=2"], env={"INCLUDE_WORKSPACE_FILE": "false"})
+
+        assert result.exit_code == 0, result.output
+        mock_confirm.assert_not_called()
+        mock_run.assert_called_once()
 
     def test_with_factory(self, runner, app):
         # Test CLI execution with default factory
@@ -1163,6 +1227,51 @@ class TestParsePrefixedArgs:
         assert prefix_args == []
         assert other_args == ["arg1=value1", "arg2=value2"]
 
+    def test_parse_prefixed_args_word_boundary(self):
+        """Keyword args whose parameter names merely start with the prefix are task args."""
+        from nemo_run.cli.api import _parse_prefixed_args
+
+        args = ["runtime=3600", "run_id=42", "lr=0.1"]
+        prefix_value, prefix_args, other_args = _parse_prefixed_args(args, "run")
+
+        assert prefix_value is None
+        assert prefix_args == []
+        assert other_args == args
+
+        prefix_value, prefix_args, other_args = _parse_prefixed_args(["executors=2"], "executor")
+        assert prefix_value is None
+        assert prefix_args == []
+        assert other_args == ["executors=2"]
+
+        prefix_value, prefix_args, other_args = _parse_prefixed_args(
+            ["plugins_dir=/tmp"], "plugins"
+        )
+        assert prefix_value is None
+        assert prefix_args == []
+        assert other_args == ["plugins_dir=/tmp"]
+
+        # Nested keys starting with the prefix stay task args as well.
+        _, prefix_args, other_args = _parse_prefixed_args(["runtime.limit=60"], "run")
+        assert prefix_args == []
+        assert other_args == ["runtime.limit=60"]
+
+    def test_parse_prefixed_args_nested_key_not_corrupted(self):
+        """Only the leading prefix is stripped from prefixed args."""
+        from nemo_run.cli.api import _parse_prefixed_args
+
+        _, prefix_args, _ = _parse_prefixed_args(["run.a.run.b=1"], "run")
+        assert prefix_args == ["a.run.b=1"]
+
+        _, prefix_args, _ = _parse_prefixed_args(["plugins[0].plugins_dir=x"], "plugins")
+        assert prefix_args == ["[0].plugins_dir=x"]
+
+    def test_parse_prefixed_args_value_with_equals(self):
+        """Values containing '=' are not truncated at the first '='."""
+        from nemo_run.cli.api import _parse_prefixed_args
+
+        prefix_value, _, _ = _parse_prefixed_args(["executor=k=v"], "executor")
+        assert prefix_value == "k=v"
+
 
 class TestConfigExport:
     @pytest.fixture
@@ -1407,7 +1516,7 @@ class TestConfigExport:
 
         mock_console = Mock(spec=Console)
 
-        with pytest.raises(Exception):  # Expecting FileNotFoundError or similar
+        with pytest.raises(FileNotFoundError) as exc_info:
             _serialize_configuration(
                 config,
                 to_yaml=str(non_existent_path),
@@ -1416,12 +1525,10 @@ class TestConfigExport:
             )
 
         # Check that error message was printed
-        expected_error_msg = str(
-            FileNotFoundError(f"[Errno 2] No such file or directory: '{str(non_existent_path)}'")
-        )
         mock_console.print.assert_called_with(
-            f"[bold red]Failed to export configuration to YAML:[/bold red] {expected_error_msg}"
+            f"[bold red]Failed to export configuration to YAML:[/bold red] {exc_info.value}"
         )
+        assert exc_info.value.filename == str(non_existent_path)
 
     def test_export_no_format_error(self):
         from nemo_run.cli.api import _serialize_configuration
@@ -1918,3 +2025,23 @@ class TestExtractConstituentTypes:
     def test_various_type_hints(self, type_hint, expected_types):
         """Test get_underlying_types with various type hints."""
         assert extract_constituent_types(type_hint) == expected_types
+
+
+class TestShortFlagCollision:
+    """Regression test for issue #559: -y was bound to both --yaml and --yes."""
+
+    def test_short_flag_y_belongs_only_to_yes(self):
+        @run.cli.entrypoint
+        def dummy_task(yaml: Optional[str] = typer.Option(None, "--yaml", help="YAML file")):
+            return yaml
+
+        app = typer.Typer()
+        RunContext.cli_command(app, "task", dummy_task)
+        params = typer.main.get_command(app).params
+
+        opts = {param.name: param.opts for param in params}
+        assert opts["yaml"] == ["--yaml"]
+        assert "-y" in opts["skip_confirmation"]
+
+        shorts = [opt for param in params for opt in param.opts if len(opt) == 2]
+        assert len(shorts) == len(set(shorts)), f"duplicate short flags: {shorts}"
