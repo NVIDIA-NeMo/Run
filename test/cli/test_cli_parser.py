@@ -642,6 +642,8 @@ class TestPythonicParser:
             "x": {"a": 1, "b": 2},
             "y": 3,
         }
+        assert parser.parse_constructor("list('''it's fine''', 2)") == ["it's fine", 2]
+        assert parser.parse_constructor('list("""a "b" c""", 3)') == ['a "b" c', 3]
 
     def test_parse_comprehension(self, parser):
         assert parser.parse_comprehension("[x for x in range(3)]") == [0, 1, 2]

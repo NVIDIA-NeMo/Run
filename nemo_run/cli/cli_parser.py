@@ -346,32 +346,51 @@ class PythonicParser:
         nesting_level = 0
         quote = ""
         escaped = False
-        for char in args + ",":
+        i = 0
+        text = args + ","
+        while i < len(text):
+            char = text[i]
             if quote:
-                current_arg += char
                 if escaped:
+                    current_arg += char
                     escaped = False
+                    i += 1
                     continue
                 if char == "\\":
+                    current_arg += char
                     escaped = True
+                    i += 1
                     continue
-                if char == quote:
+                if text.startswith(quote, i):
+                    current_arg += quote
+                    i += len(quote)
                     quote = ""
+                    continue
+                current_arg += char
+                i += 1
                 continue
             if char in ("'", '"'):
+                if text.startswith(char * 3, i):
+                    quote = char * 3
+                    current_arg += quote
+                    i += 3
+                    continue
                 quote = char
                 current_arg += char
+                i += 1
                 continue
             if char == "," and nesting_level == 0:
                 if current_arg:
                     parts.append(current_arg.strip())
                     current_arg = ""
+                i += 1
                 continue
             current_arg += char
             if char in "([{":
                 nesting_level += 1
             elif char in ")]}":
                 nesting_level -= 1
+            i += 1
         return parts
 
     def parse_comprehension(self, value: str) -> Any:
