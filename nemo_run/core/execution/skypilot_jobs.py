@@ -44,6 +44,20 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _as_job_id(job_id: Any) -> int:
+    """Coerce a Skypilot managed job id to the int this module stores in app ids.
+
+    ``sky.jobs.client.sdk.launch`` returns ``Optional[List[int]]``, so the raw value is
+    a list such as ``[1]``. App ids written before this was handled embed that list
+    form, e.g. ``cluster___task___[1]``, so parsing accepts it too.
+    """
+    if isinstance(job_id, (list, tuple)):
+        assert len(job_id) == 1, f"Expected a single Skypilot job id, got {job_id}."
+        job_id = job_id[0]
+
+    return int(str(job_id).strip("[]"))
+
+
 @dataclass(kw_only=True)
 class SkypilotJobsExecutor(Executor):
     """
@@ -148,7 +162,7 @@ class SkypilotJobsExecutor(Executor):
         app = app_id.split("___")
         cluster, task, job_id = app[0], app[1], app[2]
         assert cluster and task and job_id, f"Invalid app id for Skypilot: {app_id}"
-        return cluster, task, int(job_id)
+        return cluster, task, _as_job_id(job_id)
 
     def to_resources(self) -> Union[set["sky.Resources"], set["sky.Resources"]]:
         from sky.resources import Resources
@@ -416,9 +430,9 @@ cd /nemo_run/code
         if num_nodes:
             task.num_nodes = num_nodes
 
-        job_id, handle = stream_and_get(launch(task))
+        job_ids, handle = stream_and_get(launch(task))
 
-        return job_id, handle
+        return (_as_job_id(job_ids) if job_ids is not None else None), handle
 
     def cleanup(self, handle: str):
         import sky.jobs.client.sdk as sky_jobs
