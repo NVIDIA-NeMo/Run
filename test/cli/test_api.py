@@ -169,9 +169,7 @@ class TestRunContext:
 
     @patch("nemo_run.dryrun_fn")
     @patch("nemo_run.run")
-    def test_run_context_execute_task_with_run_prefixed_parameter(
-        self, mock_run, mock_dryrun_fn
-    ):
+    def test_run_context_execute_task_with_run_prefixed_parameter(self, mock_run, mock_dryrun_fn):
         """Task parameters whose names start with a reserved prefix (run/executor/plugins)
         must be treated as task args, not as malformed prefixed overwrites."""
         ctx = RunContext(name="test_run", skip_confirmation=True)
