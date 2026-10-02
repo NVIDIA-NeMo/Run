@@ -122,6 +122,33 @@ class TestComplexTypeParsing:
 
         assert parse_cli_args(func, ["a=[[1, 2], [3, 4]]"]).a == [[1, 2], [3, 4]]
 
+    def test_unparameterized_list_parsing(self):
+        def func(a: list, b: List = None, c: Optional[list] = None):
+            pass
+
+        assert parse_cli_args(func, ["a=[1, 2, 3]"]).a == [1, 2, 3]
+        assert parse_cli_args(func, ["a=[]"]).a == []
+        assert parse_cli_args(func, ["b=[1, 2]"]).b == [1, 2]
+        assert parse_cli_args(func, ["c=[1, 2]"]).c == [1, 2]
+
+    def test_unparameterized_dict_parsing(self):
+        def func(a: dict, b: Dict = None, c: Optional[dict] = None):
+            pass
+
+        assert parse_cli_args(func, ["a={'x': 1}"]).a == {"x": 1}
+        assert parse_cli_args(func, ["a={}"]).a == {}
+        assert parse_cli_args(func, ["b={'x': 1}"]).b == {"x": 1}
+        assert parse_cli_args(func, ["c={'x': 1}"]).c == {"x": 1}
+
+    def test_union_with_list_not_misparsed_as_string(self):
+        def func(a: Union[list, str] = None, b: Union[dict, str] = None):
+            pass
+
+        assert parse_cli_args(func, ["a=[1, 2]"]).a == [1, 2]
+        assert parse_cli_args(func, ["a=hello"]).a == "hello"
+        assert parse_cli_args(func, ["b={'x': 1}"]).b == {"x": 1}
+        assert parse_cli_args(func, ["b=hello"]).b == "hello"
+
     def test_dict_parsing(self):
         def func(a: Dict[str, int]):
             pass
@@ -505,6 +532,18 @@ class TestParseValue:
             parse_value("not_a_dict", Dict[str, int])
         with pytest.raises(ParseError, match="Failed to parse"):
             parse_value('{"a": 1, "b": "two"}', Dict[str, int])
+
+    def test_parse_unparameterized_list(self):
+        assert parse_value("[1, 2, 3]", list) == [1, 2, 3]
+        assert parse_value("[1, 2, 3]", List) == [1, 2, 3]
+        assert parse_value("[1, 2, 3]", Optional[list]) == [1, 2, 3]
+        assert parse_value("None", Optional[list]) is None
+
+    def test_parse_unparameterized_dict(self):
+        assert parse_value('{"a": 1}', dict) == {"a": 1}
+        assert parse_value('{"a": 1}', Dict) == {"a": 1}
+        assert parse_value('{"a": 1}', Optional[dict]) == {"a": 1}
+        assert parse_value("None", Optional[dict]) is None
 
     def test_parse_union(self):
         assert parse_value("123", Union[int, str]) == 123
@@ -950,3 +989,69 @@ class TestModernTypeHintParsing:
         assert result.items == ["a", "b"]
         assert result.mapping == {"k": 1}
 
+    def test_future_annotations_module_resolves_quoted_names(self):
+        # Under `from __future__ import annotations` a source annotation "Path"
+        # is stored as the string 'Path' with the quotes included
+        # ("'Path'" when repr'd). Resolving it once yields the plain string
+        # "Path", which must be resolved again instead of reaching TypeParser.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "def func(path: 'Path') -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")
+
+    def test_future_annotations_nested_forward_refs_resolve(self):
+        # A container annotation holding quoted names evaluates to a generic
+        # with unresolved ForwardRefs inside; they must resolve recursively.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "def func(paths: list['Path']) -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["paths=['/tmp/a', '/tmp/b']"])
+        assert result.paths == [Path("/tmp/a"), Path("/tmp/b")]
+
+    def test_literal_string_values_not_resolved_as_types(self):
+        # Literal values are data: Literal["Path"] must keep the string even
+        # though "Path" also names a resolvable type in module globals.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "from typing import Literal\n"
+            "def func(mode: Literal['Path', 'int']) -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["mode=Path"])
+        assert result.mode == "Path"
+
+    def test_class_based_config_with_string_annotations(self):
+        # Config classes defined under future annotations carry string
+        # annotations on __init__ parameters; the resolver must use the
+        # class's module namespace to evaluate them.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from dataclasses import dataclass\n"
+            "@dataclass\n"
+            "class Config:\n"
+            "    count: int\n"
+            "    label: str\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["Config"], ["count=3", "label=x"])
+        assert result.count == 3
+        assert result.label == "x"

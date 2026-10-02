@@ -877,8 +877,13 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, list):
                 raise ValueError("Not a list")
-            elem_type = get_args(annotation)[0]
-            return [self.parse(str(item), elem_type) for item in parsed]
+            type_args = get_args(annotation)
+            if type_args:
+                elem_type = type_args[0]
+                return [self.parse(str(item), elem_type) for item in parsed]
+            # Unparameterized annotations (e.g. `list`, `List`, `Optional[list]`
+            # resolved to a bare list) have no element type to coerce to.
+            return parsed
         except Exception as e:
             raise ListParseError(value, List, f"Invalid list: {str(e)}")
 
@@ -899,11 +904,16 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, dict):
                 raise ValueError("Not a dict")
-            key_type, val_type = get_args(annotation)
-            return {
-                self.parse(str(k), key_type): self.parse(str(v), val_type)
-                for k, v in parsed.items()
-            }
+            type_args = get_args(annotation)
+            if type_args:
+                key_type, val_type = type_args
+                return {
+                    self.parse(str(k), key_type): self.parse(str(v), val_type)
+                    for k, v in parsed.items()
+                }
+            # Unparameterized annotations (e.g. `dict`, `Dict`, `Optional[dict]`
+            # resolved to a bare dict) have no key/value types to coerce to.
+            return parsed
         except Exception as e:
             raise DictParseError(value, Dict, f"Invalid dict: {str(e)}")
 
@@ -1499,61 +1509,85 @@ def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
     return annotation
 
 
-def _resolve_string_annotation(fn: Callable, annotation: str) -> Any:
-    """Resolve a string annotation using builtins, module globals, typing, and TYPE_CHECKING imports."""
+_MAX_ANNOTATION_DEPTH = 10
+
+
+def _resolve_string_annotation(fn: Callable, annotation: str, _depth: int = 0) -> Any:
+    """Resolve a string annotation using builtins, module globals, typing, and TYPE_CHECKING imports.
+
+    Quoted annotations can nest (e.g. ``"'Path'"`` under future-annotations
+    evaluates to the string ``"Path"``, and ``'list["Path"]'`` evaluates to a
+    generic holding an unresolved ForwardRef), so the evaluated result is fed
+    back through ``_maybe_resolve_annotation`` until it stops changing.
+    """
+    if _depth > _MAX_ANNOTATION_DEPTH:
+        return annotation
     if hasattr(fn, "__fn_or_cls__"):
         fn = fn.__fn_or_cls__
+
+    resolved: Any = None
 
     # 1. Direct built-in type lookup (e.g., "int", "str", "float", "bool", "list", "dict")
     if hasattr(builtins, annotation):
         val = getattr(builtins, annotation)
         if isinstance(val, type):
-            return val
+            resolved = val
 
     # 2. Namespace evaluation with builtins, typing, and module globals
-    ns: dict[str, Any] = {}
-    ns.update(builtins.__dict__)
-    ns.update(typing.__dict__)
+    if resolved is None:
+        ns: dict[str, Any] = {}
+        ns.update(builtins.__dict__)
+        ns.update(typing.__dict__)
 
-    mod_name = getattr(fn, "__module__", None)
-    if mod_name and mod_name in sys.modules:
-        ns.update(sys.modules[mod_name].__dict__)
-    elif hasattr(fn, "__globals__"):
-        ns.update(fn.__globals__)
-    elif inspect.isclass(fn):
-        init = getattr(fn, "__init__", None)
-        if init and hasattr(init, "__globals__"):
-            ns.update(init.__globals__)
+        mod_name = getattr(fn, "__module__", None)
+        if mod_name and mod_name in sys.modules:
+            ns.update(sys.modules[mod_name].__dict__)
+        elif hasattr(fn, "__globals__"):
+            ns.update(fn.__globals__)
+        elif inspect.isclass(fn):
+            init = getattr(fn, "__init__", None)
+            if init and hasattr(init, "__globals__"):
+                ns.update(init.__globals__)
 
-    try:
-        return eval(annotation, ns)
-    except Exception:
-        pass
-
-    # 3. Direct TYPE_CHECKING import lookup
-    resolved = _resolve_type_checking_annotation(fn, annotation)
-    if resolved != annotation:
-        return resolved
-
-    # 4. Complex expressions involving TYPE_CHECKING imports (e.g. "Optional[CustomType]")
-    type_checking_imports = _get_type_checking_imports(fn)
-    if type_checking_imports:
-        for name, full_path in type_checking_imports.items():
-            try:
-                module_name, type_name = full_path.rsplit(".", 1)
-                module = importlib.import_module(module_name)
-                ns[name] = getattr(module, type_name)
-            except Exception:
-                pass
         try:
-            return eval(annotation, ns)
+            resolved = eval(annotation, ns)
         except Exception:
             pass
 
-    return annotation
+    # 3. Direct TYPE_CHECKING import lookup
+    if resolved is None:
+        resolved = _resolve_type_checking_annotation(fn, annotation)
+
+    # 4. Complex expressions involving TYPE_CHECKING imports (e.g. "Optional[CustomType]")
+    if resolved is None:
+        type_checking_imports = _get_type_checking_imports(fn)
+        if type_checking_imports:
+            ns = dict(builtins.__dict__)
+            ns.update(typing.__dict__)
+            for name, full_path in type_checking_imports.items():
+                try:
+                    module_name, type_name = full_path.rsplit(".", 1)
+                    module = importlib.import_module(module_name)
+                    ns[name] = getattr(module, type_name)
+                except Exception:
+                    pass
+            try:
+                resolved = eval(annotation, ns)
+            except Exception:
+                pass
+
+    if resolved is None:
+        return annotation
+
+    # The evaluated result can itself be a quoted name ("'Path'" -> "Path") or a
+    # generic holding unresolved strings/ForwardRefs; keep resolving instead of
+    # handing a half-resolved annotation to TypeParser.
+    if resolved == annotation:
+        return annotation
+    return _maybe_resolve_annotation(fn, "", resolved, _depth=_depth + 1)
 
 
-def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> Any:
+def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any, _depth: int = 0) -> Any:
     """Internal function to resolve an annotation to its actual type.
 
     This function handles string annotations, ForwardRef, and generic types (e.g., Optional, List)
@@ -1567,18 +1601,31 @@ def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> A
     Returns:
         Any: The resolved type, or the original annotation if resolution fails
     """
+    if _depth > _MAX_ANNOTATION_DEPTH:
+        return annotation
+
     # Case 1: Annotation is a string
     if isinstance(annotation, str):
-        return _resolve_string_annotation(fn, annotation)
+        return _resolve_string_annotation(fn, annotation, _depth=_depth)
 
     # Case 2: Annotation is a ForwardRef
     elif isinstance(annotation, ForwardRef):
-        return _resolve_string_annotation(fn, annotation.__forward_arg__)
+        return _resolve_string_annotation(fn, annotation.__forward_arg__, _depth=_depth)
 
     # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
     elif (origin := get_origin(annotation)) is not None:
+        if origin is Literal:
+            # Literal values are data, not types: Literal["Path"] must keep the
+            # string "Path" instead of resolving it to pathlib.Path.
+            return annotation
         args = get_args(annotation)
-        resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
+        if not args:
+            # Unparameterized generics (e.g. bare `List`, `Dict`) have no
+            # arguments to resolve and are handled downstream as-is.
+            return annotation
+        resolved_args = tuple(
+            _maybe_resolve_annotation(fn, arg_name, arg, _depth=_depth + 1) for arg in args
+        )
         if origin is list:
             return List[resolved_args[0]]
         elif origin is dict:
