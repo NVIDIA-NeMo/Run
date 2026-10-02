@@ -3,28 +3,28 @@ revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.13.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.13.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.13.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.13.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 conflicts = [[
@@ -1962,19 +1962,19 @@ version = "4.0.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.13.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.13.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8c/ae/3af7d006aacf513975fd1948a6b4d6f8b4a307f8a244e1a3d3774b297aad/bcrypt-4.0.1.tar.gz", hash = "sha256:27d375903ac8261cfe4047f6709d16f7d18d39b1ec92aaf72af989552a650ebd", size = 25498, upload-time = "2022-10-09T15:36:49.775Z" }
@@ -1998,13 +1998,13 @@ version = "4.3.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.14' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version >= '3.14' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/bb/5d/6d7433e0f3cd46ce0b43cd65e1db465ea024dbb8216fb2404e919c2ad77b/bcrypt-4.3.0.tar.gz", hash = "sha256:3a3fd2204178b6d2adcf09cb4f6426ffef54762577a7c9b54c159008cb288c18", size = 25697, upload-time = "2025-02-28T01:24:09.174Z" }
@@ -2731,14 +2731,14 @@ version = "0.16"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and sys_platform == 'darwin'",
     "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "python_full_version == '3.13.*' and sys_platform == 'darwin'",
     "python_full_version == '3.13.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin'",
     "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
     "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform == 'darwin'",
     "python_full_version < '3.11' and sys_platform != 'darwin'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2f/e0/3d435b34abd2d62e8206171892f174b180cd37b09d57b924ca5c2ef2219d/docutils-0.16.tar.gz", hash = "sha256:c2de3a60e9e7d07be26b7f2b00ca0309c207e06c100f9cc2a94931fc75a478fc", size = 1962041, upload-time = "2020-01-12T13:55:25.917Z" }
@@ -2910,11 +2910,11 @@ wheels = [
 
 [[package]]
 name = "filelock"
-version = "3.17.0"
+version = "3.32.7"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/dc/9c/0b15fb47b464e1b663b1acd1253a062aa5feecb07d4e597daea542ebd2b5/filelock-3.17.0.tar.gz", hash = "sha256:ee4e77401ef576ebb38cd7f13b9b28893194acc20a8e68e18730ba9c0e54660e", size = 18027, upload-time = "2025-01-21T20:04:49.099Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/59/e19834834cb01a32febfbb0f8a23a9088088f5d45991824ff2bc3b5e8acb/filelock-3.32.7.tar.gz", hash = "sha256:37b8a3d9811b0f9aef7e5ec5c71bb320de52df51e6ca9bcd6f5ad81187660da7", size = 225154, upload-time = "2026-09-16T00:24:20.907Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/ec/00d68c4ddfedfe64159999e5f8a98fb8442729a63e2077eb9dcd89623d27/filelock-3.17.0-py3-none-any.whl", hash = "sha256:533dc2f7ba78dc2f0f531fc6c4940addf7b70a481e269a5a3b93be94ffbe8338", size = 16164, upload-time = "2025-01-21T20:04:47.734Z" },
+    { url = "https://files.pythonhosted.org/packages/15/df/31098c5aeb4d966b553641472bd55fcf5fdfac953549894b8a765ba44e91/filelock-3.32.7-py3-none-any.whl", hash = "sha256:65ff0d0190ea42038b32bda4b77834fb05be2cad4c5b9b01aa4dfb3614536e52", size = 100157, upload-time = "2026-09-16T00:24:19.543Z" },
 ]
 
 [[package]]
@@ -3075,14 +3075,14 @@ wheels = [
 
 [[package]]
 name = "gitpython"
-version = "3.1.57"
+version = "3.1.62"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "gitdb" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ba/0d/132ed135c871b6bf91adf16a0e43797cd535b81d4973b5d09291c54fc5ee/gitpython-3.1.57.tar.gz", hash = "sha256:c493ec57c0ef6b19743798b6a5af859c71814b524e7e6f97baa2f8e658961488", size = 225898, upload-time = "2026-07-26T07:33:26.351Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/db/3ca813cbacb23ab6fe46ff38a9b5ef8e73e970c8051f2ce903aacafe0446/gitpython-3.1.62.tar.gz", hash = "sha256:1791de66309bc0c7cfca40bf8d2e3de7ca091cbf94e6051be1ad0722c61062af", size = 231728, upload-time = "2026-09-07T02:57:21.155Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/6e/2139de986d9c7c3ac86f1f8be43858ce90bdfe2f7175e6c80c650ba15242/gitpython-3.1.57-py3-none-any.whl", hash = "sha256:4ccf7d73c10f5c9e76043fbb2675ac5a1b3ff5b41e648f56bcbed5f63792ecaf", size = 217151, upload-time = "2026-07-26T07:33:24.838Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/0b/29d7965215f8ef830a7ca1f42997fe13e5693d85e9edb18f938d063ef5f2/gitpython-3.1.62-py3-none-any.whl", hash = "sha256:7002251225e10e29d2e1f49e6532613fe5d5d9f0b6f1f02997a52b38fe56899e", size = 222753, upload-time = "2026-09-07T02:57:19.762Z" },
 ]
 
 [[package]]
@@ -4083,7 +4083,7 @@ wheels = [
 
 [[package]]
 name = "jupyterlab"
-version = "4.4.0b0"
+version = "4.5.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
@@ -4100,10 +4100,11 @@ dependencies = [
     { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "tornado" },
     { name = "traitlets" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6e/6d/c63467f4ab495cfd3db348a373d4815c910f80e604ff1ec81fcbb6469c25/jupyterlab-4.4.0b0.tar.gz", hash = "sha256:998d8a223e188b44e7b97bcb6e0990b132ae0b6397207b068c7618f7f056bc6e", size = 22203807, upload-time = "2025-02-19T22:18:01.661Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/c5/2bf995b906cd83581dbb3435ac1dc5d1cb1fab9de233735a99b3f5be8d51/jupyterlab-4.5.11.tar.gz", hash = "sha256:6534bb389d31f5ceb4357b15d2c002206063b51ef9c1911a079f537749215ddc", size = 24000794, upload-time = "2026-09-21T16:19:46.398Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/3c/82e775e8af2955206aa089bc065660760fa4b415c52e7ce3ebf6d5e9fa38/jupyterlab-4.4.0b0-py3-none-any.whl", hash = "sha256:f875babc5b3cc7d92cb7e5e3940a84dcbc958037d9319361f44074b382877bc0", size = 12261607, upload-time = "2025-02-19T22:17:54.262Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/f2/a2f50a928fed0b8529dd80c4eb7d3aebe92f9658bfb3b63dce77fb5f1b95/jupyterlab-4.5.11-py3-none-any.whl", hash = "sha256:e23e3d76b92ad172b529fb6faf91e3edd264ffdff65b543949eb85daf7f8b113", size = 12455673, upload-time = "2026-09-21T16:19:41.937Z" },
 ]
 
 [[package]]
@@ -4117,7 +4118,7 @@ wheels = [
 
 [[package]]
 name = "jupyterlab-server"
-version = "2.27.3"
+version = "2.28.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "babel" },
@@ -4128,9 +4129,9 @@ dependencies = [
     { name = "packaging" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/c9/a883ce65eb27905ce77ace410d83587c82ea64dc85a48d1f7ed52bcfa68d/jupyterlab_server-2.27.3.tar.gz", hash = "sha256:eb36caca59e74471988f0ae25c77945610b887f777255aa21f8065def9e51ed4", size = 76173, upload-time = "2024-07-16T17:02:04.149Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/16/c5/08946a10b81bd64408d8b78cb352e17fe52d3ee11c2aef00a0f06e506938/jupyterlab_server-2.28.1.tar.gz", hash = "sha256:0c3c2418d51021ce280916e63dfe4cba8386b4e2787be5c25433c98f560ddb31", size = 78141, upload-time = "2026-09-15T19:22:09.935Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/09/2032e7d15c544a0e3cd831c51d77a8ca57f7555b2e1b2922142eddb02a84/jupyterlab_server-2.27.3-py3-none-any.whl", hash = "sha256:e697488f66c3db49df675158a77b3b017520d772c6e1548c7d9bcc5df7944ee4", size = 59700, upload-time = "2024-07-16T17:02:01.115Z" },
+    { url = "https://files.pythonhosted.org/packages/23/d3/996332fe24f3c2458b9c353b998570dfa2631763e9a8674ba3f94c0877d0/jupyterlab_server-2.28.1-py3-none-any.whl", hash = "sha256:4bd36c7c11d872e15cefa4951e12380a47e6901687165332dd50a007cb367ad9", size = 60197, upload-time = "2026-09-15T19:22:08.201Z" },
 ]
 
 [[package]]
@@ -5059,7 +5060,7 @@ wheels = [
 
 [[package]]
 name = "notebook"
-version = "7.4.0b0"
+version = "7.5.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jupyter-server" },
@@ -5068,9 +5069,9 @@ dependencies = [
     { name = "notebook-shim" },
     { name = "tornado" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7b/d5/537f9da00f76bc841c57398692588348777939e6956d1984a7a6bb47a6e1/notebook-7.4.0b0.tar.gz", hash = "sha256:c1f92af1e02f323425d8a9574f322997d80dc3a7d4b5a07fd658e428ada0a814", size = 13775235, upload-time = "2025-02-20T09:53:29.054Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/c4/f71f8716f2903e9e817a47f534b9fd84831e155e2acb32c26691c8e06243/notebook-7.5.7.tar.gz", hash = "sha256:d6d59288a25303b25e1dcb71e9b017ec3a785f7d92f38b9bc288ca1970d5b0a8", size = 14171612, upload-time = "2026-06-04T18:33:45.224Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/3e/c2aba33a7d50c1616e840edc1ba64be7883a0a2cb69a868feb4ab7e552ca/notebook-7.4.0b0-py3-none-any.whl", hash = "sha256:56109387b3eaf16c45d015f14737108bf5ec5b3a3084647a611d7d5982956647", size = 14175090, upload-time = "2025-02-20T09:53:22.299Z" },
+    { url = "https://files.pythonhosted.org/packages/e1/4d/b3347f7073a377273531efe4ffc738fc910e93718fd2838c7ebf6736c6af/notebook-7.5.7-py3-none-any.whl", hash = "sha256:1f95f79d117e47d20b5555b5c85a397d2cfecf136978aaab767cf0314b09165b", size = 14583767, upload-time = "2026-06-04T18:33:40.987Z" },
 ]
 
 [[package]]
@@ -6104,23 +6105,23 @@ version = "2.11.7"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 dependencies = [
@@ -6163,23 +6164,23 @@ version = "2.33.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 dependencies = [
@@ -6482,11 +6483,14 @@ wheels = [
 
 [[package]]
 name = "pyjwt"
-version = "2.10.1"
+version = "2.15.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e7/46/bd74733ff231675599650d3e47f361794b22ef3e3770998dda30d3b63726/pyjwt-2.10.1.tar.gz", hash = "sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953", size = 87785, upload-time = "2024-11-28T03:43:29.933Z" }
+dependencies = [
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/a5/5197bfd06417837ac079921c66fa6393f1dea3557272a263cebfef69e432/pyjwt-2.15.0.tar.gz", hash = "sha256:b11c5f9791d7bf51c2b39a81ed669f6b2dbbd669df2942f6c60167e9e3d1abe4", size = 120513, upload-time = "2026-09-23T16:56:00.689Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/ad/689f02752eeec26aed679477e80e632ef1b682313be70793d798c1d5fc8f/PyJWT-2.10.1-py3-none-any.whl", hash = "sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb", size = 22997, upload-time = "2024-11-28T03:43:27.893Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/55/40e45bf052ee8ee12a4dfd785519660f8effa7b065442b91646ec6828619/pyjwt-2.15.0-py3-none-any.whl", hash = "sha256:7a3742debf6b879e912dbb9819ceec1594be812452b78c5f2e2dfc56564954f8", size = 33680, upload-time = "2026-09-23T16:55:59.241Z" },
 ]
 
 [package.optional-dependencies]
@@ -6663,6 +6667,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
+]
+
+[[package]]
+name = "python-discovery"
+version = "1.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0c/57/250bd238b966cece44328235eb85290045d059265fdaf7527a3a958123db/python_discovery-1.6.1.tar.gz", hash = "sha256:cf87d3627dfb4412437fdd5b13eae402607722998d21567993aedbc59b23c15e", size = 84338, upload-time = "2026-09-18T01:31:53.971Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/7d/e9ffbadfbf89c93848412d04594135c4ae8c1d37d9e053b9c3ed718fabc4/python_discovery-1.6.1-py3-none-any.whl", hash = "sha256:d43fcdef879fe795352bd13ccf8d185ba5a9f86f36cfcd00529f596e737442b3", size = 38664, upload-time = "2026-09-18T01:31:52.448Z" },
 ]
 
 [[package]]
@@ -8137,14 +8153,14 @@ version = "4.12.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/df/db/f35a00659bc03fec321ba8bce9420de607a1d37f8342eee1863174c69557/typing_extensions-4.12.2.tar.gz", hash = "sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8", size = 85321, upload-time = "2024-06-07T18:52:15.995Z" }
@@ -8158,18 +8174,18 @@ version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version >= '3.14' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466", size = 109391, upload-time = "2025-08-25T13:49:26.313Z" }
@@ -8197,23 +8213,23 @@ version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
-    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.13.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version == '3.12.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
     "python_full_version < '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
 dependencies = [
@@ -8414,16 +8430,18 @@ wheels = [
 
 [[package]]
 name = "virtualenv"
-version = "20.29.3"
+version = "21.7.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "distlib" },
     { name = "filelock" },
     { name = "platformdirs" },
+    { name = "python-discovery" },
+    { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/9c/57d19fa093bcf5ac61a48087dd44d00655f85421d1aa9722f8befbf3f40a/virtualenv-20.29.3.tar.gz", hash = "sha256:95e39403fcf3940ac45bc717597dba16110b74506131845d9b687d5e73d947ac", size = 4320280, upload-time = "2025-03-06T19:54:19.055Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/13/50/c9b84eb106d0db420b9878dac0a386c5791726f127ce20b06897f6e3a1e9/virtualenv-21.7.13.tar.gz", hash = "sha256:0355558b6f33619aab31347e43643b0ebc97f61ea3acf617b2b69e1f8a843d11", size = 5360306, upload-time = "2026-09-18T04:35:49.354Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/eb/c6db6e3001d58c6a9e67c74bb7b4206767caa3ccc28c6b9eaf4c23fb4e34/virtualenv-20.29.3-py3-none-any.whl", hash = "sha256:3e3d00f5807e83b234dfb6122bf37cfadf4be216c53a49ac059d02414f819170", size = 4301458, upload-time = "2025-03-06T19:54:16.923Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/ce/e74453531b0c49a58d0e8a4f9bab4495705859fee4a4f7de27d58f4a791a/virtualenv-21.7.13-py3-none-any.whl", hash = "sha256:1bea5af7463f59c4719db48fe739579a2a4f569c96f26c086edda85c96da9f59", size = 5328680, upload-time = "2026-09-18T04:35:47.194Z" },
 ]
 
 [[package]]
