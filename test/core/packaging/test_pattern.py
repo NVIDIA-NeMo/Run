@@ -17,12 +17,35 @@ import filecmp
 import os
 import shlex
 import subprocess
+import tarfile
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from nemo_run.core.packaging.pattern import PatternPackager
 from test.conftest import MockContext
+
+
+@pytest.mark.parametrize("spaced_part", ["job_dir", "name"])
+@patch("nemo_run.core.packaging.pattern.Context", MockContext)
+def test_package_with_spaces_in_output_path(tmp_path, spaced_part):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "input.txt").write_text("training input")
+    job_dir = tmp_path / ("job output" if spaced_part == "job_dir" else "job")
+    job_dir.mkdir()
+    name = "training package" if spaced_part == "name" else "training"
+    packager = PatternPackager(include_pattern=str(source / "*"), relative_path=str(source))
+
+    output = packager.package(source, str(job_dir), name)
+
+    assert output == str(job_dir / f"{name}.tar.gz")
+    with tarfile.open(output) as archive:
+        assert archive.getnames() == ["input.txt"]
+        assert archive.extractfile("input.txt").read() == b"training input"
+    assert not Path(output + ".tmp").exists()
 
 
 @patch("nemo_run.core.packaging.pattern.Context", MockContext)
