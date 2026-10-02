@@ -14,6 +14,8 @@
 name: "Build, validate, and release NeMo Run"
 
 on:
+  merge_group:
+    types: [checks_requested]
   push:
     branches:
       - "main"

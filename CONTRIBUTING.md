@@ -99,9 +99,18 @@ does not define a trustee override.
 The NVIDIA copy-pr-bot GitHub App must be installed and enabled for this repository.
 
 Tests, installation, lint, formatting, spelling, copyright, secret detection,
-CodeQL, and release validation run on the mirror push. Release publishing still
-requires manual dispatch. Maintainers should verify checks on the mirror commit
-before merging.
+CodeQL, and release validation run on the mirror push and on
+`merge_group` events with type `checks_requested`. Merge-queue runs check the
+queue's temporary merge commit using the same jobs and check names as push CI;
+the unit tests, example notebooks/scripts, and full installation matrix are
+included. Release publishing still requires manual dispatch.
+
+After these workflows are available on the target branch, a repository admin
+must enable **Require merge queue** in that branch's protection rule or ruleset.
+Keep the essential CI checks required so the queue waits for their results on
+the merge-group commit. Workflow changes alone do not enable the repository
+setting. Maintainers should verify checks on the mirror commit before enqueueing
+and on the merge-group commit before merging.
 
 ## Sign Your Work
 
