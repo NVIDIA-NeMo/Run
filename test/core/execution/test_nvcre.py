@@ -14,10 +14,13 @@
 # limitations under the License.
 
 import os
+import re
 import subprocess
+import tarfile
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from nemo_run.core.execution.launcher import Launcher
 from nemo_run.core.execution.nvcre import NvcreExecutor, NvcrePhase
@@ -117,6 +120,92 @@ class TestNvcreExecutor:
         e.experiment_id = "my-exp_123456789"
         name = e._safe_name()
         assert len(name) <= 63
+
+    @staticmethod
+    def _named(job_name, experiment_id="my-exp_123456789"):
+        e = NvcreExecutor(namespace="ns", container_image="img")
+        e.job_name = job_name
+        e.experiment_id = experiment_id
+        return e
+
+    def test_safe_name_is_deterministic(self):
+        assert self._named("job")._safe_name() == self._named("job")._safe_name()
+
+    def test_safe_name_differs_across_experiments(self):
+        assert self._named("job", "exp_1")._safe_name() != self._named("job", "exp_2")._safe_name()
+
+    def test_safe_name_differs_for_long_names_sharing_a_prefix(self):
+        prefix = "a" * 80
+        a, b = self._named(prefix + "_first"), self._named(prefix + "_second")
+        assert a._safe_name() != b._safe_name()
+        assert a._safe_name().startswith("a" * 56)
+
+    def test_safe_name_differs_for_experiment_repeat_suffix(self):
+        # Experiment turns a repeated task name into "<name>_1"; truncation must not hide that.
+        name = "a" * 70
+        assert self._named(name)._safe_name() != self._named(name + "_1")._safe_name()
+
+    def test_safe_name_differs_when_sanitizing_would_merge_names(self):
+        assert self._named("a_b")._safe_name() != self._named("a-b")._safe_name()
+
+    def test_safe_name_is_a_valid_dns_label_for_awkward_names(self):
+        for job in ("My_Job.Name", "", "-lead", "trail.", "sp ace", "x" * 200, "ünï"):
+            name = self._named(job)._safe_name()
+            assert re.fullmatch(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?", name), name
+            assert len(name) <= 63
+
+    # ── shell_join / requires_shell ────────────────────────────────────────────
+
+    @staticmethod
+    def _run_shell_join(executor, cmd, env=None):
+        script = "printf '%s\\n' " + executor.shell_join(cmd)
+        result = subprocess.run(
+            ["bash", "-c", script],
+            env={"PATH": "/usr/bin:/bin", **(env or {})},
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.splitlines()
+
+    def test_shell_join_expands_launcher_macros_and_quotes_the_rest(self, executor):
+        cmd = [
+            "torchrun",
+            "--rdzv-endpoint",
+            "$PET_MASTER_ADDR:29500",
+            "--node-rank",
+            "$PET_NODE_RANK",
+            "--name",
+            "has space; echo injected",
+            "--literal",
+            "$HOME `id` $(id) 'q'",
+            "",
+        ]
+        out = self._run_shell_join(
+            executor, cmd, env={"PET_MASTER_ADDR": "head-0", "PET_NODE_RANK": "3", "HOME": "/h"}
+        )
+        assert out == [
+            "torchrun",
+            "--rdzv-endpoint",
+            "head-0:29500",
+            "--node-rank",
+            "3",
+            "--name",
+            "has space; echo injected",
+            "--literal",
+            "$HOME `id` $(id) 'q'",
+            "",
+        ]
+
+    def test_shell_join_does_not_expand_lookalike_variable_names(self, executor):
+        out = self._run_shell_join(
+            executor, ["$PET_NODE_RANKS", "x$PET_NODE_RANK-y"], env={"PET_NODE_RANK": "2"}
+        )
+        assert out == ["$PET_NODE_RANKS", "x2-y"]
+
+    def test_requires_shell_only_for_launcher_macros(self, executor):
+        assert executor.requires_shell(["torchrun", "--node-rank", "$PET_NODE_RANK"])
+        assert not executor.requires_shell(["torchrun", "--node-rank", "0", "$HOME"])
 
     # ── submit ─────────────────────────────────────────────────────────────────
 
@@ -266,6 +355,7 @@ class TestNvcreExecutor:
         assert "export FOO=bar" in content
         assert "python train.py" in content
         assert content.startswith("#!/usr/bin/env bash")
+        assert f"cd {executor.code_workdir}\n" in content
 
     def test_materialize_launch_script_with_retries(self, executor, tmp_path):
         executor.job_dir = str(tmp_path)
@@ -275,13 +365,139 @@ class TestNvcreExecutor:
         assert "MAX_RETRIES=2" in content
         assert "Retry $attempt/$MAX_RETRIES" in content
 
-    def test_materialize_launch_script_with_nsys_prefix(self, executor, tmp_path):
+    @staticmethod
+    def _run_launch_script(executor, tmp_path, fails_before_success, max_retries):
+        """Run the generated launch.sh for real with a command that fails N times first."""
+        counter = tmp_path / "attempts"
+        flaky = tmp_path / "flaky.sh"
+        flaky.write_text(
+            "#!/bin/sh\n"
+            f"n=$(cat {counter} 2>/dev/null || echo 0); n=$((n + 1)); echo $n > {counter}\n"
+            f"[ $n -gt {fails_before_success} ] && exit 0\n"
+            "exit 7\n"
+        )
+        flaky.chmod(0o755)
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir(exist_ok=True)
+        fake_sleep = bin_dir / "sleep"
+        fake_sleep.write_text("#!/bin/sh\nexit 0\n")
+        fake_sleep.chmod(0o755)
+
+        executor.job_dir = str(tmp_path / "job")
+        executor.materialize_launch_script([str(flaky)], max_retries=max_retries)
+        script = (tmp_path / "job" / "launch.sh").read_text()
+        script = script.replace(f"cd {executor.code_workdir}\n", "")  # only exists in the pod
+        result = subprocess.run(
+            ["bash", "-c", script],
+            env={"PATH": f"{bin_dir}:/usr/bin:/bin"},
+            capture_output=True,
+            text=True,
+        )
+        attempts = int(counter.read_text())
+        return result, attempts
+
+    @staticmethod
+    def _launch_env(executor, tmp_path, env_vars, extra_env=None, names=None):
+        """Run launch.sh for real and return the values the command saw for each env var."""
+        executor.job_dir = str(tmp_path / "job")
+        executor.env_vars = env_vars
+        names = list(env_vars) if names is None else names
+        executor.materialize_launch_script(
+            ["bash", "-c", 'for n in "$@"; do printf "%s\\0" "${!n}"; done', "_", *names]
+        )
+        script = (tmp_path / "job" / "launch.sh").read_text()
+        script = script.replace(f"cd {executor.code_workdir}\n", "")  # only exists in the pod
+        result = subprocess.run(
+            ["bash", "-c", script],
+            env={"PATH": "/usr/bin:/bin", "HOME": "/home/real", **(extra_env or {})},
+            capture_output=True,
+            text=True,
+        )
+        values = result.stdout.split("\0")[:-1]
+        return result, dict(zip(names, values))
+
+    def test_launch_script_preserves_env_values_with_shell_characters(self, executor, tmp_path):
+        marker = tmp_path / "injected"
+        env_vars = {
+            "PROMPT": "hello world",
+            "QUOTES": """it's "quoted" and \\ backslashed""",
+            "DOLLAR": "$HOME and ${HOME} and $(echo no)",
+            "SUBST": f"`touch {marker}` $(touch {marker}); touch {marker}",
+            "MULTILINE": "line1\nline2",
+            "EMPTY": "",
+            "NUMBER": 8,
+        }
+
+        result, seen = self._launch_env(executor, tmp_path, env_vars)
+
+        assert result.returncode == 0, result.stderr
+        assert seen == {k: str(v) for k, v in env_vars.items()}
+        assert not marker.exists()  # no command substitution happened
+
+    def test_launch_script_still_expands_launcher_macros_in_env_values(self, executor, tmp_path):
+        env_vars = {"NODE_RANK_COPY": "$PET_NODE_RANK", "ENDPOINT": "$PET_MASTER_ADDR:29500"}
+
+        result, seen = self._launch_env(
+            executor, tmp_path, env_vars, {"PET_NODE_RANK": "3", "PET_MASTER_ADDR": "head-0"}
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert seen == {"NODE_RANK_COPY": "3", "ENDPOINT": "head-0:29500"}
+
+    def test_launch_script_skips_env_names_bash_cannot_export(self, executor, tmp_path, caplog):
+        env_vars = {"BAD-NAME": "x", "bad.name": "y", "GOOD": "1"}
+
+        with caplog.at_level("WARNING"):
+            result, seen = self._launch_env(executor, tmp_path, env_vars, names=["GOOD"])
+
+        # An invalid identifier in `export` would abort the script under set -e.
+        assert result.returncode == 0, result.stderr
+        assert seen["GOOD"] == "1"
+        launch_sh = (tmp_path / "job" / "launch.sh").read_text()
+        assert "BAD-NAME" not in launch_sh and "bad.name" not in launch_sh
+        assert "BAD-NAME" in caplog.text
+
+    def test_launch_script_retries_a_command_that_fails_once(self, executor, tmp_path):
+        result, attempts = self._run_launch_script(
+            executor, tmp_path, fails_before_success=1, max_retries=2
+        )
+        assert result.returncode == 0
+        assert attempts == 2
+        assert "Retry 1/2" in result.stdout
+
+    def test_launch_script_returns_last_exit_code_when_retries_are_exhausted(
+        self, executor, tmp_path
+    ):
+        result, attempts = self._run_launch_script(
+            executor, tmp_path, fails_before_success=99, max_retries=2
+        )
+        assert result.returncode == 7
+        assert attempts == 3  # first run + 2 retries
+
+    def test_launch_script_does_not_retry_a_successful_command(self, executor, tmp_path):
+        result, attempts = self._run_launch_script(
+            executor, tmp_path, fails_before_success=0, max_retries=2
+        )
+        assert result.returncode == 0
+        assert attempts == 1
+        assert "Retry" not in result.stdout
+
+    def test_launch_script_without_retries_fails_on_first_error(self, executor, tmp_path):
+        result, attempts = self._run_launch_script(
+            executor, tmp_path, fails_before_success=1, max_retries=0
+        )
+        assert result.returncode == 7
+        assert attempts == 1
+
+    def test_materialize_launch_script_runs_cmd_as_given_when_profiling(self, executor, tmp_path):
+        # The scheduler applies the nsys wrapper; the script must not add another.
         executor.job_dir = str(tmp_path)
         executor.launcher = Launcher(nsys_profile=True)
         executor.materialize_launch_script(["python", "train.py"])
 
         content = (tmp_path / "launch.sh").read_text()
-        assert content.count("nsys") >= 1
+        assert "nsys" not in content
+        assert "\npython train.py\n" in content
 
     # ── assign ─────────────────────────────────────────────────────────────────
 
@@ -446,7 +662,29 @@ class TestNvcreExecutor:
     # ── data-mover pod lifecycle ───────────────────────────────────────────────
 
     def test_data_mover_pod_name(self, executor):
-        assert executor._data_mover_pod_name("mover1") == f"{executor._safe_name()}-mover1"
+        name = executor._data_mover_pod_name("mover1")
+        assert name.startswith(f"{executor.job_name.replace('_', '-')}-mover1-")
+        assert re.fullmatch(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?", name)
+
+    def test_data_mover_pod_name_keeps_label_and_task_identity_when_long(self):
+        prefix = "a" * 80
+        a = self._named(prefix + "_first")
+        b = self._named(prefix + "_second")
+        names = {
+            a._data_mover_pod_name("one"),
+            a._data_mover_pod_name("two"),
+            b._data_mover_pod_name("one"),
+            a._safe_name(),
+        }
+        assert len(names) == 4
+        assert all(len(n) <= 63 and re.fullmatch(r"[a-z0-9-]+", n) for n in names)
+
+    def test_data_mover_pod_name_handles_job_name_label(self):
+        # package() passes the (possibly underscored/mixed-case) job name as the label.
+        e = self._named("My_Task_1")
+        name = e._data_mover_pod_name("My_Task_1")
+        assert re.fullmatch(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?", name)
+        assert len(name) <= 63
 
     def test_start_data_mover_pod_reaches_running(self, executor):
         executor.workdir_pvc = "my-pvc"
@@ -582,6 +820,92 @@ class TestNvcreExecutor:
 
         rsync_call = mock_check_call.call_args_list[0][0][0]
         assert rsync_call[0] == "rsync"
+        # The overlay lands in the extracted-code dir (what the job runs from).
+        assert rsync_call[-1] == os.path.join(executor.job_dir, "code") + "/"
+
+    def test_package_applies_overlay_after_archive_extraction(self, executor, tmp_path):
+        executor.workdir_pvc = "my-pvc"
+        executor.job_dir = str(tmp_path / "job")
+        os.makedirs(executor.job_dir, exist_ok=True)
+        executor.workdir_local_path = "/some/overlay"
+        fake_tarball = tmp_path / "pkg.tar.gz"
+        fake_tarball.write_bytes(b"")
+        mock_packager = MagicMock()
+        mock_packager.package.return_value = str(fake_tarball)
+
+        with (
+            patch("nemo_run.core.execution.nvcre.subprocess.check_call") as mock_check_call,
+            patch.object(NvcreExecutor, "copy_to_workspace"),
+        ):
+            executor.package(mock_packager, job_name="job1")
+
+        commands = [c[0][0][0] for c in mock_check_call.call_args_list]
+        assert commands == ["tar", "rsync"]  # overlay wins over archived files
+
+    def test_archived_code_is_where_the_launch_script_runs(self, executor, tmp_path):
+        executor.workdir_pvc = "my-pvc"
+        executor.job_dir = str(tmp_path / "job")
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "train.py").write_text("print('hi')\n")
+        tarball = tmp_path / "pkg.tar.gz"
+        with tarfile.open(tarball, "w:gz") as tf:
+            tf.add(src / "train.py", arcname="train.py")
+        mock_packager = MagicMock()
+        mock_packager.package.return_value = str(tarball)
+
+        with patch.object(NvcreExecutor, "copy_to_workspace") as mock_copy:
+            executor.package(mock_packager, job_name="job1")
+        executor.materialize_launch_script(["python", "train.py"])
+
+        # package() syncs job_dir -> code_dir, so job_dir/<rel> is code_dir/<rel>.
+        mock_copy.assert_called_once_with(executor.job_dir, executor.code_dir, label="job1")
+        assert (tmp_path / "job" / "code" / "train.py").is_file()
+        assert executor.code_workdir == f"{executor.code_dir}/code"
+        launch = (tmp_path / "job" / "launch.sh").read_text()
+        assert f"cd {executor.code_workdir}\n" in launch
+        assert f"cd {executor.code_dir}\n" not in launch
+
+    @pytest.mark.parametrize("task_id", ["train_job", "My_Task.1", "x" * 80 + "_a"])
+    def test_package_names_data_mover_pod_validly_for_awkward_task_ids(
+        self, executor, tmp_path, task_id
+    ):
+        executor.workdir_pvc = "my-pvc"
+        executor.job_name = task_id
+        executor.job_dir = str(tmp_path / "job")
+        mock_packager = MagicMock()
+        mock_packager.package.return_value = None
+        applied_pods, pod_names_in_calls = [], set()
+
+        def check_call(cmd, **kwargs):
+            if "apply" in cmd:
+                with open(cmd[cmd.index("-f") + 1]) as f:
+                    applied_pods.append(yaml.safe_load(f))
+            if "exec" in cmd:
+                pod_names_in_calls.add(cmd[cmd.index("exec") + 3])
+            if "cp" in cmd:
+                pod_names_in_calls.add(cmd[-1].split(":", 1)[0])
+
+        def run(cmd, **kwargs):
+            if "get" in cmd and "pod" in cmd:
+                pod_names_in_calls.add(cmd[cmd.index("pod") + 1])
+                return _completed(stdout="Running")
+            if "delete" in cmd:
+                pod_names_in_calls.add(cmd[cmd.index("pod") + 1])
+            return _completed()
+
+        with (
+            patch("nemo_run.core.execution.nvcre.subprocess.check_call", side_effect=check_call),
+            patch("nemo_run.core.execution.nvcre.subprocess.run", side_effect=run),
+        ):
+            executor.package(mock_packager, job_name=task_id)
+
+        assert len(applied_pods) == 1
+        pod_name = applied_pods[0]["metadata"]["name"]
+        # kubectl apply rejects anything that is not an RFC-1123 label.
+        assert re.fullmatch(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?", pod_name), pod_name
+        assert len(pod_name) <= 63
+        assert pod_names_in_calls == {pod_name}  # exec/cp/get/delete all use the same name
 
     def test_package_extracts_local_pkg_tarball(self, executor, tmp_path):
         executor.workdir_pvc = "my-pvc"

@@ -18,11 +18,12 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -38,6 +39,21 @@ logger = logging.getLogger(__name__)
 
 _NVCRE_WORKLOADRUN_API = "nvcre.nvidia.com/v1alpha1"
 _DATA_MOVER_IMAGE = "alpine:3.19"
+# Archived code lives here under job_dir / code_dir; configs/ and scripts/ sit beside it.
+_CODE_SUBDIR = "code"
+_DNS_LABEL_MAX = 63
+_NAME_HASH_LEN = 6
+_SHELL_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _dns_label(text: str) -> str:
+    return re.sub(r"[^a-z0-9-]+", "-", text.lower()).strip("-")
+
+
+def _fit_dns_label(readable: str, suffix: str) -> str:
+    """Truncate the readable part, never the unique suffix, to fit one DNS label."""
+    base = readable[: _DNS_LABEL_MAX - len(suffix) - 1].rstrip("-") or "nvcre-job"
+    return f"{base}-{suffix}"
 
 
 class NvcrePhase(Enum):
@@ -163,6 +179,47 @@ class NvcreExecutor(Executor):
             het_group_host_var="PET_MASTER_ADDR",
         )
 
+    # ── Shell command rendering ───────────────────────────────────────────────
+
+    def _macro_var_pattern(self) -> Optional[re.Pattern]:
+        """Matches ``$VAR`` for the env vars that macro_values() points the launcher at."""
+        names = sorted(
+            {v for v in asdict(self.macro_values()).values() if v}, key=len, reverse=True
+        )
+        if not names:
+            return None
+        return re.compile(r"\$(" + "|".join(map(re.escape, names)) + r")(?![A-Za-z0-9_])")
+
+    def requires_shell(self, cmd: list[str]) -> bool:
+        """True if *cmd* holds launcher macros that only a shell can expand at runtime."""
+        pattern = self._macro_var_pattern()
+        return bool(pattern) and any(pattern.search(arg) for arg in cmd)
+
+    def shell_quote(self, value: str) -> str:
+        """Like ``shlex.quote``, but expands the launcher macro variables.
+
+        The distributed-launcher macros (e.g. ``--node-rank $PET_NODE_RANK``) are
+        resolved per pod, so they must reach the shell unquoted.  Every other
+        character, including any other ``$``, stays safely single-quoted.
+        """
+        pattern = self._macro_var_pattern()
+        if pattern is None:
+            return shlex.quote(value)
+
+        parts, pos = [], 0
+        for m in pattern.finditer(value):
+            if m.start() > pos:
+                parts.append(shlex.quote(value[pos : m.start()]))
+            parts.append(f'"${{{m.group(1)}}}"')
+            pos = m.end()
+        if pos < len(value) or not parts:
+            parts.append(shlex.quote(value[pos:]))
+        return "".join(parts)
+
+    def shell_join(self, cmd: list[str]) -> str:
+        """Like ``shlex.join``, with launcher macros expanded (see ``shell_quote``)."""
+        return " ".join(self.shell_quote(arg) for arg in cmd)
+
     # ── WorkloadRun YAML builder ──────────────────────────────────────────────
 
     @property
@@ -174,6 +231,11 @@ class NvcreExecutor(Executor):
         ]
         scope = "/".join([user, *parts])
         return f"{self.workdir_pvc_path.rstrip('/')}/{scope}/code"
+
+    @property
+    def code_workdir(self) -> str:
+        """Remote directory holding the extracted code; the job runs from here."""
+        return f"{self.code_dir}/{_CODE_SUBDIR}"
 
     def build_workloadrun_yaml(self, cmd: list[str]) -> dict:
         """Return the WorkloadRun manifest as a dict."""
@@ -231,17 +293,21 @@ class NvcreExecutor(Executor):
             "spec": spec,
         }
 
-    def _safe_name(self) -> str:
-        """The last 6 digits of the nanosecond timestamp embedded in experiment_id
-        (format: "<title>_<time_ns>") are used as a suffix so that repeated
-        submissions of the same job produce unique names.
+    def _name_suffix(self, *extra: str) -> str:
+        """Hash of the full, untruncated task identity (experiment id + task name).
+
+        Experiment appends ``_1`` etc. to repeated task names and names can share a
+        long prefix, so the hash is taken before the readable part is shortened.
         """
         if not self.experiment_id:
             raise RuntimeError("experiment_id is not set: executor was not initialized properly")
-        job = (self.job_name or "nvcre-job").lower().replace("_", "-").replace(".", "-")
-        suffix = hashlib.sha256(self.experiment_id.encode()).hexdigest()[:6]
-        base = job[:56].rstrip("-")
-        return f"{base}-{suffix}"
+        identity = "\0".join([self.experiment_id, self.job_name or "", *extra])
+        return hashlib.sha256(identity.encode()).hexdigest()[:_NAME_HASH_LEN]
+
+    def _safe_name(self) -> str:
+        """RFC-1123 WorkloadRun name: readable task-name prefix + identity hash."""
+        suffix = self._name_suffix()
+        return _fit_dns_label(_dns_label(self.job_name or "") or "nvcre-job", suffix)
 
     # ── nvcrectl / kubectl helpers ─────────────────────────────────────────────
 
@@ -482,7 +548,9 @@ class NvcreExecutor(Executor):
     # ── Code packaging via kubectl data-mover ────────────────────────────────
 
     def _data_mover_pod_name(self, label: str = "datamover") -> str:
-        return f"{self._safe_name()}-{label}"[:63]
+        suffix = self._name_suffix(label)
+        readable = f"{_dns_label(self.job_name or '') or 'nvcre-job'}-{_dns_label(label)}"
+        return _fit_dns_label(readable, suffix)
 
     def _start_data_mover_pod(self, pod_name: str, timeout: int = 120) -> None:
         """Spin up a throw-away alpine pod that mounts workdir_pvc."""
@@ -610,18 +678,6 @@ class NvcreExecutor(Executor):
         if not self.workdir_pvc:
             return
 
-        if self.workdir_local_path:
-            os.makedirs(self.job_dir, exist_ok=True)
-            subprocess.check_call(
-                [
-                    "rsync",
-                    "-a",
-                    f"{self.workdir_local_path.rstrip(os.sep)}/",
-                    f"{self.job_dir.rstrip(os.sep)}/",
-                ],
-            )
-            logger.info("Merged '%s' into job_dir '%s'", self.workdir_local_path, self.job_dir)
-
         if isinstance(packager, GitArchivePackager):
             output = subprocess.run(
                 ["git", "rev-parse", "--show-toplevel"],
@@ -633,7 +689,7 @@ class NvcreExecutor(Executor):
             base_path = Path(os.getcwd()).absolute()
 
         local_pkg = packager.package(base_path, self.job_dir, job_name)
-        code_extraction_path = os.path.join(self.job_dir, "code")
+        code_extraction_path = os.path.join(self.job_dir, _CODE_SUBDIR)
         os.makedirs(code_extraction_path, exist_ok=True)
 
         if local_pkg:
@@ -642,6 +698,19 @@ class NvcreExecutor(Executor):
                 stdout=subprocess.DEVNULL,
             )
             os.remove(local_pkg)
+
+        # Overlay last so its files win over the archive; both end up in the
+        # directory the job runs from (code_workdir).
+        if self.workdir_local_path:
+            subprocess.check_call(
+                [
+                    "rsync",
+                    "-a",
+                    f"{self.workdir_local_path.rstrip(os.sep)}/",
+                    f"{code_extraction_path.rstrip(os.sep)}/",
+                ],
+            )
+            logger.info("Merged '%s' into '%s'", self.workdir_local_path, code_extraction_path)
 
         self.copy_to_workspace(self.job_dir, self.code_dir, label=job_name)
 
@@ -659,20 +728,39 @@ class NvcreExecutor(Executor):
             if not any(vm.get("mountPath") == self.workdir_pvc_path for vm in self.volume_mounts):
                 self.volume_mounts.append({"name": vol_name, "mountPath": self.workdir_pvc_path})
 
+    def _env_exports(self) -> str:
+        """``export`` lines for env_vars, with values quoted as literals.
+
+        The WorkloadRun spec already carries every env var; these exports exist so
+        launcher macros in values (e.g. ``$PET_NODE_RANK``) are expanded by the
+        shell.  Names bash cannot export would abort the script under ``set -e``,
+        so those are left to the spec.
+        """
+        lines = []
+        for name, value in self.env_vars.items():
+            if not _SHELL_IDENTIFIER.fullmatch(name):
+                logger.warning(
+                    "Not exporting env var '%s' in launch.sh: not a valid shell identifier", name
+                )
+                continue
+            lines.append(f"export {name}={self.shell_quote(str(value))}")
+        return "\n".join(lines)
+
     def materialize_launch_script(self, cmd: list[str], max_retries: int = 0) -> None:
-        """Write a launch.sh to job_dir that the WorkloadRun exec framework will run."""
-        nsys_prefix = self.get_launcher_prefix()
-        if nsys_prefix:
-            cmd = ["nsys"] + nsys_prefix + cmd
-        env_exports = "\n".join(f"export {k}={v}" for k, v in self.env_vars.items())
-        cmd_str = shlex.join(cmd)
+        """Write a launch.sh to job_dir that the WorkloadRun exec framework will run.
+
+        *cmd* is run as given; the scheduler has already applied the launcher
+        and any nsys profiling wrapper.
+        """
+        env_exports = self._env_exports()
+        cmd_str = self.shell_join(cmd)
         if max_retries > 0:
             run_block = f"""MAX_RETRIES={max_retries}
 attempt=0
 while [ $attempt -le $MAX_RETRIES ]; do
-    {cmd_str}
+    # Part of an && list, so a failure is captured instead of triggering errexit.
+    {cmd_str} && exit 0
     exit_code=$?
-    [ $exit_code -eq 0 ] && exit 0
     attempt=$((attempt + 1))
     [ $attempt -le $MAX_RETRIES ] && echo "Retry $attempt/$MAX_RETRIES..." && sleep 5
 done
@@ -685,7 +773,7 @@ set -euo pipefail
 
 {env_exports}
 
-cd {self.code_dir}
+cd {self.code_workdir}
 
 {run_block}
 """
