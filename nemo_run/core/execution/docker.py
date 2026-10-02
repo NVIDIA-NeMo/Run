@@ -139,6 +139,10 @@ class DockerExecutor(Executor):
     resource_group: list["DockerExecutor"] = field(init=False, default_factory=list)
 
     @classmethod
+    def supports_job_group(cls) -> bool:
+        return True
+
+    @classmethod
     def merge(
         cls: Type["DockerExecutor"], executors: list["DockerExecutor"], num_tasks: int
     ) -> "DockerExecutor":

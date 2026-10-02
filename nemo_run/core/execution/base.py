@@ -102,6 +102,14 @@ class Executor(ConfigurableMixin):
     def info(self) -> str:
         return self.__class__.__qualname__
 
+    @classmethod
+    def supports_job_group(cls) -> bool:
+        """Whether this executor can back a :class:`~nemo_run.run.job.JobGroup`.
+
+        Executors defined outside nemo_run opt in by overriding this to return True.
+        """
+        return False
+
     def clone(self) -> Self:
         return fdl.build(self.to_config())
 
