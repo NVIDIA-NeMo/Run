@@ -949,7 +949,6 @@ class RunContext:
                 to_json=to_json or _cmd_defaults.get("to_json", None),
             )
 
-            print("Configuring global options")
             _configure_global_options(
                 parent,
                 rich_exceptions or _cmd_defaults.get("rich_exceptions", False),
@@ -1520,6 +1519,10 @@ class Entrypoint(Generic[Params, ReturnType]):
 
         class CLITaskCommand(EntrypointCommand):
             _entrypoint = self
+
+        cmd_defaults = dict(cmd_defaults) if cmd_defaults else {}
+        if self.skip_confirmation:
+            cmd_defaults.setdefault("skip_confirmation", True)
 
         return self.run_ctx_cls.cli_command(
             parent,

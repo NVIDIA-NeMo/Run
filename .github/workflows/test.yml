@@ -4,8 +4,7 @@ on:
   workflow_dispatch:
   workflow_call:
   push:
-    branches: [main]
-  pull_request:
+    branches: [main, "pull-request/**"]
 
 jobs:
   test:
@@ -54,4 +53,3 @@ jobs:
           files: coverage.xml
           verbose: true
           flags: cpu
-          base_sha: ${{ github.event.pull_request.base.sha }}
