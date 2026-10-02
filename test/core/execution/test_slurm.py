@@ -406,6 +406,19 @@ class TestSlurmExecutor:
                 num_tasks=3,
             )
 
+    def test_merge_rejects_ntasks_on_any_component(self):
+        # ntasks has no home in ResourceRequest (only ntasks_per_node does), so
+        # merging a component with ntasks set would silently drop it instead of
+        # sizing the component as requested.
+        with pytest.raises(AssertionError):
+            SlurmExecutor.merge(
+                [
+                    SlurmExecutor(account="account", heterogeneous=True),
+                    SlurmExecutor(account="account", ntasks=8),
+                ],
+                num_tasks=2,
+            )
+
 
 class TestSlurmBatchRequestNonContainerMode:
     """Tests for non-container mode support (container_image=None)."""

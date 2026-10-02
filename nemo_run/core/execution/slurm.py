@@ -371,6 +371,13 @@ class SlurmExecutor(Executor):
         if len(executors) == 1:
             executors = executors * num_tasks
 
+        assert all(executor.ntasks is None for executor in executors), (
+            "ntasks cannot be set on any executor being merged into a heterogeneous "
+            "group: ResourceRequest only sizes each component via ntasks_per_node, "
+            "so an explicit ntasks would be silently dropped. Set ntasks_per_node "
+            "on that executor instead."
+        )
+
         main_executor = executors[0]
         main_executor.run_as_group = True
 
