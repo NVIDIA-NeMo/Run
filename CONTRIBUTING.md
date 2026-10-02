@@ -90,6 +90,19 @@ Developers should be able to run them frequently while developing without any sl
 The `dev` branch is for active development and may be unstable. Unit tests are expected to pass before merging into `dev` or `main`.
 Every release `dev` and `main` will sync to be the same.
 
+## PR CI
+
+PR CI runs on pushes to the copy-pr-bot `pull-request/<number>` mirror branch.
+Ready PRs from branches in this repository sync automatically; draft PRs do not.
+Fork PRs follow the NVIDIA copy-pr-bot's default trustee policy; this repository
+does not define a trustee override.
+The NVIDIA copy-pr-bot GitHub App must be installed and enabled for this repository.
+
+Tests, installation, lint, formatting, spelling, copyright, secret detection,
+CodeQL, and release validation run on the mirror push. Release publishing still
+requires manual dispatch. Maintainers should verify checks on the mirror commit
+before merging.
+
 ## Sign Your Work
 
 - We require that all contributors "sign-off" on their commits. This certifies that the contribution is your original work, or you have rights to submit it under the same license, or a compatible license.
