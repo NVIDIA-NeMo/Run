@@ -39,6 +39,10 @@ class LocalExecutor(Executor):
     ntasks_per_node: int = 1
     nodes: int = 1
 
+    @classmethod
+    def supports_job_group(cls) -> bool:
+        return True
+
     def assign(
         self,
         exp_id: str,

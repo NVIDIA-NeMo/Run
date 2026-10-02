@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import os
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -53,7 +54,8 @@ class PatternPackager(Packager):
 
         # Create initial empty tar file
         ctx = Context()
-        ctx.run(f"tar -cf {output_file}.tmp --files-from /dev/null")
+        tmp_file = shlex.quote(f"{output_file}.tmp")
+        ctx.run(f"tar -cf {tmp_file} --files-from /dev/null")
 
         for include_pattern, relative_path in zip(self.include_pattern, self.relative_path):
             if include_pattern == "":
@@ -63,12 +65,14 @@ class PatternPackager(Packager):
 
             with ctx.cd(relative_path):
                 # Append files directly to the main tar archive
-                cmd = f"find {relative_include_pattern} -type f -print0 | xargs -0 tar -rf {output_file}.tmp"
+                cmd = (
+                    f"find {relative_include_pattern} -type f -print0 | xargs -0 tar -rf {tmp_file}"
+                )
                 ctx.run(cmd)
 
         # Gzip the final result
-        gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
-        rm_cmd = f"rm {output_file}.tmp"
+        gzip_cmd = f"gzip -c {tmp_file} > {shlex.quote(output_file)}"
+        rm_cmd = f"rm {tmp_file}"
 
         ctx.run(gzip_cmd)
         ctx.run(rm_cmd)
