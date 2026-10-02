@@ -15,7 +15,8 @@
 name: Copyright check
 
 on:
-  pull_request:
+  push:
+    branches: ["pull-request/**"]
   workflow_dispatch:
 
 jobs:
