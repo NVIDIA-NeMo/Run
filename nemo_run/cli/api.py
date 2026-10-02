@@ -949,7 +949,6 @@ class RunContext:
                 to_json=to_json or _cmd_defaults.get("to_json", None),
             )
 
-            print("Configuring global options")
             _configure_global_options(
                 parent,
                 rich_exceptions or _cmd_defaults.get("rich_exceptions", False),
