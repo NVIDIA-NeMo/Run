@@ -959,3 +959,130 @@ class TestModernTypeHintParsing:
         # Test invalid list format - use a truly invalid syntax that will fail parsing
         with pytest.raises(ListParseError):
             parse_cli_args(func, ["items=[1, 2, 3"])
+
+    def test_string_and_future_annotations(self):
+        # String annotations (e.g. from __future__ import annotations or ForwardRefs)
+        # should resolve correctly and not fail with UnknownTypeError.
+        # Regression for #374.
+        def func_with_str_annotations(
+            dim: "int", name: "str", active: "bool", count: "int | None" = None
+        ):
+            pass
+
+        result = parse_cli_args(
+            func_with_str_annotations,
+            ["dim=32", "name=test", "active=true", "count=5"],
+        )
+        assert result.dim == 32
+        assert result.name == "test"
+        assert result.active is True
+        assert result.count == 5
+
+    def test_string_container_annotations(self):
+        def func_containers(items: "list[str]", mapping: "dict[str, int]"):
+            pass
+
+        result = parse_cli_args(
+            func_containers,
+            ["items=['a', 'b']", "mapping={'k': 1}"],
+        )
+        assert result.items == ["a", "b"]
+        assert result.mapping == {"k": 1}
+
+    def test_future_annotations_module_resolves_quoted_names(self):
+        # Under `from __future__ import annotations` a source annotation "Path"
+        # is stored as the string 'Path' with the quotes included
+        # ("'Path'" when repr'd). Resolving it once yields the plain string
+        # "Path", which must be resolved again instead of reaching TypeParser.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "def func(path: 'Path') -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")
+
+    def test_future_annotations_nested_forward_refs_resolve(self):
+        # A container annotation holding quoted names evaluates to a generic
+        # with unresolved ForwardRefs inside; they must resolve recursively.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "def func(paths: list['Path']) -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["paths=['/tmp/a', '/tmp/b']"])
+        assert result.paths == [Path("/tmp/a"), Path("/tmp/b")]
+
+    def test_literal_string_values_not_resolved_as_types(self):
+        # Literal values are data: Literal["Path"] must keep the string even
+        # though "Path" also names a resolvable type in module globals.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "from typing import Literal\n"
+            "def func(mode: Literal['Path', 'int']) -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["mode=Path"])
+        assert result.mode == "Path"
+
+    def test_class_based_config_with_string_annotations(self):
+        # Config classes defined under future annotations carry string
+        # annotations on __init__ parameters; the resolver must use the
+        # class's module namespace to evaluate them.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from dataclasses import dataclass\n"
+            "@dataclass\n"
+            "class Config:\n"
+            "    count: int\n"
+            "    label: str\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["Config"], ["count=3", "label=x"])
+        assert result.count == 3
+        assert result.label == "x"
+
+    def test_compound_type_checking_annotation_resolves(self):
+        # "Optional[Path]" with Path imported only under if TYPE_CHECKING:
+        # the plain namespace eval raises NameError and the exact-name
+        # lookup misses, so the compound-expression fallback must run.
+        from test.cli.dummy_future_annotations import func_with_type_checking_path
+
+        result = parse_cli_args(func_with_type_checking_path, ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")
+
+    def test_compound_type_checking_container_annotation_resolves(self):
+        from test.cli.dummy_future_annotations import func_with_type_checking_list
+
+        result = parse_cli_args(func_with_type_checking_list, ["paths=['/tmp/a']"])
+        assert result.paths == [Path("/tmp/a")]
+
+    def test_unresolvable_annotation_returns_original_string(self):
+        def func(value: "NotARealTypeAnywhere"):  # noqa: F821 - intentionally unresolvable
+            pass
+
+        with pytest.raises(UnknownTypeError):
+            parse_cli_args(func, ["value=1"])
+
+    def test_runtime_alias_with_type_checking_import_resolves(self):
+        # `from typing import Optional as Opt` plus a TYPE_CHECKING-only
+        # Path: the first evaluation fails on Path, and the retry must keep
+        # the module globals (Opt) while adding the static-only names.
+        from test.cli.dummy_future_annotations import func_with_alias_and_type_checking
+
+        result = parse_cli_args(func_with_alias_and_type_checking, ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")
