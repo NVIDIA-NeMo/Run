@@ -1554,9 +1554,14 @@ def _resolve_string_annotation(fn: Callable, annotation: str, _depth: int = 0) -
         except Exception:
             pass
 
-    # 3. Direct TYPE_CHECKING import lookup
+    # 3. Direct TYPE_CHECKING import lookup. The helper returns the original
+    # annotation string on a miss, so only a changed result counts as
+    # resolved; otherwise the compound-expression fallback below stays
+    # reachable (e.g. "Optional[Path]" with Path imported under TYPE_CHECKING).
     if resolved is None:
-        resolved = _resolve_type_checking_annotation(fn, annotation)
+        direct = _resolve_type_checking_annotation(fn, annotation)
+        if direct != annotation:
+            resolved = direct
 
     # 4. Complex expressions involving TYPE_CHECKING imports (e.g. "Optional[CustomType]")
     if resolved is None:

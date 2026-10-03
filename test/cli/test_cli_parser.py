@@ -1055,3 +1055,25 @@ class TestModernTypeHintParsing:
         result = parse_cli_args(namespace["Config"], ["count=3", "label=x"])
         assert result.count == 3
         assert result.label == "x"
+
+    def test_compound_type_checking_annotation_resolves(self):
+        # "Optional[Path]" with Path imported only under if TYPE_CHECKING:
+        # the plain namespace eval raises NameError and the exact-name
+        # lookup misses, so the compound-expression fallback must run.
+        from test.cli.dummy_future_annotations import func_with_type_checking_path
+
+        result = parse_cli_args(func_with_type_checking_path, ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")
+
+    def test_compound_type_checking_container_annotation_resolves(self):
+        from test.cli.dummy_future_annotations import func_with_type_checking_list
+
+        result = parse_cli_args(func_with_type_checking_list, ["paths=['/tmp/a']"])
+        assert result.paths == [Path("/tmp/a")]
+
+    def test_unresolvable_annotation_returns_original_string(self):
+        def func(value: "NotARealTypeAnywhere"):  # noqa: F821 - intentionally unresolvable
+            pass
+
+        with pytest.raises(UnknownTypeError):
+            parse_cli_args(func, ["value=1"])
