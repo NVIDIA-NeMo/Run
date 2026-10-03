@@ -1077,3 +1077,12 @@ class TestModernTypeHintParsing:
 
         with pytest.raises(UnknownTypeError):
             parse_cli_args(func, ["value=1"])
+
+    def test_runtime_alias_with_type_checking_import_resolves(self):
+        # `from typing import Optional as Opt` plus a TYPE_CHECKING-only
+        # Path: the first evaluation fails on Path, and the retry must keep
+        # the module globals (Opt) while adding the static-only names.
+        from test.cli.dummy_future_annotations import func_with_alias_and_type_checking
+
+        result = parse_cli_args(func_with_alias_and_type_checking, ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")

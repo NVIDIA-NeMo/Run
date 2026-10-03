@@ -11,7 +11,7 @@ strings, so the CLI parser must rebuild the types from the source file's
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Optional as Opt
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -22,4 +22,8 @@ def func_with_type_checking_path(path: Optional[Path]) -> None:
 
 
 def func_with_type_checking_list(paths: Optional[list[Path]]) -> None:
+    pass
+
+
+def func_with_alias_and_type_checking(path: Opt[Path]) -> None:
     pass

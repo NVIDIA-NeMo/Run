@@ -1527,28 +1527,32 @@ def _resolve_string_annotation(fn: Callable, annotation: str, _depth: int = 0) -
 
     resolved: Any = None
 
+    # Namespace shared by both evaluation passes: builtins, typing, and the
+    # module globals. Runtime aliases live here (e.g. `from typing import
+    # Optional as Opt`), so the TYPE_CHECKING retry below must extend this
+    # namespace rather than rebuild it.
+    ns: dict[str, Any] = {}
+    ns.update(builtins.__dict__)
+    ns.update(typing.__dict__)
+
+    mod_name = getattr(fn, "__module__", None)
+    if mod_name and mod_name in sys.modules:
+        ns.update(sys.modules[mod_name].__dict__)
+    elif hasattr(fn, "__globals__"):
+        ns.update(fn.__globals__)
+    elif inspect.isclass(fn):
+        init = getattr(fn, "__init__", None)
+        if init and hasattr(init, "__globals__"):
+            ns.update(init.__globals__)
+
     # 1. Direct built-in type lookup (e.g., "int", "str", "float", "bool", "list", "dict")
     if hasattr(builtins, annotation):
         val = getattr(builtins, annotation)
         if isinstance(val, type):
             resolved = val
 
-    # 2. Namespace evaluation with builtins, typing, and module globals
+    # 2. First evaluation against the full namespace
     if resolved is None:
-        ns: dict[str, Any] = {}
-        ns.update(builtins.__dict__)
-        ns.update(typing.__dict__)
-
-        mod_name = getattr(fn, "__module__", None)
-        if mod_name and mod_name in sys.modules:
-            ns.update(sys.modules[mod_name].__dict__)
-        elif hasattr(fn, "__globals__"):
-            ns.update(fn.__globals__)
-        elif inspect.isclass(fn):
-            init = getattr(fn, "__init__", None)
-            if init and hasattr(init, "__globals__"):
-                ns.update(init.__globals__)
-
         try:
             resolved = eval(annotation, ns)
         except Exception:
@@ -1563,12 +1567,13 @@ def _resolve_string_annotation(fn: Callable, annotation: str, _depth: int = 0) -
         if direct != annotation:
             resolved = direct
 
-    # 4. Complex expressions involving TYPE_CHECKING imports (e.g. "Optional[CustomType]")
+    # 4. Compound expressions involving TYPE_CHECKING imports (e.g.
+    # "Opt[Path]" with Path imported only under TYPE_CHECKING): layer the
+    # statically-imported names into the same namespace, keeping module
+    # globals and aliases available for the retry.
     if resolved is None:
         type_checking_imports = _get_type_checking_imports(fn)
         if type_checking_imports:
-            ns = dict(builtins.__dict__)
-            ns.update(typing.__dict__)
             for name, full_path in type_checking_imports.items():
                 try:
                     module_name, type_name = full_path.rsplit(".", 1)
