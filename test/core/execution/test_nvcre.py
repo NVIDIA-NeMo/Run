@@ -13,21 +13,109 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import re
 import subprocess
 import tarfile
+import threading
+from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
 
+import nemo_run.core.execution.nvcre as nvcre_module
 from nemo_run.core.execution.launcher import Launcher
 from nemo_run.core.execution.nvcre import NvcreExecutor, NvcrePhase
 
 
 def _completed(returncode=0, stdout="", stderr=""):
     return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
+
+
+class _FakeProc:
+    """A `kubectl logs -f` process: yields its lines, then EOF (or blocks until stopped)."""
+
+    def __init__(self, lines, block=False):
+        self._lines, self._block = list(lines), block
+        self._stopped = threading.Event()
+        self.stdout = self
+        self.terminated = self.killed = self.ended_on_its_own = False
+        self.returncode = 0
+
+    def readline(self):
+        if self._lines:
+            return self._lines.pop(0)
+        if self._block and not self._stopped.wait(timeout=3):
+            self.ended_on_its_own = True  # nobody stopped it: it hit EOF by itself
+        return ""
+
+    def terminate(self):
+        self.terminated = True
+        self._stopped.set()
+
+    def kill(self):
+        self.killed = True
+        self._stopped.set()
+
+    def wait(self, timeout=None):
+        return 0
+
+    def close(self):
+        pass
+
+
+class _FakeKube:
+    """Scripted kubectl / nvcrectl: successive answers, the last one repeating."""
+
+    def __init__(self, pods, phases, streams, job_names=("wl-internal",), final_logs=""):
+        self.pod_lists, self.phases = list(pods), list(phases)
+        self.stream_lines, self.job_names = list(streams), list(job_names)
+        self.final_logs = final_logs
+        self.procs, self.popen_cmds, self.pod_selectors, self.sleeps = [], [], [], []
+
+    @staticmethod
+    def _next(seq):
+        return seq.pop(0) if len(seq) > 1 else seq[0]
+
+    def run(self, cmd, **kwargs):
+        if cmd[0] == "nvcrectl":
+            return _completed(stdout=self._next(self.phases))
+        if "workloadrun" in cmd and cmd[-1] == "json":
+            job_name = self._next(self.job_names)
+            status = {"jobName": job_name} if job_name else {}
+            return _completed(stdout=json.dumps({"status": status, "metadata": {}}))
+        if "pods" in cmd:
+            self.pod_selectors.append(cmd[cmd.index("-l") + 1])
+            return _completed(stdout="\n".join(self._next(self.pod_lists)))
+        if "logs" in cmd:  # the non-follow read after a terminal phase
+            return _completed(stdout=self.final_logs)
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    def popen(self, cmd, **kwargs):
+        self.popen_cmds.append(cmd)
+        entry = self._next(self.stream_lines)
+        lines, block = entry if isinstance(entry, tuple) else (entry, False)
+        proc = _FakeProc(lines, block)
+        self.procs.append(proc)
+        return proc
+
+
+@contextmanager
+def _kube(fake, monkeypatch):
+    monkeypatch.setattr(nvcre_module, "_LOG_POLL_SECONDS", 0.02)
+    with (
+        patch("nemo_run.core.execution.nvcre.subprocess.run", side_effect=fake.run),
+        patch("nemo_run.core.execution.nvcre.subprocess.Popen", side_effect=fake.popen),
+        patch("nemo_run.core.execution.nvcre.time.sleep", side_effect=fake.sleeps.append),
+    ):
+        yield
+
+
+A1, A2, A3 = "[pod/a/c] a1\n", "[pod/a/c] a2\n", "[pod/a/c] a3\n"
+B1 = "[pod/b/c] b1\n"
 
 
 class TestNvcreExecutor:
@@ -349,7 +437,7 @@ class TestNvcreExecutor:
         executor.env_vars = {"FOO": "bar"}
         executor.materialize_launch_script(["python", "train.py"])
 
-        launch_path = tmp_path / "launch.sh"
+        launch_path = Path(executor.launch_script_path)
         assert launch_path.exists()
         content = launch_path.read_text()
         assert "export FOO=bar" in content
@@ -361,7 +449,7 @@ class TestNvcreExecutor:
         executor.job_dir = str(tmp_path)
         executor.materialize_launch_script(["python", "train.py"], max_retries=2)
 
-        content = (tmp_path / "launch.sh").read_text()
+        content = Path(executor.launch_script_path).read_text()
         assert "MAX_RETRIES=2" in content
         assert "Retry $attempt/$MAX_RETRIES" in content
 
@@ -385,7 +473,7 @@ class TestNvcreExecutor:
 
         executor.job_dir = str(tmp_path / "job")
         executor.materialize_launch_script([str(flaky)], max_retries=max_retries)
-        script = (tmp_path / "job" / "launch.sh").read_text()
+        script = Path(executor.launch_script_path).read_text()
         script = script.replace(f"cd {executor.code_workdir}\n", "")  # only exists in the pod
         result = subprocess.run(
             ["bash", "-c", script],
@@ -405,7 +493,7 @@ class TestNvcreExecutor:
         executor.materialize_launch_script(
             ["bash", "-c", 'for n in "$@"; do printf "%s\\0" "${!n}"; done', "_", *names]
         )
-        script = (tmp_path / "job" / "launch.sh").read_text()
+        script = Path(executor.launch_script_path).read_text()
         script = script.replace(f"cd {executor.code_workdir}\n", "")  # only exists in the pod
         result = subprocess.run(
             ["bash", "-c", script],
@@ -453,9 +541,62 @@ class TestNvcreExecutor:
         # An invalid identifier in `export` would abort the script under set -e.
         assert result.returncode == 0, result.stderr
         assert seen["GOOD"] == "1"
-        launch_sh = (tmp_path / "job" / "launch.sh").read_text()
+        launch_sh = Path(executor.launch_script_path).read_text()
         assert "BAD-NAME" not in launch_sh and "bad.name" not in launch_sh
         assert "BAD-NAME" in caplog.text
+
+    @pytest.mark.parametrize(
+        "task_name",
+        [
+            "my job",
+            "it's",
+            'q"uote',
+            "back\\slash",
+            "star*glob",
+            "a;touch injected;b",
+            "$(touch injected)",
+            "`touch injected`",
+            "x && touch injected",
+        ],
+    )
+    def test_launch_script_changes_into_a_workspace_path_with_special_characters(
+        self, executor, tmp_path, task_name
+    ):
+        executor.experiment_id = "my exp"
+        executor.job_name = task_name
+        executor.workdir_pvc = "my-pvc"
+        executor.workdir_pvc_path = str(tmp_path / "pvc root")  # a writable stand-in for the mount
+        executor.job_dir = str(tmp_path / "job")
+        os.makedirs(executor.code_workdir)
+        executor.materialize_launch_script(["pwd"])
+
+        # The generated script itself, unmodified: set -e would abort on a split `cd`.
+        result = subprocess.run(
+            ["bash", executor.launch_script_path],
+            cwd=tmp_path,
+            env={"PATH": "/usr/bin:/bin"},
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == executor.code_workdir
+        assert not (tmp_path / "injected").exists()  # no metacharacter was interpreted
+
+    def test_launch_script_creates_an_nsys_directory_with_spaces(self, executor, tmp_path):
+        profile_dir = tmp_path / "nsys out; dir"
+        executor.workdir_pvc = "my-pvc"
+        executor.workdir_pvc_path = str(tmp_path / "pvc")
+        executor.job_dir = str(tmp_path / "job")
+        executor.launcher = Launcher(nsys_profile=True, nsys_folder=str(profile_dir))
+        os.makedirs(executor.code_workdir)
+        executor.materialize_launch_script(["test", "-d", str(profile_dir)])
+
+        result = subprocess.run(
+            ["bash", executor.launch_script_path], capture_output=True, text=True
+        )
+
+        assert result.returncode == 0, result.stderr
 
     def test_launch_script_retries_a_command_that_fails_once(self, executor, tmp_path):
         result, attempts = self._run_launch_script(
@@ -495,8 +636,8 @@ class TestNvcreExecutor:
         executor.launcher = Launcher(nsys_profile=True)
         executor.materialize_launch_script(["python", "train.py"])
 
-        content = (tmp_path / "launch.sh").read_text()
-        assert "nsys" not in content
+        content = Path(executor.launch_script_path).read_text()
+        assert "nsys profile" not in content  # the profiler wrapper is not added here
         assert "\npython train.py\n" in content
 
     # ── assign ─────────────────────────────────────────────────────────────────
@@ -519,7 +660,67 @@ class TestNvcreExecutor:
         executor.launcher = Launcher(nsys_profile=True)
         prefix = executor.get_launcher_prefix()
         assert prefix is not None
-        assert (tmp_path / "nsys_profile").is_dir()
+        # The directory is created in the pod, never on the submit host.
+        assert not (tmp_path / "nsys_profile").exists()
+
+    @staticmethod
+    def _nsys_output(prefix):
+        return prefix[prefix.index("-o") + 1]
+
+    def test_nsys_output_is_in_the_pvc_workspace_not_on_the_submit_host(self, executor, tmp_path):
+        executor.workdir_pvc = "my-pvc"
+        executor.job_dir = str(tmp_path / "submit-host-job-dir")
+        executor.launcher = Launcher(nsys_profile=True)
+
+        prefix = executor.get_launcher_prefix()
+
+        assert self._nsys_output(prefix) == f"{executor.code_dir}/nsys_profile/profile_%p"
+        assert executor.profile_output_dir() == f"{executor.code_dir}/nsys_profile"
+        assert not any(executor.job_dir in arg for arg in prefix)
+
+    def test_nsys_output_without_pvc_uses_a_writable_container_dir(self, executor, tmp_path):
+        executor.job_dir = str(tmp_path / "submit-host-job-dir")
+        executor.launcher = Launcher(nsys_profile=True)
+
+        prefix = executor.get_launcher_prefix()
+
+        assert self._nsys_output(prefix) == "/tmp/nsys_profile/profile_%p"
+        assert executor.profile_output_dir() == "/tmp/nsys_profile"
+        assert not any(executor.job_dir in arg for arg in prefix)
+
+    @pytest.mark.parametrize("workdir_pvc", ["my-pvc", None])
+    def test_absolute_nsys_folder_is_used_as_a_container_path(self, executor, workdir_pvc):
+        executor.workdir_pvc = workdir_pvc
+        executor.launcher = Launcher(nsys_profile=True, nsys_folder="/results/nsys")
+
+        assert self._nsys_output(executor.get_launcher_prefix()) == "/results/nsys/profile_%p"
+        assert executor.profile_output_dir() == "/results/nsys"
+
+    def test_profile_output_dir_is_none_without_profiling(self, executor):
+        assert executor.profile_output_dir() is None
+
+    def test_launch_script_creates_the_nsys_directory_before_running(self, executor, tmp_path):
+        executor.workdir_pvc = "my-pvc"
+        executor.workdir_pvc_path = str(tmp_path / "pvc")  # a writable stand-in for the mount
+        executor.job_dir = str(tmp_path / "job")
+        executor.launcher = Launcher(nsys_profile=True)
+        os.makedirs(executor.code_workdir)
+        profile_dir = executor.profile_output_dir()
+        assert not os.path.exists(profile_dir)
+
+        # The command itself asserts the directory already exists when it starts.
+        executor.materialize_launch_script(["test", "-d", profile_dir])
+        result = subprocess.run(
+            ["bash", executor.launch_script_path], capture_output=True, text=True
+        )
+
+        assert result.returncode == 0, result.stderr
+
+    def test_launch_script_has_no_mkdir_without_profiling(self, executor, tmp_path):
+        executor.job_dir = str(tmp_path)
+        executor.materialize_launch_script(["python", "train.py"])
+
+        assert "mkdir" not in Path(executor.launch_script_path).read_text()
 
     # ── build_workloadrun_yaml orchestration branches ─────────────────────────
 
@@ -622,42 +823,159 @@ class TestNvcreExecutor:
 
     # ── fetch_logs streaming ───────────────────────────────────────────────────
 
-    def test_fetch_logs_streaming_writes_and_yields_lines(self, executor, tmp_path):
+    # ── streaming logs while pods come and go ─────────────────────────────────
+
+    @staticmethod
+    def _stream(executor, fake, monkeypatch, name="wl-name"):
+        with _kube(fake, monkeypatch):
+            return list(executor.fetch_logs(name, stream=True))
+
+    def test_fetch_logs_streaming_writes_and_yields_lines(self, executor, tmp_path, monkeypatch):
         executor.job_dir = str(tmp_path)
-        mock_proc = MagicMock()
-        mock_proc.stdout.readline.side_effect = ["line1\n", "line2\n", ""]
-        mock_proc.wait.return_value = None
+        fake = _FakeKube(
+            pods=[["pod-a"]], phases=["Succeeded"], streams=[[A1, A2]], final_logs=A1 + A2
+        )
 
-        with (
-            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.nvcre.subprocess.Popen", return_value=mock_proc),
-        ):
-            mock_run.return_value = _completed(
-                returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'
+        lines = self._stream(executor, fake, monkeypatch)
+
+        assert lines == [A1, A2]
+        assert fake.procs[0].terminated
+        assert (tmp_path / "pod_logs" / "wl-name" / "streaming.log").read_text() == A1 + A2
+
+    def test_streaming_waits_for_pods_that_do_not_exist_yet(self, executor, monkeypatch):
+        # A queued GPU job: no pods for a while, then logs.
+        fake = _FakeKube(
+            pods=[[], [], ["pod-a"]],
+            phases=["Pending", "Pending", "Succeeded"],
+            streams=[[A1, A2]],
+            final_logs=A1 + A2,
+        )
+
+        lines = self._stream(executor, fake, monkeypatch)
+
+        assert lines == [A1, A2]
+        assert len(fake.sleeps) == 2  # kept polling instead of ending at the first EOF
+        assert len(fake.popen_cmds) == 1  # and attached only once pods existed
+
+    def test_streaming_retries_when_pods_exist_but_have_not_started(self, executor, monkeypatch):
+        # `kubectl logs` exits at once with no output while containers are still creating.
+        fake = _FakeKube(
+            pods=[["pod-a"]],
+            phases=["InProgress", "Succeeded"],
+            streams=[[], [A1, A2]],
+            final_logs=A1 + A2,
+        )
+
+        lines = self._stream(executor, fake, monkeypatch)
+
+        assert lines == [A1, A2]
+        assert len(fake.popen_cmds) == 2
+
+    def test_streaming_reattaches_without_repeating_lines(self, executor, tmp_path, monkeypatch):
+        executor.job_dir = str(tmp_path)
+        fake = _FakeKube(
+            pods=[["pod-a"], ["pod-a", "pod-b"]],
+            phases=["InProgress", "Succeeded"],
+            # The second attachment re-reads every pod from the start.
+            streams=[[A1, A2], [A1, A2, A3, B1]],
+            final_logs=A1 + A2 + A3 + B1,
+        )
+
+        lines = self._stream(executor, fake, monkeypatch)
+
+        assert lines == [A1, A2, A3, B1]  # each line once
+        assert (tmp_path / "pod_logs" / "wl-name" / "streaming.log").read_text() == "".join(lines)
+
+    def test_streaming_reattaches_when_a_pod_is_replaced(self, executor, monkeypatch):
+        fake = _FakeKube(
+            # pod-a is replaced by pod-b while the first stream is still open.
+            pods=[["pod-a"], ["pod-b"]],
+            phases=["InProgress", "Succeeded"],
+            streams=[([A1], True), [B1]],
+            final_logs=A1 + B1,
+        )
+
+        lines = self._stream(executor, fake, monkeypatch)
+
+        assert lines == [A1, B1]
+        assert fake.procs[0].terminated  # the stale stream was dropped ...
+        assert not fake.procs[0].ended_on_its_own  # ... because a new pod was noticed
+        assert len(fake.popen_cmds) == 2
+
+    def test_streaming_reads_from_the_start_of_every_pod(self, executor, monkeypatch):
+        fake = _FakeKube(pods=[["pod-a"]], phases=["Succeeded"], streams=[[A1]], final_logs=A1)
+
+        self._stream(executor, fake, monkeypatch)
+
+        # Without an explicit --tail, kubectl follows a selector from the last 10 lines.
+        cmd = fake.popen_cmds[0]
+        assert cmd[cmd.index("--tail") : cmd.index("--tail") + 2] == ["--tail", "-1"]
+        assert cmd[-1] == "-f"
+
+    def test_streaming_picks_up_the_internal_job_name_once_it_exists(self, executor, monkeypatch):
+        # The CRD only reports its internal job name after the workload starts.
+        fake = _FakeKube(
+            pods=[[], ["pod-a"]],
+            phases=["Pending", "Succeeded"],
+            streams=[[A1]],
+            job_names=[None, "internal"],
+            final_logs=A1,
+        )
+
+        self._stream(executor, fake, monkeypatch)
+
+        assert fake.pod_selectors[0].endswith("=wl-name-workload")  # fallback to the CRD name
+        assert fake.pod_selectors[-1].endswith("=internal-workload")
+        assert fake.popen_cmds[0][fake.popen_cmds[0].index("-l") + 1].endswith("=internal-workload")
+
+    def test_streaming_ends_when_pods_are_gone_and_the_workload_finished(
+        self, executor, monkeypatch
+    ):
+        fake = _FakeKube(pods=[[]], phases=["Succeeded"], streams=[[]])
+
+        assert self._stream(executor, fake, monkeypatch) == []
+        assert fake.popen_cmds == []
+
+    def test_streaming_gives_up_when_the_phase_stays_unknown(self, executor, monkeypatch, caplog):
+        monkeypatch.setattr(nvcre_module, "_LOG_UNKNOWN_POLL_LIMIT", 3)
+        fake = _FakeKube(pods=[[]], phases=["Unknown"], streams=[[]])
+
+        with caplog.at_level("WARNING"):
+            assert self._stream(executor, fake, monkeypatch) == []
+
+        assert "phase stays unknown" in caplog.text
+
+    def test_streaming_stops_the_kubectl_process_when_the_reader_stops(
+        self, executor, tmp_path, monkeypatch
+    ):
+        executor.job_dir = str(tmp_path)
+        fake = _FakeKube(pods=[["pod-a"]], phases=["InProgress"], streams=[([A1, A2], True)])
+
+        with _kube(fake, monkeypatch):
+            stream = executor.fetch_logs("wl-name", stream=True)
+            assert next(stream) == A1
+            stream.close()
+
+        assert fake.procs[0].terminated
+        assert (tmp_path / "pod_logs" / "wl-name" / "streaming.log").read_text() == A1
+
+    def test_streaming_keeps_a_separate_log_per_workload(self, executor, tmp_path, monkeypatch):
+        # Tasks that share a job_dir must not truncate each other's streaming.log.
+        executor.job_dir = str(tmp_path)
+        for name, line in (("wl-a", "from-a\n"), ("wl-b", "from-b\n")):
+            fake = _FakeKube(
+                pods=[["pod"]], phases=["Succeeded"], streams=[[line]], final_logs=line
             )
-            lines = list(executor.fetch_logs("wl-name", stream=True))
+            self._stream(executor, fake, monkeypatch, name=name)
 
-        assert lines == ["line1\n", "line2\n"]
-        mock_proc.terminate.assert_called_once()
-        streaming_log = tmp_path / "pod_logs" / "streaming.log"
-        assert streaming_log.exists()
-        assert streaming_log.read_text() == "line1\nline2\n"
+        assert (tmp_path / "pod_logs" / "wl-a" / "streaming.log").read_text() == "from-a\n"
+        assert (tmp_path / "pod_logs" / "wl-b" / "streaming.log").read_text() == "from-b\n"
 
-    def test_fetch_logs_streaming_without_job_dir_skips_file(self, executor):
+    def test_streaming_without_job_dir_skips_the_file(self, executor, monkeypatch):
         executor.job_dir = ""
-        mock_proc = MagicMock()
-        mock_proc.stdout.readline.side_effect = [""]
-        mock_proc.wait.return_value = None
+        fake = _FakeKube(pods=[["pod-a"]], phases=["Succeeded"], streams=[[A1]], final_logs=A1)
 
-        with (
-            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
-            patch("nemo_run.core.execution.nvcre.subprocess.Popen", return_value=mock_proc),
-        ):
-            mock_run.return_value = _completed(
-                returncode=0, stdout='{"status": {}, "metadata": {"labels": {}}}'
-            )
-            lines = list(executor.fetch_logs("wl-name", stream=True))
-        assert lines == []
+        assert self._stream(executor, fake, monkeypatch) == [A1]
 
     # ── data-mover pod lifecycle ───────────────────────────────────────────────
 
@@ -704,6 +1022,14 @@ class TestNvcreExecutor:
             or "apply" in mock_check_call.call_args[0][0]
         )
 
+    @staticmethod
+    def _deleted_pods(mock_run):
+        return [
+            c[0][0][c[0][0].index("pod") + 1]
+            for c in mock_run.call_args_list
+            if "delete" in c[0][0]
+        ]
+
     def test_start_data_mover_pod_times_out(self, executor):
         executor.workdir_pvc = "my-pvc"
         with (
@@ -718,6 +1044,47 @@ class TestNvcreExecutor:
             ]
             with pytest.raises(RuntimeError, match="did not reach Running"):
                 executor._start_data_mover_pod("mover-pod", timeout=10)
+
+    def test_startup_timeout_deletes_the_applied_pod(self, executor):
+        executor.workdir_pvc = "my-pvc"
+        pod_name = executor._data_mover_pod_name("lbl")
+        with (
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch("nemo_run.core.execution.nvcre.subprocess.check_call") as mock_check_call,
+            patch("nemo_run.core.execution.nvcre.time.sleep"),
+            patch("nemo_run.core.execution.nvcre.time.time", side_effect=[0, 0, 1000]),
+            patch.object(NvcreExecutor, "_rsync_to_pod") as mock_rsync,
+        ):
+            mock_run.side_effect = [
+                _completed(returncode=0),  # delete stale pod
+                _completed(returncode=0, stdout="Pending"),  # applied, never reaches Running
+                _completed(returncode=0),  # cleanup delete
+            ]
+            with pytest.raises(RuntimeError, match="did not reach Running"):
+                executor.copy_to_workspace("/local", "/remote", label="lbl")
+
+        assert "apply" in mock_check_call.call_args_list[0][0][0]  # it was applied ...
+        mock_rsync.assert_not_called()
+        # ... so the abandoned pod is deleted: once as the stale check, once on failure.
+        assert self._deleted_pods(mock_run) == [pod_name, pod_name]
+
+    def test_apply_failure_deletes_the_pod_too(self, executor):
+        executor.workdir_pvc = "my-pvc"
+        pod_name = executor._data_mover_pod_name("lbl")
+        with (
+            patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run,
+            patch(
+                "nemo_run.core.execution.nvcre.subprocess.check_call",
+                side_effect=subprocess.CalledProcessError(1, "kubectl apply"),
+            ),
+            patch.object(NvcreExecutor, "_rsync_to_pod") as mock_rsync,
+        ):
+            mock_run.return_value = _completed(returncode=0)
+            with pytest.raises(subprocess.CalledProcessError):
+                executor.copy_to_workspace("/local", "/remote", label="lbl")
+
+        mock_rsync.assert_not_called()
+        assert self._deleted_pods(mock_run) == [pod_name, pod_name]
 
     def test_delete_data_mover_pod_success(self, executor):
         with patch("nemo_run.core.execution.nvcre.subprocess.run") as mock_run:
@@ -754,6 +1121,21 @@ class TestNvcreExecutor:
             executor._data_mover_pod_name("mylabel"), "/local", "/remote"
         )
         mock_delete.assert_called_once()
+
+    def test_copy_to_workspace_deletes_pod_even_when_startup_fails(self, executor):
+        executor.workdir_pvc = "my-pvc"
+        with (
+            patch.object(
+                NvcreExecutor, "_start_data_mover_pod", side_effect=RuntimeError("no Running")
+            ),
+            patch.object(NvcreExecutor, "_rsync_to_pod") as mock_rsync,
+            patch.object(NvcreExecutor, "_delete_data_mover_pod") as mock_delete,
+        ):
+            with pytest.raises(RuntimeError, match="no Running"):
+                executor.copy_to_workspace("/local", "/remote")
+
+        mock_rsync.assert_not_called()
+        mock_delete.assert_called_once_with(executor._data_mover_pod_name("datamover"))
 
     def test_copy_to_workspace_deletes_pod_even_on_rsync_failure(self, executor):
         executor.workdir_pvc = "my-pvc"
@@ -804,6 +1186,80 @@ class TestNvcreExecutor:
             executor.package(mock_packager, job_name="job1")
 
         assert len(executor.volumes) == 1  # not duplicated
+        # The declared volume is reused, and the workspace mount is added for it.
+        assert executor.volume_mounts == [{"name": "existing", "mountPath": "/nemo_run"}]
+
+    @staticmethod
+    def _package_with_pvc(executor, tmp_path):
+        executor.workdir_pvc = "my-pvc"
+        executor.job_dir = str(tmp_path / "job")
+        mock_packager = MagicMock()
+        mock_packager.package.return_value = None
+        with patch.object(NvcreExecutor, "copy_to_workspace"):
+            executor.package(mock_packager, job_name="job1")
+
+    def test_package_mounts_a_pvc_the_caller_only_mounted_elsewhere(self, executor, tmp_path):
+        executor.volumes = [{"name": "data", "persistentVolumeClaim": {"claimName": "my-pvc"}}]
+        executor.volume_mounts = [{"name": "data", "mountPath": "/data"}]
+
+        self._package_with_pvc(executor, tmp_path)
+
+        assert len(executor.volumes) == 1  # the declared volume is reused, not redeclared
+        assert executor.volume_mounts == [
+            {"name": "data", "mountPath": "/data"},
+            {"name": "data", "mountPath": "/nemo_run"},
+        ]
+        spec = executor.build_workloadrun_yaml(["python"])["spec"]
+        assert {"name": "data", "mountPath": "/nemo_run"} in spec["volumeMounts"]
+        assert [v["name"] for v in spec["volumes"]] == ["data"]
+
+    @pytest.mark.parametrize("mount_path", ["/nemo_run", "/nemo_run/"])
+    def test_package_is_idempotent_when_the_workspace_is_already_mounted(
+        self, executor, tmp_path, mount_path
+    ):
+        executor.volumes = [{"name": "data", "persistentVolumeClaim": {"claimName": "my-pvc"}}]
+        executor.volume_mounts = [{"name": "data", "mountPath": mount_path}]
+
+        self._package_with_pvc(executor, tmp_path)
+        self._package_with_pvc(executor, tmp_path)
+
+        assert executor.volumes == [
+            {"name": "data", "persistentVolumeClaim": {"claimName": "my-pvc"}}
+        ]
+        assert executor.volume_mounts == [{"name": "data", "mountPath": mount_path}]
+
+    def test_package_declares_and_mounts_the_pvc_when_nothing_is_declared(self, executor, tmp_path):
+        self._package_with_pvc(executor, tmp_path)
+        self._package_with_pvc(executor, tmp_path)
+
+        assert executor.volumes == [
+            {"name": "nemo-run-workdir", "persistentVolumeClaim": {"claimName": "my-pvc"}}
+        ]
+        assert executor.volume_mounts == [{"name": "nemo-run-workdir", "mountPath": "/nemo_run"}]
+
+    def test_package_picks_an_unused_volume_name(self, executor, tmp_path):
+        executor.volumes = [
+            {"name": "nemo-run-workdir", "persistentVolumeClaim": {"claimName": "other-pvc"}}
+        ]
+
+        self._package_with_pvc(executor, tmp_path)
+
+        assert [v["name"] for v in executor.volumes] == ["nemo-run-workdir", "nemo-run-workdir-1"]
+        assert executor.volume_mounts == [{"name": "nemo-run-workdir-1", "mountPath": "/nemo_run"}]
+
+    def test_package_rejects_a_workspace_path_mounted_from_another_volume(self, executor, tmp_path):
+        executor.volumes = [{"name": "scratch", "emptyDir": {}}]
+        executor.volume_mounts = [{"name": "scratch", "mountPath": "/nemo_run"}]
+
+        with pytest.raises(ValueError, match="must be mounted there"):
+            self._package_with_pvc(executor, tmp_path)
+
+    def test_package_rejects_a_workspace_mount_with_a_subpath(self, executor, tmp_path):
+        executor.volumes = [{"name": "data", "persistentVolumeClaim": {"claimName": "my-pvc"}}]
+        executor.volume_mounts = [{"name": "data", "mountPath": "/nemo_run", "subPath": "sub"}]
+
+        with pytest.raises(ValueError, match="without subPath"):
+            self._package_with_pvc(executor, tmp_path)
 
     def test_package_with_local_overlay_rsyncs_and_merges(self, executor, tmp_path):
         executor.workdir_pvc = "my-pvc"
@@ -821,7 +1277,7 @@ class TestNvcreExecutor:
         rsync_call = mock_check_call.call_args_list[0][0][0]
         assert rsync_call[0] == "rsync"
         # The overlay lands in the extracted-code dir (what the job runs from).
-        assert rsync_call[-1] == os.path.join(executor.job_dir, "code") + "/"
+        assert rsync_call[-1] == os.path.join(executor.stage_dir, "code") + "/"
 
     def test_package_applies_overlay_after_archive_extraction(self, executor, tmp_path):
         executor.workdir_pvc = "my-pvc"
@@ -858,11 +1314,12 @@ class TestNvcreExecutor:
             executor.package(mock_packager, job_name="job1")
         executor.materialize_launch_script(["python", "train.py"])
 
-        # package() syncs job_dir -> code_dir, so job_dir/<rel> is code_dir/<rel>.
-        mock_copy.assert_called_once_with(executor.job_dir, executor.code_dir, label="job1")
-        assert (tmp_path / "job" / "code" / "train.py").is_file()
+        # package() syncs this task's stage_dir -> code_dir, so stage_dir/<rel> is code_dir/<rel>.
+        mock_copy.assert_called_once_with(executor.stage_dir, executor.code_dir, label="job1")
+        assert (Path(executor.stage_dir) / "code" / "train.py").is_file()
+        assert Path(executor.launch_script_path).parent == Path(executor.stage_dir)
         assert executor.code_workdir == f"{executor.code_dir}/code"
-        launch = (tmp_path / "job" / "launch.sh").read_text()
+        launch = Path(executor.launch_script_path).read_text()
         assert f"cd {executor.code_workdir}\n" in launch
         assert f"cd {executor.code_dir}\n" not in launch
 

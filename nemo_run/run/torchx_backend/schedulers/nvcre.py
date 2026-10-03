@@ -16,6 +16,7 @@
 import json
 import logging
 import os
+import shlex
 import tempfile
 import threading
 from contextlib import contextmanager
@@ -38,6 +39,7 @@ from torchx.specs import AppDef, AppState, ReplicaStatus, Role, RoleStatus, runo
 
 from nemo_run.config import RUNDIR_NAME, SCRIPTS_DIR, get_nemorun_home
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.execution.nvcre import NvcreExecutor, NvcrePhase
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
@@ -95,9 +97,7 @@ class NvcreScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
         # Merge role-level env into executor env
         executor.env_vars.update(role.env)
 
-        cmd = _with_launcher_and_profiling(
-            executor, _to_container_cmd(executor, [role.entrypoint] + role.args)
-        )
+        cmd = _container_command(executor, [role.entrypoint] + role.args)
 
         req = NvcreRequest(app=app, executor=executor, cmd=cmd, name=role.name)
 
@@ -124,7 +124,8 @@ class NvcreScheduler(SchedulerMixin, Scheduler[dict]):  # type: ignore
         wl_cmd = _workload_command(executor, req.cmd)
 
         # Write WorkloadRun YAML
-        yaml_path = os.path.join(executor.job_dir, "workloadrun.yaml")
+        yaml_path = executor.workloadrun_yaml_path
+        os.makedirs(os.path.dirname(yaml_path), exist_ok=True)
         manifest = executor.build_workloadrun_yaml(wl_cmd)
         with open(yaml_path, "w") as f:
             yaml.dump(manifest, f, default_flow_style=False)
@@ -275,29 +276,36 @@ def _workload_command(executor: NvcreExecutor, cmd: list[str]) -> list[str]:
     """The argv the WorkloadRun execs, for both dry-run output and submission."""
     if executor.workdir_pvc:
         return ["/bin/bash", f"{executor.code_dir}/launch.sh"]
-    if executor.requires_shell(cmd):
-        # Launcher macros such as $PET_NODE_RANK are only expanded by a shell.
-        return ["/bin/bash", "-c", f"exec {executor.shell_join(cmd)}"]
+    profile_dir = executor.profile_output_dir()
+    if profile_dir or executor.requires_shell(cmd):
+        # A shell is needed to expand launcher macros such as $PET_NODE_RANK and to
+        # create the nsys output directory in the pod before the profiler starts.
+        mkdir_profile = f"mkdir -p {shlex.quote(profile_dir)} && " if profile_dir else ""
+        return ["/bin/bash", "-c", f"{mkdir_profile}exec {executor.shell_join(cmd)}"]
     return cmd
 
 
-def _with_launcher_and_profiling(executor: NvcreExecutor, cmd: list[str]) -> list[str]:
-    """Select the launcher, then apply the nsys wrapper exactly once.
+def _container_command(executor: NvcreExecutor, cmd: list[str]) -> list[str]:
+    """Turn the role's ``[entrypoint, *args]`` into the argv the pod should run.
 
-    ``package()`` already wraps the role as ``nsys <prefix> <cmd> <postfix>`` when
-    profiling is enabled.  Unwrap that first so the ``python`` -> ``torchrun``
-    choice is made on the real command, drop the postfix (a real, empty argv
-    entry here, unlike on Slurm where it is joined into a shell string), and
-    wrap once at the end.
+    In order: unwrap the nsys wrapper ``package()`` added, undo the shell quoting
+    the launcher component applied, translate generated file paths, select
+    torchrun, and wrap with nsys exactly once.
     """
     prefix = executor.get_launcher_prefix()
     nsys_entrypoint, postfix = executor.get_nsys_entrypoint()
     if prefix:
         wrapper = [nsys_entrypoint, *prefix]
         if cmd[: len(wrapper)] == wrapper:
+            # The postfix is a real, empty argv entry here, unlike on Slurm where
+            # it is joined into a shell string.
             cmd = cmd[len(wrapper) :]
             if cmd and cmd[-1] == postfix:
                 cmd = cmd[:-1]
+
+    if isinstance(executor.get_launcher(), (Torchrun, FaultTolerance)):
+        cmd = _unquote_component_args(cmd)
+    cmd = _to_container_cmd(executor, cmd)
 
     # Nvcre injects PET_* rendezvous env vars per pod; torchrun picks them up
     # without explicit flags, so torch.distributed is initialised correctly.
@@ -305,6 +313,24 @@ def _with_launcher_and_profiling(executor: NvcreExecutor, cmd: list[str]) -> lis
         cmd = ["torchrun", *cmd[1:]]
 
     return [nsys_entrypoint, *prefix, *cmd] if prefix else cmd
+
+
+def _unquote_component_args(cmd: list[str]) -> list[str]:
+    """Undo ``shlex.quote`` applied by the torchrun / ft_launcher components.
+
+    Those components emit each argument as one shell word, meant for executors
+    that join them into a shell string.  Nvcre needs the real values: it renders
+    them again itself, and path translation must see the unquoted path.  Words
+    that are not a single shell token are left alone.
+    """
+    unquoted = []
+    for arg in cmd:
+        try:
+            words = shlex.split(arg)
+        except ValueError:
+            words = []
+        unquoted.append(words[0] if len(words) == 1 else arg)
+    return unquoted
 
 
 def create_scheduler(session_name: str, **kwargs: Any) -> NvcreScheduler:

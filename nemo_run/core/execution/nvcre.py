@@ -18,10 +18,13 @@ import hashlib
 import json
 import logging
 import os
+import queue
 import re
 import shlex
+import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -30,6 +33,7 @@ from typing import Any, Iterable, Optional
 
 import yaml
 
+from nemo_run.config import SCRIPTS_DIR
 from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.execution.launcher import Launcher
 from nemo_run.core.packaging.base import Packager
@@ -41,9 +45,19 @@ _NVCRE_WORKLOADRUN_API = "nvcre.nvidia.com/v1alpha1"
 _DATA_MOVER_IMAGE = "alpine:3.19"
 # Archived code lives here under job_dir / code_dir; configs/ and scripts/ sit beside it.
 _CODE_SUBDIR = "code"
+# Per-task artifacts live under job_dir/<_TASK_ROOT>/, because Experiment reuses one
+# job_dir for tasks added under the same explicit name.
+_TASK_ROOT = "nvcre"
 _DNS_LABEL_MAX = 63
 _NAME_HASH_LEN = 6
+# Without a PVC nothing persistent is mounted; /tmp is the writable place in the container.
+_NO_PVC_PROFILE_ROOT = "/tmp"
 _SHELL_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# Log streaming: how often to look for new pods / retry while none can be read yet,
+# and how many polls in a row may report an unknowable phase before giving up.
+_LOG_POLL_SECONDS = 5.0
+_LOG_UNKNOWN_POLL_LIMIT = 24
+_LOG_PREFIX = re.compile(r"^\[([^\]]+)\] ")
 
 
 def _dns_label(text: str) -> str:
@@ -62,6 +76,9 @@ class NvcrePhase(Enum):
     SUCCEEDED = "Succeeded"
     FAILED = "Failed"
     UNKNOWN = "Unknown"
+
+
+_TERMINAL_PHASES = (NvcrePhase.SUCCEEDED, NvcrePhase.FAILED)
 
 
 @dataclass(kw_only=True)
@@ -153,13 +170,29 @@ class NvcreExecutor(Executor):
         self.job_name = task_id
         self.job_dir = os.path.join(exp_dir, task_dir)
 
+    def _profile_root(self) -> str:
+        """Container directory that ``nsys_folder`` is resolved against."""
+        return self.code_dir if self.workdir_pvc else _NO_PVC_PROFILE_ROOT
+
+    def profile_output_dir(self) -> Optional[str]:
+        """Container path nsys writes into, or None when profiling is off.
+
+        An absolute ``nsys_folder`` is used as given (a container path).
+        """
+        launcher = self.get_launcher()
+        if not launcher.nsys_profile:
+            return None
+        return os.path.join(self._profile_root(), launcher.nsys_folder)
+
     def get_launcher_prefix(self) -> Optional[list[str]]:
-        """Return nsys prefix when profiling is enabled, else None."""
+        """Return the nsys prefix, rendered for the training container, or None.
+
+        The output directory is created in the pod (see ``profile_output_dir``),
+        not on the submit host, whose paths do not exist there.
+        """
         launcher = self.get_launcher()
         if launcher.nsys_profile:
-            nsys_dir = os.path.join(self.job_dir, launcher.nsys_folder)
-            os.makedirs(nsys_dir, exist_ok=True)
-            return launcher.get_nsys_prefix(profile_dir=self.job_dir)
+            return launcher.get_nsys_prefix(profile_dir=self._profile_root())
         return None
 
     def nnodes(self) -> int:
@@ -236,6 +269,24 @@ class NvcreExecutor(Executor):
     def code_workdir(self) -> str:
         """Remote directory holding the extracted code; the job runs from here."""
         return f"{self.code_dir}/{_CODE_SUBDIR}"
+
+    @property
+    def stage_dir(self) -> str:
+        """Local, task-specific directory that is synced to ``code_dir``.
+
+        ``job_dir`` can be shared by several tasks, so nothing task-specific
+        (launch script, extracted code) is kept directly in it.
+        """
+        return os.path.join(self.job_dir, _TASK_ROOT, self._safe_name())
+
+    @property
+    def launch_script_path(self) -> str:
+        return os.path.join(self.stage_dir, "launch.sh")
+
+    @property
+    def workloadrun_yaml_path(self) -> str:
+        """Submitted manifest; kept outside ``stage_dir`` so it is never synced."""
+        return os.path.join(self.job_dir, _TASK_ROOT, f"{self._safe_name()}.workloadrun.yaml")
 
     def build_workloadrun_yaml(self, cmd: list[str]) -> dict:
         """Return the WorkloadRun manifest as a dict."""
@@ -474,6 +525,48 @@ class NvcreExecutor(Executor):
 
         return None
 
+    def _log_selector(self, name: str) -> str:
+        # Pods are labelled with the JobSet name, not the nvcre.nvidia.com/job
+        # label.  Derive the Nvcre internal job name from the WorkloadRun CRD
+        # (it may differ from `name`, the CRD name we submitted, and is only
+        # filled in once the workload starts), then form the JobSet name as
+        # <nvcre_job>-workload.
+        nvcre_job = self._get_nvcre_job_name(name) or name
+        return f"jobset.sigs.k8s.io/jobset-name={nvcre_job}-workload"
+
+    def _logs_command(self, selector: str) -> list[str]:
+        return self._kubectl_base() + [
+            "logs",
+            "-l",
+            selector,
+            "-n",
+            self.namespace,
+            "--prefix",
+            "--max-log-requests",
+            str(max(self.num_nodes * 2, 8)),
+        ]
+
+    def _list_pods(self, selector: str) -> list[str]:
+        result = subprocess.run(
+            self._kubectl_base()
+            + [
+                "get",
+                "pods",
+                "-l",
+                selector,
+                "-n",
+                self.namespace,
+                "-o",
+                'jsonpath={range .items[*]}{.metadata.name}{"\\n"}{end}',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            logger.debug("Could not list pods for '%s': %s", selector, result.stderr.strip())
+            return []
+        return [line for line in result.stdout.splitlines() if line.strip()]
+
     def fetch_logs(
         self,
         name: str,
@@ -483,67 +576,140 @@ class NvcreExecutor(Executor):
     ) -> Iterable[str]:
         """Yield log lines from WorkloadRun pods via kubectl logs.
 
-        Uses the label ``nvcre.nvidia.com/job=<name>`` that
-        Nvcre stamps on the pods it creates.
+        With *stream* the generator stays alive until the workload reaches a
+        terminal phase: it waits while no pods exist yet (e.g. a queued GPU job)
+        and reattaches when pods are added or replaced.
         """
-        # Pods are labelled with the JobSet name, not the nvcre.nvidia.com/job
-        # label.  Derive the Nvcre internal job name from the WorkloadRun CRD
-        # (it may differ from `name` which is the CRD name we submitted), then
-        # form the JobSet name as <nvcre_job>-workload.
-        nvcre_job = self._get_nvcre_job_name(name) or name
-        jobset_name = f"{nvcre_job}-workload"
-        label_selector = f"jobset.sigs.k8s.io/jobset-name={jobset_name}"
-        base_cmd = self._kubectl_base() + [
-            "logs",
-            "-l",
-            label_selector,
-            "-n",
-            self.namespace,
-            "--prefix",
-            "--max-log-requests",
-            str(max(self.num_nodes * 2, 8)),
-        ]
-
-        # Streaming logs are saved to job_dir/pod_logs/streaming.log so they
-        # are available for post-run inspection even after pods are deleted.
-        streaming_log_path = None
-        if stream and self.job_dir:
-            pod_logs_dir = os.path.join(self.job_dir, "pod_logs")
-            os.makedirs(pod_logs_dir, exist_ok=True)
-            streaming_log_path = os.path.join(pod_logs_dir, "streaming.log")
-
         if stream:
-            proc = subprocess.Popen(
-                base_cmd + ["-f"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                bufsize=1,
-            )
-            try:
-                log_file = open(streaming_log_path, "w") if streaming_log_path else None
-                try:
-                    for line in iter(proc.stdout.readline, ""):
-                        if line:
-                            if log_file:
-                                log_file.write(line)
-                                log_file.flush()
+            yield from self._stream_logs(name)
+            return
+
+        tail_args = ["--tail", str(lines)] if lines > 0 else ["--tail", "-1"]
+        result = subprocess.run(
+            self._logs_command(self._log_selector(name)) + tail_args,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        yield from result.stdout.splitlines()
+
+    @staticmethod
+    def _accept_log_line(
+        line: str, counts: dict[str, int], seen: dict[str, int], log_file: Any
+    ) -> bool:
+        """True for a line not yielded before, counting per ``[pod/container]`` prefix.
+
+        Reattaching re-reads each pod's log from the start, so the first
+        ``seen[prefix]`` lines of every pod are skipped.
+        """
+        match = _LOG_PREFIX.match(line)
+        key = match.group(1) if match else ""
+        counts[key] = counts.get(key, 0) + 1
+        if counts[key] <= seen.get(key, 0):
+            return False
+        seen[key] = counts[key]
+        if log_file:
+            log_file.write(line)
+            log_file.flush()
+        return True
+
+    def _stream_logs(self, name: str) -> Iterable[str]:
+        # Streaming logs are saved to job_dir/pod_logs/<name>/streaming.log so they
+        # are available for post-run inspection even after pods are deleted.
+        # One directory per workload: job_dir may be shared between tasks.
+        log_file = None
+        if self.job_dir:
+            pod_logs_dir = os.path.join(self.job_dir, "pod_logs", name)
+            os.makedirs(pod_logs_dir, exist_ok=True)
+            log_file = open(os.path.join(pod_logs_dir, "streaming.log"), "w")
+
+        seen: dict[str, int] = {}
+        unknown_polls = 0
+        try:
+            while True:
+                selector = self._log_selector(name)
+                pods = self._list_pods(selector)
+                if pods:
+                    yield from self._follow_pods(selector, pods, seen, log_file)
+
+                phase = self.status(name)
+                if phase in _TERMINAL_PHASES:
+                    # Catch anything written after the stream ended.
+                    result = subprocess.run(
+                        self._logs_command(selector) + ["--tail", "-1"],
+                        capture_output=True,
+                        text=True,
+                    )
+                    counts: dict[str, int] = {}
+                    for line in result.stdout.splitlines(keepends=True):
+                        if self._accept_log_line(line, counts, seen, log_file):
                             yield line
-                finally:
-                    if log_file:
-                        log_file.close()
-            finally:
-                proc.terminate()
+                    return
+
+                unknown_polls = unknown_polls + 1 if phase == NvcrePhase.UNKNOWN else 0
+                if unknown_polls >= _LOG_UNKNOWN_POLL_LIMIT:
+                    logger.warning("Stopped streaming logs for '%s': phase stays unknown", name)
+                    return
+                # No pods yet, pods not started, or a stream that ended early.
+                time.sleep(_LOG_POLL_SECONDS)
+        finally:
+            if log_file:
+                log_file.close()
+
+    def _follow_pods(
+        self, selector: str, pods: list[str], seen: dict[str, int], log_file: Any
+    ) -> Iterable[str]:
+        """Follow the pods' logs until the stream ends or the pod set changes."""
+        known = set(pods)
+        stderr = tempfile.TemporaryFile(mode="w+")
+        proc = subprocess.Popen(
+            self._logs_command(selector) + ["--tail", "-1", "-f"],
+            stdout=subprocess.PIPE,
+            stderr=stderr,
+            text=True,
+            bufsize=1,
+        )
+        lines: queue.Queue = queue.Queue()
+
+        def pump() -> None:
+            try:
+                for line in iter(proc.stdout.readline, ""):
+                    lines.put(line)
+            except (OSError, ValueError):  # stdout closed while we were stopping
+                pass
+            lines.put(None)
+
+        threading.Thread(target=pump, daemon=True).start()
+        counts: dict[str, int] = {}
+        last_pod_check = time.monotonic()
+        try:
+            while True:
+                try:
+                    line = lines.get(timeout=_LOG_POLL_SECONDS)
+                except queue.Empty:
+                    line = ""
+                if line is None:
+                    break
+                if line and self._accept_log_line(line, counts, seen, log_file):
+                    yield line
+                if not line or time.monotonic() - last_pod_check >= _LOG_POLL_SECONDS:
+                    last_pod_check = time.monotonic()
+                    if set(self._list_pods(selector)) - known:
+                        return  # a pod was added or replaced: reattach to include it
+        finally:
+            proc.terminate()
+            try:
                 proc.wait(timeout=5)
-        else:
-            tail_args = ["--tail", str(lines)] if lines > 0 else ["--tail", "-1"]
-            result = subprocess.run(
-                base_cmd + tail_args,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-            yield from result.stdout.splitlines()
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            if proc.stdout:
+                proc.stdout.close()
+            if not counts:
+                stderr.seek(0)
+                if message := stderr.read().strip():
+                    logger.debug("kubectl logs for '%s' produced no output: %s", selector, message)
+            stderr.close()
 
     # ── Code packaging via kubectl data-mover ────────────────────────────────
 
@@ -664,8 +830,10 @@ class NvcreExecutor(Executor):
         if not self.workdir_pvc:
             return
         pod_name = self._data_mover_pod_name(label)
-        self._start_data_mover_pod(pod_name)
         try:
+            # Startup is protected too: a pod that was applied but never reached
+            # Running would otherwise linger (and hold the PVC) once it starts.
+            self._start_data_mover_pod(pod_name)
             self._rsync_to_pod(pod_name, local_path, remote_path)
         finally:
             self._delete_data_mover_pod(pod_name)
@@ -688,9 +856,12 @@ class NvcreExecutor(Executor):
         else:
             base_path = Path(os.getcwd()).absolute()
 
-        local_pkg = packager.package(base_path, self.job_dir, job_name)
-        code_extraction_path = os.path.join(self.job_dir, _CODE_SUBDIR)
-        os.makedirs(code_extraction_path, exist_ok=True)
+        stage_dir = self.stage_dir
+        os.makedirs(stage_dir, exist_ok=True)
+        local_pkg = packager.package(base_path, stage_dir, job_name)
+        code_extraction_path = os.path.join(stage_dir, _CODE_SUBDIR)
+        shutil.rmtree(code_extraction_path, ignore_errors=True)  # drop a previous attempt's code
+        os.makedirs(code_extraction_path)
 
         if local_pkg:
             subprocess.check_call(
@@ -712,21 +883,57 @@ class NvcreExecutor(Executor):
             )
             logger.info("Merged '%s' into '%s'", self.workdir_local_path, code_extraction_path)
 
-        self.copy_to_workspace(self.job_dir, self.code_dir, label=job_name)
+        # Job.prepare() wrote the serialized configs and inline scripts into the
+        # (possibly shared) job_dir; the pod refers to them under code_dir.
+        for generated in ("configs", SCRIPTS_DIR):
+            source = os.path.join(self.job_dir, generated)
+            if os.path.isdir(source):
+                shutil.copytree(source, os.path.join(stage_dir, generated), dirs_exist_ok=True)
 
-        # Ensure the PVC volume/mount are declared on the WorkloadRun so the
-        # training container can reach code_dir.
-        already_mounted = any(
-            v.get("persistentVolumeClaim", {}).get("claimName") == self.workdir_pvc
-            for v in self.volumes
+        self.copy_to_workspace(stage_dir, self.code_dir, label=job_name)
+
+        self._ensure_workspace_mount()
+
+    def _ensure_workspace_mount(self) -> None:
+        """Declare workdir_pvc and mount it at workdir_pvc_path on the WorkloadRun.
+
+        The training container can only reach the staged files through this
+        mount.  A PVC the caller already declared (e.g. mounted at ``/data``) is
+        reused by name, but the workspace mount is ensured independently.
+        """
+        volume_name = next(
+            (
+                v.get("name")
+                for v in self.volumes
+                if v.get("name")
+                and v.get("persistentVolumeClaim", {}).get("claimName") == self.workdir_pvc
+            ),
+            None,
         )
-        if not already_mounted:
-            vol_name = "nemo-run-workdir"
+        if volume_name is None:
+            taken = {v.get("name") for v in self.volumes}
+            volume_name, n = "nemo-run-workdir", 0
+            while volume_name in taken:
+                n += 1
+                volume_name = f"nemo-run-workdir-{n}"
             self.volumes.append(
-                {"name": vol_name, "persistentVolumeClaim": {"claimName": self.workdir_pvc}}
+                {"name": volume_name, "persistentVolumeClaim": {"claimName": self.workdir_pvc}}
             )
-            if not any(vm.get("mountPath") == self.workdir_pvc_path for vm in self.volume_mounts):
-                self.volume_mounts.append({"name": vol_name, "mountPath": self.workdir_pvc_path})
+
+        def normalized(path: str) -> str:
+            return path.rstrip("/") or "/"
+
+        for mount in self.volume_mounts:
+            if normalized(mount.get("mountPath") or "") != normalized(self.workdir_pvc_path):
+                continue
+            if mount.get("name") == volume_name and not mount.get("subPath"):
+                return  # already mounted where the staged files are
+            raise ValueError(
+                f"volume_mounts already uses '{self.workdir_pvc_path}' for {mount!r}, but "
+                f"workdir_pvc '{self.workdir_pvc}' must be mounted there (without subPath) so "
+                "the staged launch script is visible; change workdir_pvc_path or the mount."
+            )
+        self.volume_mounts.append({"name": volume_name, "mountPath": self.workdir_pvc_path})
 
     def _env_exports(self) -> str:
         """``export`` lines for env_vars, with values quoted as literals.
@@ -747,7 +954,7 @@ class NvcreExecutor(Executor):
         return "\n".join(lines)
 
     def materialize_launch_script(self, cmd: list[str], max_retries: int = 0) -> None:
-        """Write a launch.sh to job_dir that the WorkloadRun exec framework will run.
+        """Write this task's launch.sh into its stage_dir for the WorkloadRun exec framework.
 
         *cmd* is run as given; the scheduler has already applied the launcher
         and any nsys profiling wrapper.
@@ -768,18 +975,25 @@ exit $exit_code"""
         else:
             run_block = cmd_str
 
+        profile_dir = self.profile_output_dir()
+        mkdir_profile = f"mkdir -p {shlex.quote(profile_dir)}\n" if profile_dir else ""
+
         script = f"""#!/usr/bin/env bash
 set -euo pipefail
 
 {env_exports}
 
-cd {self.code_workdir}
+{mkdir_profile}cd {shlex.quote(self.code_workdir)}
 
 {run_block}
 """
-        os.makedirs(self.job_dir, exist_ok=True)
-        launch_path = os.path.join(self.job_dir, "launch.sh")
-        with open(launch_path, "w") as f:
+        launch_path = self.launch_script_path
+        os.makedirs(os.path.dirname(launch_path), exist_ok=True)
+        # Write-then-replace so a read-only (0500) script from an earlier attempt
+        # does not block rewriting it.
+        temp_path = f"{launch_path}.tmp"
+        with open(temp_path, "w") as f:
             f.write(script)
-        os.chmod(launch_path, 0o500)
+        os.chmod(temp_path, 0o500)
+        os.replace(temp_path, launch_path)
         logger.info("Wrote launch script to %s", launch_path)

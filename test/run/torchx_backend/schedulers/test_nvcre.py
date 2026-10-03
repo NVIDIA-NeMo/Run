@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest import mock
-
 import json
 import multiprocessing
 import os
+import shlex
 import subprocess
+import threading
 from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
 
 import fiddle as fdl
 import pytest
@@ -28,8 +29,9 @@ from torchx.schedulers.api import AppDryRunInfo
 from torchx.specs import AppDef, AppState, Role
 
 import nemo_run as run
+import nemo_run.config as nemo_run_config
 from nemo_run.config import Partial
-from nemo_run.core.execution.launcher import Launcher, Torchrun
+from nemo_run.core.execution.launcher import FaultTolerance, Launcher, Torchrun
 from nemo_run.core.execution.nvcre import NvcreExecutor, NvcrePhase
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.job import Job
@@ -37,6 +39,7 @@ from nemo_run.run.torchx_backend.schedulers import nvcre as nvcre_scheduler
 from nemo_run.run.torchx_backend.schedulers.nvcre import (
     NVCRE_STATES,
     NvcreScheduler,
+    _unquote_component_args,
     create_scheduler,
 )
 
@@ -355,6 +358,39 @@ def test_log_iter_reads_the_jobset_once_across_replicas(scheduler, executor, sho
     mock_fetch.assert_called_once_with("wl-name", stream=should_tail)
 
 
+def test_log_iter_keeps_streaming_while_the_job_is_pending(scheduler, executor):
+    # The shared get_logs() starts reading right away; a queued job has no pods yet.
+    app_id = "test_exp___test_role___wl-name"
+    proc = mock.MagicMock()
+    proc.stdout.readline.side_effect = ["[pod/a/c] hello\n", "[pod/a/c] world\n", ""]
+    with (
+        mock.patch(
+            "nemo_run.run.torchx_backend.schedulers.nvcre._get_jobs",
+            return_value=_multi_node_registry(executor, app_id),
+        ),
+        mock.patch.object(NvcreExecutor, "_log_selector", return_value="sel"),
+        mock.patch.object(NvcreExecutor, "_list_pods", side_effect=[[], [], ["pod-a"]]),
+        mock.patch.object(
+            NvcreExecutor,
+            "status",
+            side_effect=[NvcrePhase.PENDING, NvcrePhase.PENDING, NvcrePhase.SUCCEEDED],
+        ),
+        mock.patch("nemo_run.core.execution.nvcre.subprocess.Popen", return_value=proc) as popen,
+        mock.patch(
+            "nemo_run.core.execution.nvcre.subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout=""),
+        ),
+        mock.patch("nemo_run.core.execution.nvcre.time.sleep") as sleep,
+    ):
+        per_replica = [
+            list(scheduler.log_iter(app_id, "role", k=k, should_tail=True)) for k in range(3)
+        ]
+
+    assert per_replica == [["[pod/a/c] hello\n", "[pod/a/c] world\n"], [], []]
+    assert sleep.call_count == 2  # waited out the pending polls instead of ending the stream
+    popen.assert_called_once()  # a single kubectl stream, once pods existed
+
+
 def test_log_iter_runs_a_single_kubectl_logs_for_multi_node_job(scheduler, executor):
     app_id = "test_exp___test_role___wl-name"
     with (
@@ -449,7 +485,7 @@ def test_pvc_partial_config_path_points_to_staged_code_dir(scheduler, tmp_path):
 
     assert cmd[-1] == f"{executor.code_dir}/configs/task_a_fn_or_script"
     assert not any(a.startswith(executor.job_dir) for a in cmd)
-    # copy_to_workspace(job_dir -> code_dir) puts this file at the translated path.
+    # package() copies it into the stage dir, which is synced to code_dir.
     assert os.path.isfile(os.path.join(executor.job_dir, "configs", "task_a_fn_or_script"))
 
 
@@ -501,7 +537,7 @@ def test_schedule_writes_translated_paths_to_launch_script(scheduler, tmp_path):
     ):
         scheduler.schedule(scheduler._submit_dryrun(app, executor))
 
-    launch_sh = (tmp_path / "task_a" / "launch.sh").read_text()
+    launch_sh = open(executor.launch_script_path).read()
     assert f"{executor.code_dir}/configs/task_a_fn_or_script" in launch_sh
     assert executor.job_dir not in launch_sh.replace(f"cd {executor.code_dir}", "")
 
@@ -630,7 +666,7 @@ def test_schedule_with_profiling_wraps_once_with_pvc(scheduler, tmp_path):
     ):
         scheduler.schedule(scheduler._submit_dryrun(app, executor))
 
-    launch_sh = (tmp_path / "task_a" / "launch.sh").read_text()
+    launch_sh = open(executor.launch_script_path).read()
     assert launch_sh.count("nsys profile") == 1
     assert "torchrun" in launch_sh
 
@@ -646,11 +682,15 @@ def test_schedule_with_profiling_wraps_once_without_pvc(scheduler, tmp_path):
     ):
         scheduler.schedule(scheduler._submit_dryrun(app, executor))
 
-    manifest = yaml.safe_load((tmp_path / "task_a" / "workloadrun.yaml").read_text())
+    manifest = yaml.safe_load(open(executor.workloadrun_yaml_path).read())
     command = manifest["spec"]["framework"]["exec"]["command"]
-    assert command.count("nsys") == 1
-    assert "torchrun" in command
-    assert "" not in command
+    # A shell creates the nsys output dir in the pod, then execs the wrapped command.
+    assert command[:2] == ["/bin/bash", "-c"]
+    script = command[2]
+    assert script.startswith("mkdir -p /tmp/nsys_profile && exec nsys profile ")
+    assert script.count("nsys profile") == 1
+    assert " torchrun " in script
+    assert "''" not in script  # no stray empty postfix argument
 
 
 # ── Distributed-launcher macros reach torchrun expanded ──────────────────────
@@ -659,9 +699,10 @@ def test_schedule_with_profiling_wraps_once_without_pvc(scheduler, tmp_path):
 def _stub_torchrun_env(tmp_path):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    torchrun = bin_dir / "torchrun"
-    torchrun.write_text('#!/bin/sh\nfor a in "$@"; do printf \'%s\\n\' "$a"; done\n')
-    torchrun.chmod(0o755)
+    for launcher_bin in ("torchrun", "ft_launcher"):
+        stub = bin_dir / launcher_bin
+        stub.write_text('#!/bin/sh\nfor a in "$@"; do printf \'%s\\n\' "$a"; done\n')
+        stub.chmod(0o755)
     return {"PATH": f"{bin_dir}:/usr/bin:/bin", "PET_NODE_RANK": "1", "PET_MASTER_ADDR": "head-0"}
 
 
@@ -681,7 +722,7 @@ def test_pvc_launch_script_expands_launcher_macros(scheduler, tmp_path):
     assert "$PET_NODE_RANK" in cmd
 
     executor.materialize_launch_script(cmd)
-    launch_sh = (tmp_path / "task_a" / "launch.sh").read_text()
+    launch_sh = open(executor.launch_script_path).read()
     assert "'$PET_NODE_RANK'" not in launch_sh
     # Run it for real, minus the cd into the PVC path that only exists in the pod.
     launch_sh = launch_sh.replace(f"cd {executor.code_workdir}\n", "")
@@ -708,7 +749,7 @@ def test_no_pvc_command_runs_through_a_shell_that_expands_launcher_macros(schedu
     ):
         scheduler.schedule(scheduler._submit_dryrun(app, executor))
 
-    manifest = yaml.safe_load((tmp_path / "task_a" / "workloadrun.yaml").read_text())
+    manifest = yaml.safe_load(open(executor.workloadrun_yaml_path).read())
     command = manifest["spec"]["framework"]["exec"]["command"]
     assert command[:2] == ["/bin/bash", "-c"]
     out = subprocess.run(
@@ -729,7 +770,7 @@ def test_no_pvc_command_without_macros_stays_direct_argv(scheduler, tmp_path):
     ):
         scheduler.schedule(scheduler._submit_dryrun(app, executor))
 
-    manifest = yaml.safe_load((tmp_path / "task_a" / "workloadrun.yaml").read_text())
+    manifest = yaml.safe_load(open(executor.workloadrun_yaml_path).read())
     assert manifest["spec"]["framework"]["exec"]["command"] == cmd
 
 
@@ -741,3 +782,376 @@ def test_dryrun_output_matches_submitted_command_for_macros(scheduler, tmp_path)
 
     printed = yaml.safe_load(str(dryrun))
     assert printed["spec"]["framework"]["exec"]["command"][:2] == ["/bin/bash", "-c"]
+
+
+# ── Launcher-generated shell quoting is undone before use as argv ────────────
+
+SPACED_ARGS = ["--prompt", "hello world", "--q", "it's", "--dollar", "$HOME"]
+
+
+def _spaced_script():
+    return run.Script(path="train.py", args=SPACED_ARGS)
+
+
+@pytest.mark.parametrize("launcher_cls", [Torchrun, FaultTolerance])
+@pytest.mark.parametrize("workdir_pvc", ["my-pvc", None])
+def test_launcher_quoting_is_removed_from_spaced_arguments(
+    scheduler, tmp_path, launcher_cls, workdir_pvc
+):
+    executor, app = _prepared_app(tmp_path, _spaced_script(), workdir_pvc, launcher=launcher_cls())
+    # The component really did shell-quote them.
+    assert "'hello world'" in app.roles[0].args
+
+    cmd = _request_cmd(scheduler, app, executor)
+
+    assert cmd[-len(SPACED_ARGS) :] == SPACED_ARGS
+
+
+@pytest.mark.parametrize("launcher_cls", [Torchrun, FaultTolerance])
+def test_pvc_launch_script_passes_spaced_arguments_to_the_launcher_exactly(
+    scheduler, tmp_path, launcher_cls
+):
+    executor, app = _prepared_app(tmp_path, _spaced_script(), "my-pvc", launcher=launcher_cls())
+    cmd = _request_cmd(scheduler, app, executor)
+
+    executor.materialize_launch_script(cmd)
+    launch_sh = open(executor.launch_script_path).read()
+    launch_sh = launch_sh.replace(f"cd {executor.code_workdir}\n", "")
+    out = subprocess.run(
+        ["bash", "-c", launch_sh],
+        env=_stub_torchrun_env(tmp_path),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+
+    # Not 'hello world' with literal quote characters, i.e. not quoted twice.
+    assert out[-len(SPACED_ARGS) :] == SPACED_ARGS
+
+
+def test_no_pvc_command_passes_spaced_arguments_exactly(scheduler, tmp_path):
+    executor, app = _prepared_app(tmp_path, _spaced_script(), None, launcher=Torchrun())
+    cmd = _request_cmd(scheduler, app, executor)
+
+    with (
+        mock.patch.object(NvcreExecutor, "submit", return_value="wl-name-123"),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job"),
+    ):
+        scheduler.schedule(scheduler._submit_dryrun(app, executor))
+
+    manifest = yaml.safe_load(open(executor.workloadrun_yaml_path).read())
+    command = manifest["spec"]["framework"]["exec"]["command"]
+    out = subprocess.run(
+        command, env=_stub_torchrun_env(tmp_path), capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    assert out[-len(SPACED_ARGS) :] == SPACED_ARGS
+    assert cmd[-len(SPACED_ARGS) :] == SPACED_ARGS
+
+
+@pytest.mark.parametrize("launcher_cls", [Torchrun, FaultTolerance, Launcher])
+def test_pvc_translates_a_config_path_containing_spaces(scheduler, tmp_path, launcher_cls):
+    executor, app = _prepared_app(
+        tmp_path / "dir with spaces", run.Partial(_train, x=2), "my-pvc", launcher=launcher_cls()
+    )
+    assert " " in executor.job_dir
+
+    cmd = _request_cmd(scheduler, app, executor)
+
+    assert cmd[-1] == f"{executor.code_dir}/configs/task_a_fn_or_script"
+    assert not any(executor.job_dir in a for a in cmd)
+
+
+@pytest.mark.parametrize("launcher_cls", [Torchrun, Launcher])
+def test_no_pvc_inlines_a_config_from_a_path_containing_spaces(scheduler, tmp_path, launcher_cls):
+    executor, app = _prepared_app(
+        tmp_path / "dir with spaces", run.Partial(_train, x=2), None, launcher=launcher_cls()
+    )
+
+    cmd = _request_cmd(scheduler, app, executor)
+
+    buildable = fdl.cast(Partial, ZlibJSONSerializer().deserialize(cmd[-1]))
+    assert fdl.build(buildable)() == 2
+
+
+def test_plain_launcher_arguments_are_not_unquoted(scheduler, tmp_path):
+    # Without a launcher component nothing was quoted, so quotes are real data.
+    args = ["--a", 'it\'s a "test"', "--b", "'already quoted'"]
+    executor, app = _prepared_app(
+        tmp_path, run.Script(path="train.py", args=args), "my-pvc", launcher=Launcher()
+    )
+
+    cmd = _request_cmd(scheduler, app, executor)
+
+    assert cmd[-len(args) :] == args
+
+
+def test_profiling_with_spaced_arguments_wraps_once_and_unquotes(scheduler, tmp_path):
+    executor, app = _prepared_app(
+        tmp_path, _spaced_script(), "my-pvc", launcher=Torchrun(nsys_profile=True)
+    )
+    prefix = executor.get_launcher_prefix()
+
+    cmd = _request_cmd(scheduler, app, executor)
+
+    assert cmd[: 1 + len(prefix)] == ["nsys", *prefix]  # the nsys prefix itself is untouched
+    assert _nsys_tokens(cmd) == [0]
+    assert cmd[-len(SPACED_ARGS) :] == SPACED_ARGS
+    assert "" not in cmd
+
+
+@pytest.mark.parametrize(
+    "quoted, expected",
+    [
+        (["torchrun", "--flag", "'hello world'"], ["torchrun", "--flag", "hello world"]),
+        (["''"], [""]),
+        (["'it'\"'\"'s'"], ["it's"]),
+        (
+            ["$PET_NODE_RANK", "$PET_MASTER_ADDR:29500"],
+            ["$PET_NODE_RANK", "$PET_MASTER_ADDR:29500"],
+        ),
+        (["'$HOME'"], ["$HOME"]),
+        (["plain", "-m", "pkg.mod"], ["plain", "-m", "pkg.mod"]),
+        (["'unterminated"], ["'unterminated"]),  # not one valid shell word: left alone
+        (["two words"], ["two words"]),
+        ([""], [""]),
+    ],
+)
+def test_unquote_component_args(quoted, expected):
+    assert _unquote_component_args(quoted) == expected
+
+
+# ── nsys output paths are rendered for the training container ────────────────
+
+
+def _nsys_out(cmd):
+    return cmd[cmd.index("-o") + 1]
+
+
+def test_pvc_nsys_output_is_under_the_staged_workspace(scheduler, tmp_path):
+    executor, app = _prepared_app(
+        tmp_path, run.Partial(_train, x=2), "my-pvc", launcher=Torchrun(nsys_profile=True)
+    )
+    # package() baked in the prefix; it must already be a container path.
+    assert executor.job_dir not in app.roles[0].args[app.roles[0].args.index("-o") + 1]
+
+    cmd = _request_cmd(scheduler, app, executor)
+
+    assert _nsys_out(cmd) == f"{executor.code_dir}/nsys_profile/profile_%p"
+    assert not any(executor.job_dir in a for a in cmd)
+
+
+def test_pvc_launch_script_creates_the_nsys_directory(scheduler, tmp_path):
+    executor, app = _prepared_app(
+        tmp_path, run.Partial(_train, x=2), "my-pvc", launcher=Torchrun(nsys_profile=True)
+    )
+    cmd = _request_cmd(scheduler, app, executor)
+
+    executor.materialize_launch_script(cmd)
+
+    launch_sh = open(executor.launch_script_path).read()
+    mkdir_at = launch_sh.index(f"mkdir -p {executor.code_dir}/nsys_profile\n")
+    assert mkdir_at < launch_sh.index("nsys profile")
+
+
+def test_no_pvc_nsys_output_uses_a_writable_container_dir(scheduler, tmp_path):
+    executor, app = _prepared_app(
+        tmp_path, run.Partial(_train, x=2), None, launcher=Torchrun(nsys_profile=True)
+    )
+
+    cmd = _request_cmd(scheduler, app, executor)
+
+    assert _nsys_out(cmd) == "/tmp/nsys_profile/profile_%p"
+    assert not any(executor.job_dir in a for a in cmd)
+
+
+@pytest.mark.parametrize("folder", ["container-profile-dir", "container profile; dir"])
+def test_no_pvc_command_creates_the_nsys_directory_before_the_profiler_starts(
+    scheduler, tmp_path, folder
+):
+    profile_dir = tmp_path / folder
+    launcher = Torchrun(nsys_profile=True, nsys_folder=str(profile_dir))  # absolute: as given
+    executor, app = _prepared_app(tmp_path, run.Partial(_train, x=2), None, launcher=launcher)
+    with (
+        mock.patch.object(NvcreExecutor, "submit", return_value="wl-name-123"),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job"),
+    ):
+        scheduler.schedule(scheduler._submit_dryrun(app, executor))
+    manifest = yaml.safe_load(open(executor.workloadrun_yaml_path).read())
+    command = manifest["spec"]["framework"]["exec"]["command"]
+
+    # A stub nsys that, like the real one needing its output dir, checks it exists.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    nsys = bin_dir / "nsys"
+    nsys.write_text(
+        f"#!/bin/sh\ntest -d {shlex.quote(str(profile_dir))} && echo profile-dir-exists\n"
+    )
+    nsys.chmod(0o755)
+    assert not profile_dir.exists()
+
+    result = subprocess.run(
+        command, env={"PATH": f"{bin_dir}:/usr/bin:/bin"}, capture_output=True, text=True
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "profile-dir-exists"
+    assert not any(str(executor.job_dir) in a for a in command)
+
+
+def test_profiling_off_leaves_the_no_pvc_command_as_plain_argv(scheduler, tmp_path):
+    executor, app = _prepared_app(tmp_path, run.Partial(_train, x=2), None)
+    cmd = _request_cmd(scheduler, app, executor)
+    with (
+        mock.patch.object(NvcreExecutor, "submit", return_value="wl-name-123"),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job"),
+    ):
+        scheduler.schedule(scheduler._submit_dryrun(app, executor))
+
+    manifest = yaml.safe_load(open(executor.workloadrun_yaml_path).read())
+    assert manifest["spec"]["framework"]["exec"]["command"] == cmd
+
+
+# ── Tasks that share a job_dir (same explicit name added twice) ──────────────
+
+
+@pytest.fixture
+def repeated_name_jobs(tmp_path, monkeypatch):
+    """Two jobs from Experiment.add(name="job") twice: ids job / job_1, one shared job_dir."""
+    monkeypatch.setattr(nemo_run_config, "_NEMORUN_HOME", str(tmp_path))
+    executor = NvcreExecutor(namespace="nemo-perf", container_image="img", workdir_pvc="my-pvc")
+    with run.Experiment("repeat", executor=executor, log_level="WARNING") as exp:
+        exp.add(run.Partial(_train, x=1), name="job")
+        exp.add(run.Partial(_train, x=2), name="job")
+        exp._prepare()
+        first, second = exp.jobs
+        assert [first.id, second.id] == ["job", "job_1"]
+        assert first.executor.job_dir == second.executor.job_dir  # the premise of these tests
+        yield first, second
+
+
+def _schedule(scheduler, job, submit_hook=None):
+    def submit(self, yaml_path):
+        if submit_hook:
+            submit_hook(self, yaml_path)
+        return f"wl-{job.id}"
+
+    with (
+        mock.patch.object(NvcreExecutor, "submit", autospec=True, side_effect=submit),
+        mock.patch.object(NvcreExecutor, "copy_to_workspace", autospec=True),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job"),
+    ):
+        return scheduler.schedule(scheduler._submit_dryrun(job._executable, job.executor))
+
+
+def test_shared_job_dir_tasks_schedule_one_after_another(scheduler, repeated_name_jobs):
+    first, second = repeated_name_jobs
+
+    # Used to raise PermissionError reopening the first task's read-only launch.sh.
+    _schedule(scheduler, first)
+    _schedule(scheduler, second)
+
+    for job in (first, second):
+        launch_sh = open(job.executor.launch_script_path).read()
+        assert f"cd {job.executor.code_workdir}\n" in launch_sh
+        assert f"{job.executor.code_dir}/configs/{job.id}_fn_or_script" in launch_sh
+    assert first.executor.launch_script_path != second.executor.launch_script_path
+    assert first.executor.workloadrun_yaml_path != second.executor.workloadrun_yaml_path
+
+
+def test_shared_job_dir_tasks_stage_only_their_own_files(
+    scheduler, repeated_name_jobs, monkeypatch
+):
+    first, second = repeated_name_jobs
+    staged = {}
+
+    def copy(self, local_path, remote_path, label="datamover"):
+        staged[self.job_name] = (local_path, remote_path, sorted(os.listdir(local_path)))
+
+    with (
+        mock.patch.object(NvcreExecutor, "copy_to_workspace", autospec=True, side_effect=copy),
+        mock.patch.object(NvcreExecutor, "submit", return_value="wl"),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job"),
+    ):
+        for job in (first, second):
+            scheduler.schedule(scheduler._submit_dryrun(job._executable, job.executor))
+
+    assert staged["job"][0] != staged["job_1"][0]
+    for job in (first, second):
+        local, remote, entries = staged[job.id]
+        assert local == job.executor.stage_dir
+        assert remote == job.executor.code_dir
+        assert entries == ["code", "configs", "launch.sh"]  # a Partial has no inline script
+        assert os.path.isfile(os.path.join(local, "configs", f"{job.id}_fn_or_script"))
+
+
+def test_shared_job_dir_tasks_scheduled_in_parallel_do_not_overwrite_each_other(
+    scheduler, repeated_name_jobs
+):
+    first, second = repeated_name_jobs
+    staged_launch, submitted = {}, {}
+    both_staged, both_submitting = threading.Barrier(2), threading.Barrier(2)
+
+    def copy(self, local_path, remote_path, label="datamover"):
+        # Both tasks have written their launch script before either one syncs it.
+        both_staged.wait(timeout=30)
+        staged_launch[self.job_name] = open(os.path.join(local_path, "launch.sh")).read()
+
+    def submit_hook(executor, yaml_path):
+        # Both manifests are on disk before either is read back for submission.
+        both_submitting.wait(timeout=30)
+        submitted[executor.job_name] = yaml.safe_load(open(yaml_path).read())
+
+    with (
+        mock.patch.object(NvcreExecutor, "copy_to_workspace", autospec=True, side_effect=copy),
+        mock.patch.object(
+            NvcreExecutor,
+            "submit",
+            autospec=True,
+            side_effect=lambda self, path: (submit_hook(self, path), f"wl-{self.job_name}")[1],
+        ),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job"),
+        ThreadPoolExecutor(max_workers=2) as pool,
+    ):
+        futures = [
+            pool.submit(
+                lambda j=job: scheduler.schedule(
+                    scheduler._submit_dryrun(j._executable, j.executor)
+                )
+            )
+            for job in (first, second)
+        ]
+        for future in futures:
+            future.result(timeout=60)
+
+    for job in (first, second):
+        # Each workload stages its own working directory and config ...
+        assert f"cd {job.executor.code_workdir}\n" in staged_launch[job.id]
+        assert f"/configs/{job.id}_fn_or_script" in staged_launch[job.id]
+        # ... and submits its own manifest.
+        assert submitted[job.id]["metadata"]["name"] == job.executor._safe_name()
+
+
+def test_rewriting_a_launch_script_after_it_was_made_read_only_succeeds(executor, tmp_path):
+    executor.job_dir = str(tmp_path)
+    executor.materialize_launch_script(["python", "a.py"])
+    executor.materialize_launch_script(["python", "b.py"])  # the script is 0500 by now
+
+    assert "python b.py" in open(executor.launch_script_path).read()
+
+
+def test_inline_script_is_staged_with_the_task(scheduler, tmp_path):
+    task = run.Script(inline="echo hi\n", entrypoint="bash")
+    executor, app = _prepared_app(tmp_path, task, "my-pvc")
+    cmd = _request_cmd(scheduler, app, executor)
+    staged = {}
+
+    def copy(self, local_path, remote_path, label="datamover"):
+        staged["entries"] = sorted(os.listdir(os.path.join(local_path, "scripts")))
+
+    executor.materialize_launch_script(cmd)
+    with mock.patch.object(NvcreExecutor, "copy_to_workspace", autospec=True, side_effect=copy):
+        executor.package(executor.packager, job_name=executor.job_name)
+
+    # The pod runs <code_dir>/scripts/task_a.sh, which is staged from here.
+    assert cmd == ["bash", f"{executor.code_dir}/scripts/task_a.sh"]
+    assert staged["entries"] == ["task_a.sh"]
