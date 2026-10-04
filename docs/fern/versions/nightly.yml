@@ -1,0 +1,20 @@
+navigation:
+  - page: "NeMo Run"
+    path: ./nightly/pages/index.mdx
+  - section: "Guides"
+    path: ./nightly/pages/guides/index.mdx
+    contents:
+      - page: "Configure NeMo-Run"
+        path: ./nightly/pages/guides/configuration.mdx
+      - page: "Execute NeMo Run"
+        path: ./nightly/pages/guides/execution.mdx
+      - page: "Management"
+        path: ./nightly/pages/guides/management.mdx
+      - page: "Why should I use NemoRun?"
+        path: ./nightly/pages/guides/why-use-nemo-run.mdx
+      - page: "Ray Clusters & Jobs"
+        path: ./nightly/pages/guides/ray.mdx
+      - page: "NeMo Run CLI Guide"
+        path: ./nightly/pages/guides/cli.mdx
+  - page: "Frequently Asked Questions"
+    path: ./nightly/pages/faqs.mdx
