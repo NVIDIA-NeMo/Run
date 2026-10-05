@@ -104,7 +104,9 @@ class _FakeKube:
             self.pod_selectors.append(cmd[cmd.index("-l") + 1])
             return _completed(stdout="\n".join(self._next(self.pod_lists)))
         if "logs" in cmd:  # the non-follow read after a terminal phase
-            return _completed(stdout="".join(map(_stamp, self.final_logs.splitlines(keepends=True))))
+            return _completed(
+                stdout="".join(map(_stamp, self.final_logs.splitlines(keepends=True)))
+            )
         raise AssertionError(f"unexpected command: {cmd}")
 
     def popen(self, cmd, **kwargs):
@@ -755,7 +757,10 @@ class TestNvcreExecutor:
 
         prefix = executor.get_launcher_prefix()
 
-        assert self._nsys_output(prefix) == f"{executor.code_dir}/nsys_profile/profile_%p_node$PET_NODE_RANK"
+        assert (
+            self._nsys_output(prefix)
+            == f"{executor.code_dir}/nsys_profile/profile_%p_node$PET_NODE_RANK"
+        )
         assert executor.profile_output_dir() == f"{executor.code_dir}/nsys_profile"
         assert not any(executor.job_dir in arg for arg in prefix)
 
@@ -774,7 +779,10 @@ class TestNvcreExecutor:
         executor.workdir_pvc = workdir_pvc
         executor.launcher = Launcher(nsys_profile=True, nsys_folder="/results/nsys")
 
-        assert self._nsys_output(executor.get_launcher_prefix()) == "/results/nsys/profile_%p_node$PET_NODE_RANK"
+        assert (
+            self._nsys_output(executor.get_launcher_prefix())
+            == "/results/nsys/profile_%p_node$PET_NODE_RANK"
+        )
         assert executor.profile_output_dir() == "/results/nsys"
 
     def test_nodes_with_the_same_pid_get_distinct_nsys_outputs(self, executor):

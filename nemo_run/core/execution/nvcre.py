@@ -674,7 +674,9 @@ class NvcreExecutor(Executor):
                     )
                     counts: dict[str, tuple[str, int]] = {}
                     for line in result.stdout.splitlines(keepends=True):
-                        if (accepted := self._accept_log_line(line, counts, seen, log_file)) is not None:
+                        if (
+                            accepted := self._accept_log_line(line, counts, seen, log_file)
+                        ) is not None:
                             yield accepted
                     return
 
