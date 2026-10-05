@@ -16,8 +16,10 @@
 import json
 import os
 import re
+import signal
 import subprocess
 import tarfile
+import time
 import threading
 from contextlib import contextmanager
 from pathlib import Path
@@ -67,6 +69,17 @@ class _FakeProc:
         pass
 
 
+def _stamp(line):
+    """Give a plain ``[pod/c] msg`` line the timestamp ``kubectl logs --timestamps`` adds."""
+    match = re.match(r"(\[[^\]]+\]) (.*)\n", line)
+    if not match or re.match(r"\d{4}-\d\d-\d\dT", match.group(2)):
+        return line  # already stamped, or not a prefixed line
+    return f"{match.group(1)} 2026-01-01T00:00:{_SECONDS[match.group(2)]}Z {match.group(2)}\n"
+
+
+_SECONDS = {"a1": "01", "a2": "02", "a3": "03", "a4": "04", "b1": "01"}
+
+
 class _FakeKube:
     """Scripted kubectl / nvcrectl: successive answers, the last one repeating."""
 
@@ -91,14 +104,14 @@ class _FakeKube:
             self.pod_selectors.append(cmd[cmd.index("-l") + 1])
             return _completed(stdout="\n".join(self._next(self.pod_lists)))
         if "logs" in cmd:  # the non-follow read after a terminal phase
-            return _completed(stdout=self.final_logs)
+            return _completed(stdout="".join(map(_stamp, self.final_logs.splitlines(keepends=True))))
         raise AssertionError(f"unexpected command: {cmd}")
 
     def popen(self, cmd, **kwargs):
         self.popen_cmds.append(cmd)
         entry = self._next(self.stream_lines)
         lines, block = entry if isinstance(entry, tuple) else (entry, False)
-        proc = _FakeProc(lines, block)
+        proc = _FakeProc([_stamp(x) for x in lines], block)
         self.procs.append(proc)
         return proc
 
@@ -623,6 +636,74 @@ class TestNvcreExecutor:
         assert attempts == 1
         assert "Retry" not in result.stdout
 
+    @pytest.mark.parametrize("max_retries", [0, 2])
+    def test_launch_script_forwards_sigterm_and_does_not_retry(
+        self, executor, tmp_path, max_retries
+    ):
+        started, got_term, attempts = (tmp_path / n for n in ("started", "got_term", "attempts"))
+        trainer = tmp_path / "trainer.sh"
+        trainer.write_text(
+            "#!/bin/bash\n"
+            f"echo x >> {attempts}\n"
+            f"trap 'echo term > {got_term}; exit 143' TERM\n"
+            f"touch {started}\n"
+            "while true; do sleep 0.1; done\n"
+        )
+        trainer.chmod(0o755)
+        executor.job_dir = str(tmp_path / "job")
+        executor.materialize_launch_script([str(trainer)], max_retries=max_retries)
+        script = Path(executor.launch_script_path).read_text()
+        script = script.replace(f"cd {executor.code_workdir}\n", "")
+
+        proc = subprocess.Popen(
+            ["bash", "-c", script], env={"PATH": "/usr/bin:/bin"}, stdout=subprocess.PIPE
+        )
+        for _ in range(100):
+            if started.exists():
+                break
+            time.sleep(0.1)
+        assert started.exists()
+        proc.send_signal(signal.SIGTERM)
+        proc.wait(timeout=30)
+
+        assert got_term.exists()  # training received the shutdown signal
+        assert proc.returncode == 143
+        assert len(attempts.read_text().split()) == 1  # not restarted
+
+    def test_launch_script_forwards_sigterm_to_grandchildren(self, executor, tmp_path):
+        # A task like `bash train.sh` runs training as a grandchild, which has to be
+        # signalled too and given time to shut down.
+        started, got_term, done = (tmp_path / n for n in ("started", "got_term", "done"))
+        inner = tmp_path / "inner.sh"
+        inner.write_text(
+            "#!/bin/bash\n"
+            f"trap 'echo term > {got_term}; sleep 1; touch {done}; exit 0' TERM\n"
+            f"touch {started}\n"
+            "while true; do sleep 0.1; done\n"
+        )
+        inner.chmod(0o755)
+        outer = tmp_path / "outer.sh"
+        outer.write_text(f"#!/bin/bash\n{inner}\necho after >> {tmp_path / 'outer_after'}\n")
+        outer.chmod(0o755)
+        executor.job_dir = str(tmp_path / "job")
+        executor.materialize_launch_script([str(outer)], max_retries=2)
+        script = Path(executor.launch_script_path).read_text()
+        script = script.replace(f"cd {executor.code_workdir}\n", "")
+
+        proc = subprocess.Popen(
+            ["bash", "-c", script], env={"PATH": "/usr/bin:/bin"}, stdout=subprocess.PIPE
+        )
+        for _ in range(100):
+            if started.exists():
+                break
+            time.sleep(0.1)
+        assert started.exists()
+        proc.send_signal(signal.SIGTERM)
+        proc.wait(timeout=30)
+
+        assert got_term.exists()  # the grandchild received the signal
+        assert done.exists()  # and finished shutting down before the wrapper exited
+
     def test_launch_script_without_retries_fails_on_first_error(self, executor, tmp_path):
         result, attempts = self._run_launch_script(
             executor, tmp_path, fails_before_success=1, max_retries=0
@@ -674,7 +755,7 @@ class TestNvcreExecutor:
 
         prefix = executor.get_launcher_prefix()
 
-        assert self._nsys_output(prefix) == f"{executor.code_dir}/nsys_profile/profile_%p"
+        assert self._nsys_output(prefix) == f"{executor.code_dir}/nsys_profile/profile_%p_node$PET_NODE_RANK"
         assert executor.profile_output_dir() == f"{executor.code_dir}/nsys_profile"
         assert not any(executor.job_dir in arg for arg in prefix)
 
@@ -684,7 +765,7 @@ class TestNvcreExecutor:
 
         prefix = executor.get_launcher_prefix()
 
-        assert self._nsys_output(prefix) == "/tmp/nsys_profile/profile_%p"
+        assert self._nsys_output(prefix) == "/tmp/nsys_profile/profile_%p_node$PET_NODE_RANK"
         assert executor.profile_output_dir() == "/tmp/nsys_profile"
         assert not any(executor.job_dir in arg for arg in prefix)
 
@@ -693,8 +774,26 @@ class TestNvcreExecutor:
         executor.workdir_pvc = workdir_pvc
         executor.launcher = Launcher(nsys_profile=True, nsys_folder="/results/nsys")
 
-        assert self._nsys_output(executor.get_launcher_prefix()) == "/results/nsys/profile_%p"
+        assert self._nsys_output(executor.get_launcher_prefix()) == "/results/nsys/profile_%p_node$PET_NODE_RANK"
         assert executor.profile_output_dir() == "/results/nsys"
+
+    def test_nodes_with_the_same_pid_get_distinct_nsys_outputs(self, executor):
+        executor.workdir_pvc = "my-pvc"
+        executor.launcher = Launcher(nsys_profile=True)
+        prefix = executor.get_launcher_prefix()
+        output_arg = executor.shell_quote(self._nsys_output(prefix))
+
+        outputs = set()
+        for rank in ("0", "1"):
+            out = subprocess.run(
+                ["bash", "-c", f"printf %s {output_arg}"],
+                env={**os.environ, "PET_NODE_RANK": rank},
+                capture_output=True,
+                text=True,
+            ).stdout.replace("%p", "1234")  # same PID on both pods
+            outputs.add(out)
+
+        assert len(outputs) == 2
 
     def test_profile_output_dir_is_none_without_profiling(self, executor):
         assert executor.profile_output_dir() is None
@@ -886,6 +985,38 @@ class TestNvcreExecutor:
         assert lines == [A1, A2, A3, B1]  # each line once
         assert (tmp_path / "pod_logs" / "wl-name" / "streaming.log").read_text() == "".join(lines)
 
+    def test_streaming_reattach_after_log_rotation_keeps_new_lines(
+        self, executor, tmp_path, monkeypatch
+    ):
+        executor.job_dir = str(tmp_path)
+        A4 = "[pod/a/c] a4\n"
+        fake = _FakeKube(
+            pods=[["pod-a"], ["pod-a", "pod-b"]],
+            phases=["InProgress", "Succeeded"],
+            # Two lines are read, the log rotates (a1 is gone), and one new line arrives.
+            streams=[[A1, A2], [A2, A3, B1]],
+            final_logs=A2 + A3 + B1,
+        )
+
+        lines = self._stream(executor, fake, monkeypatch)
+
+        assert lines == [A1, A2, A3, B1]  # a3 is new even though it sits at an old position
+        assert A4 not in lines
+
+    def test_streaming_dedup_separates_lines_sharing_a_timestamp(self, executor, monkeypatch):
+        same = "[pod/a/c] 2026-01-01T00:00:01.5Z "
+        first, second = same + "x\n", same + "y\n"
+        fake = _FakeKube(
+            pods=[["pod-a"], ["pod-a", "pod-b"]],
+            phases=["InProgress", "Succeeded"],
+            streams=[[first], [first, second]],
+            final_logs=first + second,
+        )
+
+        lines = self._stream(executor, fake, monkeypatch)
+
+        assert lines == ["[pod/a/c] x\n", "[pod/a/c] y\n"]
+
     def test_streaming_reattaches_when_a_pod_is_replaced(self, executor, monkeypatch):
         fake = _FakeKube(
             # pod-a is replaced by pod-b while the first stream is still open.
@@ -911,6 +1042,7 @@ class TestNvcreExecutor:
         cmd = fake.popen_cmds[0]
         assert cmd[cmd.index("--tail") : cmd.index("--tail") + 2] == ["--tail", "-1"]
         assert cmd[-1] == "-f"
+        assert "--timestamps" in cmd  # the dedup cursor
 
     def test_streaming_picks_up_the_internal_job_name_once_it_exists(self, executor, monkeypatch):
         # The CRD only reports its internal job name after the workload starts.

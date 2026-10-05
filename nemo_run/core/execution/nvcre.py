@@ -58,6 +58,9 @@ _SHELL_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _LOG_POLL_SECONDS = 5.0
 _LOG_UNKNOWN_POLL_LIMIT = 24
 _LOG_PREFIX = re.compile(r"^\[([^\]]+)\] ")
+# ``kubectl logs --timestamps`` puts an RFC 3339 timestamp (UTC, fraction trimmed of
+# trailing zeros) in front of each message.
+_LOG_TIMESTAMP = re.compile(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d+))?Z ")
 
 
 def _dns_label(text: str) -> str:
@@ -191,9 +194,15 @@ class NvcreExecutor(Executor):
         not on the submit host, whose paths do not exist there.
         """
         launcher = self.get_launcher()
-        if launcher.nsys_profile:
-            return launcher.get_nsys_prefix(profile_dir=self._profile_root())
-        return None
+        if not launcher.nsys_profile:
+            return None
+        prefix = launcher.get_nsys_prefix(profile_dir=self._profile_root())
+        # PIDs are per pod, so nodes sharing a PVC would otherwise collide on
+        # ``profile_%p``.  The node-rank macro is expanded by the pod's shell.
+        node_rank_var = self.macro_values().node_rank_var
+        out_idx = prefix.index("-o") + 1
+        prefix[out_idx] = f"{prefix[out_idx]}_node${node_rank_var}"
+        return prefix
 
     def nnodes(self) -> int:
         return self.num_nodes
@@ -595,23 +604,46 @@ class NvcreExecutor(Executor):
 
     @staticmethod
     def _accept_log_line(
-        line: str, counts: dict[str, int], seen: dict[str, int], log_file: Any
-    ) -> bool:
-        """True for a line not yielded before, counting per ``[pod/container]`` prefix.
+        line: str,
+        counts: dict[str, tuple[str, int]],
+        seen: dict[str, tuple[str, int]],
+        log_file: Any,
+    ) -> Optional[str]:
+        """The line without its timestamp if it was not yielded before, else None.
 
-        Reattaching re-reads each pod's log from the start, so the first
-        ``seen[prefix]`` lines of every pod are skipped.
+        *line* comes from ``kubectl logs --prefix --timestamps``.  Reattaching
+        re-reads each pod's log, and after log rotation that is only the newest
+        part, so lines are identified by ``[pod/container]`` plus timestamp rather
+        than by position: ``seen[prefix]`` is the newest timestamp already yielded
+        and how many lines carried it, which also separates lines that share one.
+        *counts* is the same tally for the current read.  A line without a
+        timestamp cannot be placed, so it falls back to its position among the
+        untimestamped lines of its prefix.
         """
-        match = _LOG_PREFIX.match(line)
-        key = match.group(1) if match else ""
-        counts[key] = counts.get(key, 0) + 1
-        if counts[key] <= seen.get(key, 0):
-            return False
-        seen[key] = counts[key]
+        prefix = _LOG_PREFIX.match(line)
+        key = prefix.group(1) if prefix else ""
+        rest = line[prefix.end() :] if prefix else line
+        stamp = _LOG_TIMESTAMP.match(rest)
+        if stamp:
+            # Pad the fraction so timestamps compare as strings.
+            ts = f"{stamp.group(1)}.{(stamp.group(2) or '').ljust(9, '0')}"
+            last_ts, tied = counts.get(key, ("", 0))
+            counts[key] = (ts, tied + 1 if ts == last_ts else 1)
+            newest = seen.get(key)
+            if newest and counts[key] <= newest:
+                return None
+            seen[key] = counts[key]
+            line = line[: prefix.end()] + rest[stamp.end() :] if prefix else rest[stamp.end() :]
+        else:
+            key += "\0untimestamped"
+            counts[key] = ("", counts.get(key, ("", 0))[1] + 1)
+            if counts[key] <= seen.get(key, ("", 0)):
+                return None
+            seen[key] = counts[key]
         if log_file:
             log_file.write(line)
             log_file.flush()
-        return True
+        return line
 
     def _stream_logs(self, name: str) -> Iterable[str]:
         # Streaming logs are saved to job_dir/pod_logs/<name>/streaming.log so they
@@ -623,7 +655,7 @@ class NvcreExecutor(Executor):
             os.makedirs(pod_logs_dir, exist_ok=True)
             log_file = open(os.path.join(pod_logs_dir, "streaming.log"), "w")
 
-        seen: dict[str, int] = {}
+        seen: dict[str, tuple[str, int]] = {}
         unknown_polls = 0
         try:
             while True:
@@ -636,14 +668,14 @@ class NvcreExecutor(Executor):
                 if phase in _TERMINAL_PHASES:
                     # Catch anything written after the stream ended.
                     result = subprocess.run(
-                        self._logs_command(selector) + ["--tail", "-1"],
+                        self._logs_command(selector) + ["--timestamps", "--tail", "-1"],
                         capture_output=True,
                         text=True,
                     )
-                    counts: dict[str, int] = {}
+                    counts: dict[str, tuple[str, int]] = {}
                     for line in result.stdout.splitlines(keepends=True):
-                        if self._accept_log_line(line, counts, seen, log_file):
-                            yield line
+                        if (accepted := self._accept_log_line(line, counts, seen, log_file)) is not None:
+                            yield accepted
                     return
 
                 unknown_polls = unknown_polls + 1 if phase == NvcrePhase.UNKNOWN else 0
@@ -657,13 +689,17 @@ class NvcreExecutor(Executor):
                 log_file.close()
 
     def _follow_pods(
-        self, selector: str, pods: list[str], seen: dict[str, int], log_file: Any
+        self,
+        selector: str,
+        pods: list[str],
+        seen: dict[str, tuple[str, int]],
+        log_file: Any,
     ) -> Iterable[str]:
         """Follow the pods' logs until the stream ends or the pod set changes."""
         known = set(pods)
         stderr = tempfile.TemporaryFile(mode="w+")
         proc = subprocess.Popen(
-            self._logs_command(selector) + ["--tail", "-1", "-f"],
+            self._logs_command(selector) + ["--timestamps", "--tail", "-1", "-f"],
             stdout=subprocess.PIPE,
             stderr=stderr,
             text=True,
@@ -680,7 +716,7 @@ class NvcreExecutor(Executor):
             lines.put(None)
 
         threading.Thread(target=pump, daemon=True).start()
-        counts: dict[str, int] = {}
+        counts: dict[str, tuple[str, int]] = {}
         last_pod_check = time.monotonic()
         try:
             while True:
@@ -690,8 +726,8 @@ class NvcreExecutor(Executor):
                     line = ""
                 if line is None:
                     break
-                if line and self._accept_log_line(line, counts, seen, log_file):
-                    yield line
+                if line and (accepted := self._accept_log_line(line, counts, seen, log_file)):
+                    yield accepted
                 if not line or time.monotonic() - last_pod_check >= _LOG_POLL_SECONDS:
                     last_pod_check = time.monotonic()
                     if set(self._list_pods(selector)) - known:
@@ -953,6 +989,68 @@ class NvcreExecutor(Executor):
             lines.append(f"export {name}={self.shell_quote(str(value))}")
         return "\n".join(lines)
 
+    @staticmethod
+    def _retry_block(cmd_str: str, max_retries: int) -> str:
+        """Shell loop that runs *cmd_str* up to ``max_retries + 1`` times.
+
+        Retries are per pod and shell-level (not coordinated across nodes), and
+        they do not depend on a PVC, so the launch script and the no-PVC command
+        share this.
+        """
+        return f"""MAX_RETRIES={max_retries}
+attempt=0
+exit_code=0
+child=0
+terminated=0
+# The command runs as a child so bash can retry it, which means a termination
+# signal reaches bash, not the command.  Job control gives each attempt its own
+# process group, so the signal can be forwarded to everything the task started
+# (e.g. python launched by a wrapper script), and retries stop afterwards.
+set -m
+forward_signal() {{
+    terminated=1
+    [ $child -ne 0 ] && kill -TERM -- -$child 2>/dev/null
+    return 0
+}}
+trap forward_signal TERM INT
+while [ $attempt -le $MAX_RETRIES ] && [ $terminated -eq 0 ]; do
+    {cmd_str} &
+    child=$!
+    [ $terminated -eq 1 ] && kill -TERM -- -$child 2>/dev/null
+    # A trapped signal interrupts wait; keep waiting until the child has exited.
+    exit_code=0
+    wait $child || exit_code=$?
+    while kill -0 $child 2>/dev/null; do
+        exit_code=0
+        wait $child || exit_code=$?
+    done
+    # On termination, let the rest of the group finish its shutdown (checkpoint,
+    # profile flush) before the pod goes away.
+    while [ $terminated -eq 1 ] && kill -0 -- -$child 2>/dev/null; do
+        sleep 0.2
+    done
+    child=0
+    [ $exit_code -eq 0 ] && exit 0
+    [ $terminated -eq 1 ] && break
+    attempt=$((attempt + 1))
+    [ $attempt -le $MAX_RETRIES ] && echo "Retry $attempt/$MAX_RETRIES..." && sleep 5
+done
+exit $exit_code"""
+
+    def shell_script(self, cmd: list[str], max_retries: int = 0) -> str:
+        """Script for ``bash -c`` when there is no launch.sh (no PVC).
+
+        Creates the nsys output directory in the pod first, expands launcher
+        macros, and retries a failing *cmd* ``max_retries`` times.
+        """
+        cmd_str = self.shell_join(cmd)
+        profile_dir = self.profile_output_dir()
+        if max_retries <= 0:
+            mkdir_profile = f"mkdir -p {shlex.quote(profile_dir)} && " if profile_dir else ""
+            return f"{mkdir_profile}exec {cmd_str}"
+        mkdir_profile = f"mkdir -p {shlex.quote(profile_dir)} || exit 1\n" if profile_dir else ""
+        return f"{mkdir_profile}{self._retry_block(cmd_str, max_retries)}"
+
     def materialize_launch_script(self, cmd: list[str], max_retries: int = 0) -> None:
         """Write this task's launch.sh into its stage_dir for the WorkloadRun exec framework.
 
@@ -961,19 +1059,7 @@ class NvcreExecutor(Executor):
         """
         env_exports = self._env_exports()
         cmd_str = self.shell_join(cmd)
-        if max_retries > 0:
-            run_block = f"""MAX_RETRIES={max_retries}
-attempt=0
-while [ $attempt -le $MAX_RETRIES ]; do
-    # Part of an && list, so a failure is captured instead of triggering errexit.
-    {cmd_str} && exit 0
-    exit_code=$?
-    attempt=$((attempt + 1))
-    [ $attempt -le $MAX_RETRIES ] && echo "Retry $attempt/$MAX_RETRIES..." && sleep 5
-done
-exit $exit_code"""
-        else:
-            run_block = cmd_str
+        run_block = self._retry_block(cmd_str, max_retries) if max_retries > 0 else cmd_str
 
         profile_dir = self.profile_output_dir()
         mkdir_profile = f"mkdir -p {shlex.quote(profile_dir)}\n" if profile_dir else ""

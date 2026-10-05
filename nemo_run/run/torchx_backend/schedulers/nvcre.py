@@ -276,12 +276,15 @@ def _workload_command(executor: NvcreExecutor, cmd: list[str]) -> list[str]:
     """The argv the WorkloadRun execs, for both dry-run output and submission."""
     if executor.workdir_pvc:
         return ["/bin/bash", f"{executor.code_dir}/launch.sh"]
-    profile_dir = executor.profile_output_dir()
-    if profile_dir or executor.requires_shell(cmd):
-        # A shell is needed to expand launcher macros such as $PET_NODE_RANK and to
-        # create the nsys output directory in the pod before the profiler starts.
-        mkdir_profile = f"mkdir -p {shlex.quote(profile_dir)} && " if profile_dir else ""
-        return ["/bin/bash", "-c", f"{mkdir_profile}exec {executor.shell_join(cmd)}"]
+    if executor.retries > 0 or executor.profile_output_dir() or executor.requires_shell(cmd):
+        # A shell is needed to retry, to expand launcher macros such as
+        # $PET_NODE_RANK, and to create the nsys output directory in the pod
+        # before the profiler starts.
+        return [
+            "/bin/bash",
+            "-c",
+            executor.shell_script(cmd, max_retries=executor.retries),
+        ]
     return cmd
 
 

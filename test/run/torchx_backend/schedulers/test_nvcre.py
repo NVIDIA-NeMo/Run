@@ -40,6 +40,7 @@ from nemo_run.run.torchx_backend.schedulers.nvcre import (
     NVCRE_STATES,
     NvcreScheduler,
     _unquote_component_args,
+    _workload_command,
     create_scheduler,
 )
 
@@ -458,13 +459,14 @@ def _train(x: int = 1) -> int:
     return x
 
 
-def _prepared_app(tmp_path, task, workdir_pvc, launcher=None, num_nodes=1):
+def _prepared_app(tmp_path, task, workdir_pvc, launcher=None, num_nodes=1, retries=0):
     executor = NvcreExecutor(
         namespace="nemo-perf",
         container_image="nvcr.io/nvidia/nemo:dev",
         workdir_pvc=workdir_pvc,
         launcher=launcher,
         num_nodes=num_nodes,
+        retries=retries,
     )
     executor.assign("exp_1", str(tmp_path), "task_a", "task_a")
     job = Job(id="task_a", task=task, executor=executor)
@@ -936,7 +938,7 @@ def test_pvc_nsys_output_is_under_the_staged_workspace(scheduler, tmp_path):
 
     cmd = _request_cmd(scheduler, app, executor)
 
-    assert _nsys_out(cmd) == f"{executor.code_dir}/nsys_profile/profile_%p"
+    assert _nsys_out(cmd) == f"{executor.code_dir}/nsys_profile/profile_%p_node$PET_NODE_RANK"
     assert not any(executor.job_dir in a for a in cmd)
 
 
@@ -960,7 +962,7 @@ def test_no_pvc_nsys_output_uses_a_writable_container_dir(scheduler, tmp_path):
 
     cmd = _request_cmd(scheduler, app, executor)
 
-    assert _nsys_out(cmd) == "/tmp/nsys_profile/profile_%p"
+    assert _nsys_out(cmd) == "/tmp/nsys_profile/profile_%p_node$PET_NODE_RANK"
     assert not any(executor.job_dir in a for a in cmd)
 
 
@@ -1155,3 +1157,137 @@ def test_inline_script_is_staged_with_the_task(scheduler, tmp_path):
     # The pod runs <code_dir>/scripts/task_a.sh, which is staged from here.
     assert cmd == ["bash", f"{executor.code_dir}/scripts/task_a.sh"]
     assert staged["entries"] == ["task_a.sh"]
+
+
+# ── executor.retries without a PVC ───────────────────────────────────────────
+
+
+def _flaky_env(tmp_path, fails, stubs=("torchrun",)):
+    """PATH with launcher stubs that fail `fails` times in total, then succeed; sleep is a no-op."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    counter = tmp_path / "attempts"
+    for name in stubs:
+        stub = bin_dir / name
+        stub.write_text(
+            "#!/bin/sh\n"
+            f"n=$(cat {counter} 2>/dev/null || echo 0); n=$((n + 1)); echo $n > {counter}\n"
+            'for a in "$@"; do printf \'%s\\n\' "$a"; done\n'
+            f"[ $n -gt {fails} ] && exit 0\n"
+            "exit 7\n"
+        )
+        stub.chmod(0o755)
+    sleep = bin_dir / "sleep"
+    sleep.write_text("#!/bin/sh\nexit 0\n")
+    sleep.chmod(0o755)
+    return {
+        "PATH": f"{bin_dir}:/usr/bin:/bin",
+        "PET_NODE_RANK": "1",
+        "PET_MASTER_ADDR": "head-0",
+    }, counter
+
+
+def _no_pvc_command(scheduler, tmp_path, retries, launcher=None, num_nodes=1):
+    executor, app = _prepared_app(
+        tmp_path,
+        run.Partial(_train, x=2),
+        None,
+        launcher=launcher or Torchrun(),
+        num_nodes=num_nodes,
+        retries=retries,
+    )
+    with (
+        mock.patch.object(NvcreExecutor, "submit", return_value="wl-name-123"),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.nvcre._save_job"),
+    ):
+        scheduler.schedule(scheduler._submit_dryrun(app, executor))
+    manifest = yaml.safe_load(open(executor.workloadrun_yaml_path).read())
+    return executor, manifest["spec"]["framework"]["exec"]["command"]
+
+
+def _run(command, env):
+    return subprocess.run(command, env=env, capture_output=True, text=True)
+
+
+def test_no_pvc_command_retries_a_failing_task_once_then_succeeds(scheduler, tmp_path):
+    executor, command = _no_pvc_command(scheduler, tmp_path, retries=2)
+    env, counter = _flaky_env(tmp_path, fails=1)
+
+    result = _run(command, env)
+
+    assert result.returncode == 0, result.stderr
+    assert int(counter.read_text()) == 2  # failed once, succeeded on the retry
+    assert "Retry 1/2" in result.stdout
+
+
+def test_no_pvc_command_returns_the_last_exit_code_when_retries_run_out(scheduler, tmp_path):
+    executor, command = _no_pvc_command(scheduler, tmp_path, retries=2)
+    env, counter = _flaky_env(tmp_path, fails=99)
+
+    result = _run(command, env)
+
+    assert result.returncode == 7
+    assert int(counter.read_text()) == 3  # first run + 2 retries
+
+
+def test_no_pvc_command_does_not_retry_a_successful_task(scheduler, tmp_path):
+    executor, command = _no_pvc_command(scheduler, tmp_path, retries=2)
+    env, counter = _flaky_env(tmp_path, fails=0)
+
+    result = _run(command, env)
+
+    assert result.returncode == 0
+    assert int(counter.read_text()) == 1
+    assert "Retry" not in result.stdout
+
+
+def test_no_pvc_command_without_retries_is_unchanged(scheduler, tmp_path):
+    executor, app = _prepared_app(tmp_path, run.Partial(_train, x=2), None, launcher=Torchrun())
+    cmd = _request_cmd(scheduler, app, executor)
+    assert executor.retries == 0
+    assert _workload_command(executor, cmd) == cmd  # still plain argv, no shell
+
+
+def test_no_pvc_retries_expand_launcher_macros_on_every_attempt(scheduler, tmp_path):
+    executor, command = _no_pvc_command(scheduler, tmp_path, retries=1, num_nodes=2)
+    env, counter = _flaky_env(tmp_path, fails=1)
+
+    result = _run(command, env)
+
+    assert result.returncode == 0, result.stderr
+    out = result.stdout.splitlines()
+    assert int(counter.read_text()) == 2
+    assert out.count("head-0:29500") == 2  # --rdzv-endpoint expanded in both attempts
+    assert [out[i + 1] for i, a in enumerate(out) if a == "--node-rank"] == ["1", "1"]
+
+
+def test_no_pvc_retries_still_create_the_nsys_directory_first(scheduler, tmp_path):
+    profile_dir = tmp_path / "container profile dir"
+    launcher = Torchrun(nsys_profile=True, nsys_folder=str(profile_dir))
+    executor, command = _no_pvc_command(scheduler, tmp_path, retries=1, launcher=launcher)
+    env, counter = _flaky_env(tmp_path, fails=1, stubs=("nsys",))
+    assert not profile_dir.exists()
+
+    result = _run(command, env)
+
+    assert result.returncode == 0, result.stderr
+    assert profile_dir.is_dir()
+    assert int(counter.read_text()) == 2
+
+
+def test_dryrun_output_shows_the_retry_wrapper_for_no_pvc_jobs(scheduler, tmp_path):
+    executor, app = _prepared_app(
+        tmp_path, run.Partial(_train, x=2), None, launcher=Torchrun(), retries=2
+    )
+
+    printed = yaml.safe_load(str(scheduler._submit_dryrun(app, executor)))
+
+    command = printed["spec"]["framework"]["exec"]["command"]
+    assert command[:2] == ["/bin/bash", "-c"] and "MAX_RETRIES=2" in command[2]
+
+
+def test_pvc_and_no_pvc_use_the_same_retry_loop(tmp_path):
+    executor = NvcreExecutor(namespace="ns", container_image="img", retries=2)
+    block = executor._retry_block("python train.py", 2)
+
+    assert block in executor.shell_script(["python", "train.py"], max_retries=2)
