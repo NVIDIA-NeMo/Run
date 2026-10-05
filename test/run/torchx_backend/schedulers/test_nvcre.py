@@ -1082,7 +1082,8 @@ def test_shared_job_dir_tasks_stage_only_their_own_files(
         local, remote, entries = staged[job.id]
         assert local == job.executor.stage_dir
         assert remote == job.executor.code_dir
-        assert entries == ["code", "configs", "launch.sh"]  # a Partial has no inline script
+        # A Partial has no inline script; the saved submit script is staged as "module".
+        assert entries == ["code", "configs", "launch.sh", "module"]
         assert os.path.isfile(os.path.join(local, "configs", f"{job.id}_fn_or_script"))
 
 

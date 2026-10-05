@@ -48,6 +48,8 @@ _CODE_SUBDIR = "code"
 # Per-task artifacts live under job_dir/<_TASK_ROOT>/, because Experiment reuses one
 # job_dir for tasks added under the same explicit name.
 _TASK_ROOT = "nvcre"
+# The saved submit script is staged here (as __main__.py) and handed to fdl_runner.
+_MODULE_SUBDIR = "module"
 _DNS_LABEL_MAX = 63
 _NAME_HASH_LEN = 6
 # Without a PVC nothing persistent is mounted; /tmp is the writable place in the container.
@@ -287,6 +289,19 @@ class NvcreExecutor(Executor):
         (launch script, extracted code) is kept directly in it.
         """
         return os.path.join(self.job_dir, _TASK_ROOT, self._safe_name())
+
+    def saved_main_module(self) -> Optional[str]:
+        """The submit script ``Experiment`` saved, or None (e.g. an interactive session)."""
+        experiment_dir = getattr(self, "experiment_dir", None)
+        if not experiment_dir:
+            return None
+        path = os.path.join(experiment_dir, "__main__.py")
+        return path if os.path.isfile(path) else None
+
+    @property
+    def staged_main_module_path(self) -> str:
+        """Container path of the staged submit script, passed to ``fdl_runner --main-module``."""
+        return f"{self.code_dir}/{_MODULE_SUBDIR}/__main__.py"
 
     @property
     def launch_script_path(self) -> str:
@@ -927,6 +942,14 @@ class NvcreExecutor(Executor):
             source = os.path.join(self.job_dir, generated)
             if os.path.isdir(source):
                 shutil.copytree(source, os.path.join(stage_dir, generated), dirs_exist_ok=True)
+
+        # A Partial can reference functions defined in the submit script; the pod
+        # needs that script to deserialize it (see staged_main_module_path).
+        module_dir = os.path.join(stage_dir, _MODULE_SUBDIR)
+        shutil.rmtree(module_dir, ignore_errors=True)  # drop a previous attempt's copy
+        if main_module := self.saved_main_module():
+            os.makedirs(module_dir)
+            shutil.copyfile(main_module, os.path.join(module_dir, "__main__.py"))
 
         self.copy_to_workspace(stage_dir, self.code_dir, label=job_name)
 

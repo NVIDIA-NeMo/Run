@@ -1337,7 +1337,12 @@ _LOADED_MAINS = set()
 
 
 def maybe_load_external_main(exp_dir: str):
-    main_file = Path(exp_dir) / "__main__.py"
+    load_external_main(Path(exp_dir) / "__main__.py")
+
+
+def load_external_main(main_file: str | Path):
+    """Load a saved submit script so its ``__main__`` definitions resolve; no-op if absent."""
+    main_file = Path(main_file)
     if main_file.exists() and main_file not in _LOADED_MAINS:
         _LOADED_MAINS.add(main_file)
 
