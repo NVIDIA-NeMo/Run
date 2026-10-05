@@ -1,6 +1,8 @@
 name: Ruff format
 
 on:
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
   workflow_call:
   push:
