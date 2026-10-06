@@ -102,6 +102,13 @@ class LeptonExecutor(Executor):
         client.job.update(job_id, spec={"spec": {"stopped": True}})
         logger.info(f"Job {job_id} stopped successfully.")
 
+    # The kernel caps a single argv entry at MAX_ARG_STRLEN (128 KiB on a 4 KiB-page
+    # system). The whole base64 payload used to travel as one entry, so anything over
+    # that failed with "argument list too long". Below this, a safe ceiling under the
+    # aggregate ARG_MAX (~2 MiB) that chunking into many argv entries can carry.
+    _MAX_ARGV_PAYLOAD_BYTES = 1_500_000
+    _ARGV_CHUNK_BYTES = 65536
+
     def copy_directory_data_command(self, local_dir_path: str, dest_path: str) -> List:
         with tempfile.TemporaryDirectory() as temp_dir:
             tarball_path = os.path.join(temp_dir, "archive.tar.gz")
@@ -110,9 +117,38 @@ class LeptonExecutor(Executor):
                 file_data = file.read()
             encoded_data = base64.b64encode(file_data).decode("utf-8")
 
-            # Delete and recreate directory if it already exists, command to decode base64 data, save to a file, and extract inside the pod
-            cmd = f"rm -rf {dest_path} && mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
-            full_command = ["sh", "-c", cmd]
+            if len(encoded_data) > self._MAX_ARGV_PAYLOAD_BYTES:
+                raise RuntimeError(
+                    f"Job directory tarball is {len(encoded_data)} base64 bytes, over the "
+                    f"{self._MAX_ARGV_PAYLOAD_BYTES} byte ceiling this data mover can carry "
+                    "through argv. Reduce the job directory size, or move this transfer to a "
+                    "real upload path (e.g. the Lepton SDK's client.storage.create_file)."
+                )
+
+            # Chunked argv raises the ceiling to ~1.5 MiB but is still a ceiling. The real
+            # fix for arbitrary sizes is a multipart upload via the Lepton SDK's
+            # client.storage.create_file instead of carrying data through argv at all.
+            chunks = [
+                encoded_data[i : i + self._ARGV_CHUNK_BYTES]
+                for i in range(0, len(encoded_data), self._ARGV_CHUNK_BYTES)
+            ] or [""]
+            encoded_path = f"{dest_path}/archive.b64"
+            tarball_dest_path = f"{dest_path}/archive.tar.gz"
+            script = (
+                'set -e; dest="$1"; enc="$2"; tgz="$3"; shift 3; '
+                'rm -rf "$dest" && mkdir -p "$dest"; : > "$enc"; '
+                'for chunk in "$@"; do printf %s "$chunk" >> "$enc"; done; '
+                'base64 -d "$enc" > "$tgz" && tar -xzf "$tgz" -C "$dest" && rm -f "$enc" "$tgz"'
+            )
+            full_command = [
+                "sh",
+                "-c",
+                script,
+                "sh",
+                dest_path,
+                encoded_path,
+                tarball_dest_path,
+            ] + chunks
             return full_command
 
     def move_data(

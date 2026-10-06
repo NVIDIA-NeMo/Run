@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -28,6 +29,7 @@ from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
+
 from nemo_run.run.logs import get_logs
 from nemo_run.run.plugin import ExperimentPlugin
 from nemo_run.run.task import direct_run_fn
@@ -35,6 +37,8 @@ from nemo_run.run.torchx_backend.launcher import launch, wait_and_exit
 from nemo_run.run.torchx_backend.packaging import merge_executables, package
 from nemo_run.run.torchx_backend.runner import Runner
 from nemo_run.run.torchx_backend.schedulers.api import get_executor_str
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -98,9 +102,9 @@ class Job(ConfigurableMixin):
             status = runner.status(self.handle)
             state = status.state if status else None
         except Exception:
-            ...
-        finally:
-            return state or self.state
+            logger.exception("Failed to get status for job %s", self.handle)
+            state = None
+        return state or self.state
 
     def logs(self, runner: Runner, regex: str | None = None):
         get_logs(
@@ -262,13 +266,16 @@ class JobGroup(ConfigurableMixin):
 
         assert len(executor_types) == 1, "All executors must be of the same type."
         executor_type = list(executor_types)[0]
-        assert executor_type in self.SUPPORTED_EXECUTORS, "Unsupported executor type."
-        if executor_type == SlurmExecutor:
+        assert executor_type.supports_job_group() or executor_type in self.SUPPORTED_EXECUTORS, (
+            f"Unsupported executor type {executor_type.__name__}. Executors opt in to JobGroup "
+            "by overriding Executor.supports_job_group()."
+        )
+        if issubclass(executor_type, SlurmExecutor):
             self._merge = True
             self.executors = SlurmExecutor.merge(
                 cast(list[SlurmExecutor], executors), num_tasks=len(self.tasks)
             )
-        elif executor_type == DockerExecutor:
+        elif issubclass(executor_type, DockerExecutor):
             self._merge = True
             self.executors = DockerExecutor.merge(
                 cast(list[DockerExecutor], executors), num_tasks=len(self.tasks)
@@ -316,11 +323,11 @@ class JobGroup(ConfigurableMixin):
                 status = runner.status(handle)
                 state = status.state if status else None
             except Exception:
-                ...
-            finally:
-                if not state:
-                    state = AppState.UNKNOWN
-                new_states.append(state)
+                logger.exception("Failed to get status for job handle %s", handle)
+                state = None
+            if not state:
+                state = AppState.UNKNOWN
+            new_states.append(state)
 
         self.states = new_states
         return self.state

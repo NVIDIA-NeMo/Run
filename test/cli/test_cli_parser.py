@@ -122,6 +122,33 @@ class TestComplexTypeParsing:
 
         assert parse_cli_args(func, ["a=[[1, 2], [3, 4]]"]).a == [[1, 2], [3, 4]]
 
+    def test_unparameterized_list_parsing(self):
+        def func(a: list, b: List = None, c: Optional[list] = None):
+            pass
+
+        assert parse_cli_args(func, ["a=[1, 2, 3]"]).a == [1, 2, 3]
+        assert parse_cli_args(func, ["a=[]"]).a == []
+        assert parse_cli_args(func, ["b=[1, 2]"]).b == [1, 2]
+        assert parse_cli_args(func, ["c=[1, 2]"]).c == [1, 2]
+
+    def test_unparameterized_dict_parsing(self):
+        def func(a: dict, b: Dict = None, c: Optional[dict] = None):
+            pass
+
+        assert parse_cli_args(func, ["a={'x': 1}"]).a == {"x": 1}
+        assert parse_cli_args(func, ["a={}"]).a == {}
+        assert parse_cli_args(func, ["b={'x': 1}"]).b == {"x": 1}
+        assert parse_cli_args(func, ["c={'x': 1}"]).c == {"x": 1}
+
+    def test_union_with_list_not_misparsed_as_string(self):
+        def func(a: Union[list, str] = None, b: Union[dict, str] = None):
+            pass
+
+        assert parse_cli_args(func, ["a=[1, 2]"]).a == [1, 2]
+        assert parse_cli_args(func, ["a=hello"]).a == "hello"
+        assert parse_cli_args(func, ["b={'x': 1}"]).b == {"x": 1}
+        assert parse_cli_args(func, ["b=hello"]).b == "hello"
+
     def test_dict_parsing(self):
         def func(a: Dict[str, int]):
             pass
@@ -505,6 +532,18 @@ class TestParseValue:
             parse_value("not_a_dict", Dict[str, int])
         with pytest.raises(ParseError, match="Failed to parse"):
             parse_value('{"a": 1, "b": "two"}', Dict[str, int])
+
+    def test_parse_unparameterized_list(self):
+        assert parse_value("[1, 2, 3]", list) == [1, 2, 3]
+        assert parse_value("[1, 2, 3]", List) == [1, 2, 3]
+        assert parse_value("[1, 2, 3]", Optional[list]) == [1, 2, 3]
+        assert parse_value("None", Optional[list]) is None
+
+    def test_parse_unparameterized_dict(self):
+        assert parse_value('{"a": 1}', dict) == {"a": 1}
+        assert parse_value('{"a": 1}', Dict) == {"a": 1}
+        assert parse_value('{"a": 1}', Optional[dict]) == {"a": 1}
+        assert parse_value("None", Optional[dict]) is None
 
     def test_parse_union(self):
         assert parse_value("123", Union[int, str]) == 123
@@ -890,6 +929,29 @@ class TestModernTypeHintParsing:
         result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
         assert result.data == {"x": 1, "y": 2}
 
+    def test_modern_pep604_union_type_hints(self):
+        # PEP 604 unions (X | Y) report get_origin() as types.UnionType, not
+        # typing.Union, so they previously fell through to "Unsupported type".
+        # Regression for #558.
+        if sys.version_info < (3, 10):
+            pytest.skip("Python 3.10+ required for PEP 604 unions")
+
+        def func(data: list[str] | dict[str, int]):
+            pass
+
+        result = parse_cli_args(func, ["data=['a', 'b', 'c']"])
+        assert result.data == ["a", "b", "c"]
+        result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
+        assert result.data == {"x": 1, "y": 2}
+
+        def func_optional(name: str | None):
+            pass
+
+        result = parse_cli_args(func_optional, ["name=hello"])
+        assert result.name == "hello"
+        result = parse_cli_args(func_optional, ["name=None"])
+        assert result.name is None
+
     def test_modern_type_parsing_errors(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):
@@ -906,3 +968,130 @@ class TestModernTypeHintParsing:
         # Test invalid list format - use a truly invalid syntax that will fail parsing
         with pytest.raises(ListParseError):
             parse_cli_args(func, ["items=[1, 2, 3"])
+
+    def test_string_and_future_annotations(self):
+        # String annotations (e.g. from __future__ import annotations or ForwardRefs)
+        # should resolve correctly and not fail with UnknownTypeError.
+        # Regression for #374.
+        def func_with_str_annotations(
+            dim: "int", name: "str", active: "bool", count: "int | None" = None
+        ):
+            pass
+
+        result = parse_cli_args(
+            func_with_str_annotations,
+            ["dim=32", "name=test", "active=true", "count=5"],
+        )
+        assert result.dim == 32
+        assert result.name == "test"
+        assert result.active is True
+        assert result.count == 5
+
+    def test_string_container_annotations(self):
+        def func_containers(items: "list[str]", mapping: "dict[str, int]"):
+            pass
+
+        result = parse_cli_args(
+            func_containers,
+            ["items=['a', 'b']", "mapping={'k': 1}"],
+        )
+        assert result.items == ["a", "b"]
+        assert result.mapping == {"k": 1}
+
+    def test_future_annotations_module_resolves_quoted_names(self):
+        # Under `from __future__ import annotations` a source annotation "Path"
+        # is stored as the string 'Path' with the quotes included
+        # ("'Path'" when repr'd). Resolving it once yields the plain string
+        # "Path", which must be resolved again instead of reaching TypeParser.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "def func(path: 'Path') -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")
+
+    def test_future_annotations_nested_forward_refs_resolve(self):
+        # A container annotation holding quoted names evaluates to a generic
+        # with unresolved ForwardRefs inside; they must resolve recursively.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "def func(paths: list['Path']) -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["paths=['/tmp/a', '/tmp/b']"])
+        assert result.paths == [Path("/tmp/a"), Path("/tmp/b")]
+
+    def test_literal_string_values_not_resolved_as_types(self):
+        # Literal values are data: Literal["Path"] must keep the string even
+        # though "Path" also names a resolvable type in module globals.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from pathlib import Path\n"
+            "from typing import Literal\n"
+            "def func(mode: Literal['Path', 'int']) -> None:\n"
+            "    pass\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["func"], ["mode=Path"])
+        assert result.mode == "Path"
+
+    def test_class_based_config_with_string_annotations(self):
+        # Config classes defined under future annotations carry string
+        # annotations on __init__ parameters; the resolver must use the
+        # class's module namespace to evaluate them.
+        namespace: dict = {}
+        exec(
+            "from __future__ import annotations\n"
+            "from dataclasses import dataclass\n"
+            "@dataclass\n"
+            "class Config:\n"
+            "    count: int\n"
+            "    label: str\n",
+            namespace,
+        )
+
+        result = parse_cli_args(namespace["Config"], ["count=3", "label=x"])
+        assert result.count == 3
+        assert result.label == "x"
+
+    def test_compound_type_checking_annotation_resolves(self):
+        # "Optional[Path]" with Path imported only under if TYPE_CHECKING:
+        # the plain namespace eval raises NameError and the exact-name
+        # lookup misses, so the compound-expression fallback must run.
+        from test.cli.dummy_future_annotations import func_with_type_checking_path
+
+        result = parse_cli_args(func_with_type_checking_path, ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")
+
+    def test_compound_type_checking_container_annotation_resolves(self):
+        from test.cli.dummy_future_annotations import func_with_type_checking_list
+
+        result = parse_cli_args(func_with_type_checking_list, ["paths=['/tmp/a']"])
+        assert result.paths == [Path("/tmp/a")]
+
+    def test_unresolvable_annotation_returns_original_string(self):
+        def func(value: "NotARealTypeAnywhere"):  # noqa: F821 - intentionally unresolvable
+            pass
+
+        with pytest.raises(UnknownTypeError):
+            parse_cli_args(func, ["value=1"])
+
+    def test_runtime_alias_with_type_checking_import_resolves(self):
+        # `from typing import Optional as Opt` plus a TYPE_CHECKING-only
+        # Path: the first evaluation fails on Path, and the retry must keep
+        # the module globals (Opt) while adding the static-only names.
+        from test.cli.dummy_future_annotations import func_with_alias_and_type_checking
+
+        result = parse_cli_args(func_with_alias_and_type_checking, ["path=/tmp/x"])
+        assert result.path == Path("/tmp/x")

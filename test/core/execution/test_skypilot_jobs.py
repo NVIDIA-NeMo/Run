@@ -150,6 +150,14 @@ class TestSkypilotJobsExecutor:
         assert task == "task-name"
         assert job_id == 123
 
+    def test_parse_app_legacy_list_job_id(self, mock_skypilot_imports):
+        # App ids written before #481 embed Skypilot's list job id verbatim.
+        cluster, task, job_id = SkypilotJobsExecutor.parse_app("cluster-name___task-name___[123]")
+
+        assert cluster == "cluster-name"
+        assert task == "task-name"
+        assert job_id == 123
+
     def test_parse_app_invalid(self, mock_skypilot_imports):
         # The implementation raises IndexError when the app_id format is invalid
         with pytest.raises(IndexError):
@@ -323,6 +331,24 @@ class TestSkypilotJobsExecutor:
 
         assert job_id == 123
         assert handle is mock_handle
+
+    @patch("sky.stream_and_get")
+    @patch("sky.jobs.client.sdk.launch")
+    def test_launch_normalizes_list_job_id(self, mock_launch, mock_stream_and_get, executor):
+        # sky.jobs.client.sdk.launch returns Optional[List[int]], not an int (#481).
+        mock_handle = MagicMock()
+        mock_handle.get_cluster_name.return_value = "cluster-name"
+        mock_launch.return_value = MagicMock()
+        mock_stream_and_get.return_value = ([1], mock_handle)
+
+        job_id, handle = executor.launch(MagicMock())
+
+        assert job_id == 1
+        assert handle is mock_handle
+        # The scheduler interpolates the job id straight into the app id, so it has to
+        # survive a round trip through parse_app.
+        app_id = f"{handle.get_cluster_name()}___task-name___{job_id}"
+        assert SkypilotJobsExecutor.parse_app(app_id) == ("cluster-name", "task-name", 1)
 
     def test_workdir(self, executor):
         executor.job_dir = "/path/to/job"

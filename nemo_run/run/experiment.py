@@ -52,6 +52,7 @@ from nemo_run.config import (
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.kubeflow import KubeflowExecutor
+from nemo_run.core.execution.nvcre import NvcreExecutor
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
@@ -208,6 +209,7 @@ nemo experiment cancel {exp_id} 0
         DGXCloudExecutor,
         LeptonExecutor,
         KubeflowExecutor,
+        NvcreExecutor,
     )
     _DETACH_SUPPORTED_EXECUTORS = (
         SlurmExecutor,
@@ -215,6 +217,7 @@ nemo experiment cancel {exp_id} 0
         SkypilotJobsExecutor,
         DGXCloudExecutor,
         LeptonExecutor,
+        NvcreExecutor,
     )
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)
     _RUNNER_DEPENDENT_EXECUTORS = (LocalExecutor,)
@@ -291,7 +294,7 @@ nemo experiment cancel {exp_id} 0
         parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         exp_dir = _get_latest_dir(parent_dir)
 
-        assert os.path.isdir(exp_dir), f"Experiment {id} not found."
+        assert os.path.isdir(exp_dir), f"Experiment {title} not found."
 
         exp = cls._from_config(exp_dir)
         return exp
@@ -333,7 +336,7 @@ nemo experiment cancel {exp_id} 0
             assert id, "Cannot reconstruct an experiment without id."
 
         self._title = title
-        self._id = id or f"{title}_{int(time.time())}"
+        self._id = id or f"{title}_{time.time_ns()}"
         self._enable_goodbye_message = enable_goodbye_message
         self._threadpool_workers = threadpool_workers
         self._skip_status_at_exit = skip_status_at_exit
@@ -908,10 +911,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             idx: int, job: Job | JobGroup
         ) -> tuple[list[str], dict[str, str]]:
             job_info = []
+            job_status = job.status(runner=self._runner)
             job_info.append(f"[bold green]Task {idx}[/bold green]: [bold orange1]{job.id}")
-            job_info.append(
-                f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}"
-            )
+            job_info.append(f"- [bold green]Status[/bold green]: {str(job_status)}")
             job_info.append(f"- [bold green]Executor[/bold green]: {job.executor.info()}")
 
             try:
@@ -927,7 +929,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             ]
             job_dict = {
                 "name": job.id,
-                "status": job.status(runner=self._runner),
+                "status": job_status,
                 "executor": job.executor.info(),
                 "job_id": app_id,
                 "handle": job.handle,
@@ -1068,7 +1070,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             return self
 
         old_id, old_exp_dir, old_launched = self._id, self._exp_dir, self._launched
-        self._id = f"{self._title}_{int(time.time())}"
+        self._id = f"{self._title}_{time.time_ns()}"
         self._exp_dir = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
         self._launched = False
         self._live_progress = None
@@ -1335,7 +1337,12 @@ _LOADED_MAINS = set()
 
 
 def maybe_load_external_main(exp_dir: str):
-    main_file = Path(exp_dir) / "__main__.py"
+    load_external_main(Path(exp_dir) / "__main__.py")
+
+
+def load_external_main(main_file: str | Path):
+    """Load a saved submit script so its ``__main__`` definitions resolve; no-op if absent."""
+    main_file = Path(main_file)
     if main_file.exists() and main_file not in _LOADED_MAINS:
         _LOADED_MAINS.add(main_file)
 

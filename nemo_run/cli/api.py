@@ -60,7 +60,10 @@ from typing_extensions import NotRequired, ParamSpec, TypedDict
 
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
+from nemo_run.cli._paths import split_config_path
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
+from nemo_run.cli.config import ConfigSerializer
+from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.config import (
     Config,
     Partial,
@@ -71,8 +74,6 @@ from nemo_run.config import (
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
-from nemo_run.cli.config import ConfigSerializer
-from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
@@ -890,9 +891,7 @@ class RunContext:
             load: Optional[str] = typer.Option(
                 None, "--load", "-l", help="Load a factory from a directory"
             ),
-            yaml: Optional[str] = typer.Option(
-                None, "--yaml", "-y", help="Path to a YAML file to load"
-            ),
+            yaml: Optional[str] = typer.Option(None, "--yaml", help="Path to a YAML file to load"),
             repl: bool = typer.Option(False, "--repl", "-r", help="Enter interactive mode"),
             detach: bool = typer.Option(False, "--detach", help="Detach from the run"),
             skip_confirmation: bool = typer.Option(
@@ -949,7 +948,6 @@ class RunContext:
                 to_json=to_json or _cmd_defaults.get("to_json", None),
             )
 
-            print("Configuring global options")
             _configure_global_options(
                 parent,
                 rich_exceptions or _cmd_defaults.get("rich_exceptions", False),
@@ -1521,6 +1519,10 @@ class Entrypoint(Generic[Params, ReturnType]):
         class CLITaskCommand(EntrypointCommand):
             _entrypoint = self
 
+        cmd_defaults = dict(cmd_defaults) if cmd_defaults else {}
+        if self.skip_confirmation:
+            cmd_defaults.setdefault("skip_confirmation", True)
+
         return self.run_ctx_cls.cli_command(
             parent,
             self.name,
@@ -1659,19 +1661,22 @@ def _parse_prefixed_args(
     """
     prefixed_arg_value, prefixed_args, other_args = None, [], []
     for arg in args:
-        if arg.startswith(prefix):
-            if arg.startswith(f"{prefix}="):
-                prefixed_arg_value = arg.split("=")[1]
-            else:
-                if not arg.startswith(f"{prefix}.") and not arg.startswith(f"{prefix}["):
-                    raise ValueError(
-                        f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}"
-                    )
-                if arg.startswith(f"{prefix}."):
-                    prefixed_args.append(arg.replace(f"{prefix}.", ""))
-                elif arg.startswith(f"{prefix}["):
-                    prefixed_args.append(arg.replace(prefix, ""))
+        if arg.startswith(f"{prefix}="):
+            prefixed_arg_value = arg.split("=", 1)[1]
+        elif arg.startswith(f"{prefix}."):
+            prefixed_args.append(arg.replace(f"{prefix}.", "", 1))
+        elif arg.startswith(f"{prefix}["):
+            prefixed_args.append(arg.replace(prefix, "", 1))
+        elif arg.startswith(prefix) and "=" not in arg:
+            # A bare token starting with the prefix (e.g. a positional value)
+            # cannot address a task parameter, so treat it as a malformed overwrite.
+            raise ValueError(
+                f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}"
+            )
         else:
+            # Keyword arguments for parameters whose names merely start with the
+            # prefix (e.g. runtime=3600 for prefix "run") belong to the task,
+            # not to the prefixed namespace.
             other_args.append(arg)
     return prefixed_arg_value, prefixed_args, other_args
 
@@ -1732,10 +1737,7 @@ def _serialize_configuration(
 
         try:
             # Handle section extraction from path
-            section = None
-            file_path = output_path
-            if ":" in output_path:
-                file_path, section = output_path.split(":", 1)
+            file_path, section = split_config_path(output_path)
 
             # Create appropriate section message for display
             section_msg = f" (section: {section})" if section else ""
