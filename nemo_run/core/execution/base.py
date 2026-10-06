@@ -102,6 +102,14 @@ class Executor(ConfigurableMixin):
     def info(self) -> str:
         return self.__class__.__qualname__
 
+    @classmethod
+    def supports_job_group(cls) -> bool:
+        """Whether this executor can back a :class:`~nemo_run.run.job.JobGroup`.
+
+        Executors defined outside nemo_run opt in by overriding this to return True.
+        """
+        return False
+
     def clone(self) -> Self:
         return fdl.build(self.to_config())
 
@@ -165,7 +173,7 @@ class Executor(ConfigurableMixin):
             os.makedirs(os.path.join(self.job_dir, launcher.nsys_folder), exist_ok=True)
             return launcher.get_nsys_prefix(profile_dir=self.job_dir)
 
-    def get_nsys_entrypoint(self) -> str:
+    def get_nsys_entrypoint(self) -> tuple[str, str]:
         return ("nsys", "")
 
     def supports_launcher_transform(self) -> bool:

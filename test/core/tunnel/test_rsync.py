@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,7 @@
 
 """Tests for the rsync module."""
 
+import shlex
 import unittest
 from unittest.mock import Mock, call, patch
 
@@ -68,7 +69,8 @@ class TestRsync(unittest.TestCase):
         rsync(self.mock_connection, self.source, self.target, exclude=exclude_pattern)
 
         cmd = self.mock_connection.local.call_args[0][0]
-        self.assertIn(f'--exclude "{exclude_pattern}"', cmd)
+        tokens = shlex.split(cmd)
+        self.assertEqual(tokens[tokens.index("--exclude") + 1], exclude_pattern)
 
     def test_rsync_with_exclude_list(self):
         """Test rsync with a list of exclude patterns."""
@@ -76,8 +78,9 @@ class TestRsync(unittest.TestCase):
         rsync(self.mock_connection, self.source, self.target, exclude=exclude_patterns)
 
         cmd = self.mock_connection.local.call_args[0][0]
-        for pattern in exclude_patterns:
-            self.assertIn(f'--exclude "{pattern}"', cmd)
+        tokens = shlex.split(cmd)
+        excluded = [tokens[index + 1] for index, token in enumerate(tokens) if token == "--exclude"]
+        self.assertEqual(excluded, exclude_patterns)
 
     def test_rsync_with_exclude_generator(self):
         """Test rsync with a generator of exclude patterns."""
@@ -86,8 +89,9 @@ class TestRsync(unittest.TestCase):
         rsync(self.mock_connection, self.source, self.target, exclude=exclude_patterns)
 
         cmd = self.mock_connection.local.call_args[0][0]
-        for pattern in ["*.log", "*.tmp", ".git/"]:
-            self.assertIn(f'--exclude "{pattern}"', cmd)
+        tokens = shlex.split(cmd)
+        excluded = [tokens[index + 1] for index, token in enumerate(tokens) if token == "--exclude"]
+        self.assertEqual(excluded, exclude_patterns)
 
     def test_rsync_with_delete(self):
         """Test rsync with delete flag enabled."""
@@ -110,6 +114,57 @@ class TestRsync(unittest.TestCase):
 
         cmd = self.mock_connection.local.call_args[0][0]
         self.assertIn(ssh_opts, cmd)
+
+    def test_rsync_without_explicit_port_uses_ssh_config(self):
+        self.mock_connection.port = None
+
+        rsync(self.mock_connection, "source", "target")
+
+        cmd = self.mock_connection.local.call_args[0][0]
+        self.assertNotIn("-p None", cmd)
+
+    def test_rsync_with_session_ssh_options(self):
+        self.mock_connection.ssh_options = "-o ControlMaster=auto -o ControlPath=/tmp/control-%C"
+
+        rsync(self.mock_connection, self.source, self.target)
+
+        cmd = self.mock_connection.local.call_args[0][0]
+        self.assertIn(self.mock_connection.ssh_options, cmd)
+
+    def test_rsync_quotes_remote_shell_once(self):
+        control_path = "/tmp/socket path/'quote';$(touch injected)-%C"
+        self.mock_connection.ssh_options = shlex.join(
+            [
+                "-o",
+                f"ControlPath={control_path}",
+                "-o",
+                "ControlMaster=no",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ProxyCommand=false",
+            ]
+        )
+
+        rsync(self.mock_connection, self.source, self.target)
+
+        command = self.mock_connection.local.call_args.args[0]
+        tokens = shlex.split(command)
+        remote_shell = tokens[tokens.index("--rsh") + 1]
+        assert shlex.split(remote_shell) == [
+            "ssh",
+            "-p",
+            "22",
+            "-o",
+            f"ControlPath={control_path}",
+            "-o",
+            "ControlMaster=no",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ProxyCommand=false",
+        ]
+        assert "touch injected" not in tokens
 
     def test_rsync_with_custom_rsync_opts(self):
         """Test rsync with custom rsync options."""

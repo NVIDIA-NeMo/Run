@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2024-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 import getpass
 import logging
 import os
+import shlex
 import shutil
 import socket
 import subprocess
@@ -166,6 +167,178 @@ class LocalTunnel(Tunnel):
         self.session.clear()
 
 
+class _OpenSSHSession:
+    """Fabric-compatible subset backed by a persistent OpenSSH control master."""
+
+    def __init__(
+        self,
+        *,
+        host: str,
+        user: str,
+        port: Optional[int],
+        identity: Optional[str],
+        control_persist: Optional[str],
+        control_path: Optional[str],
+        require_existing_master: bool,
+    ):
+        self.host = host
+        self.user = user
+        self.port = port
+        self.connect_kwargs = {"key_filename": [identity]} if identity else {}
+        self.control_persist = control_persist
+        self.control_path = os.path.expanduser(control_path) if control_path else None
+        self.require_existing_master = require_existing_master
+        self._context = Context()
+
+    @property
+    def _target(self) -> str:
+        return f"{self.user}@{self.host}"
+
+    @property
+    def _scp_target(self) -> str:
+        host = f"[{self.host}]" if self.host.count(":") > 1 else self.host
+        return f"{self.user}@{host}"
+
+    @property
+    def _control_options(self) -> list[str]:
+        options: list[str] = []
+        if self.control_persist:
+            options.extend(
+                ["-o", "ControlMaster=auto", "-o", f"ControlPersist={self.control_persist}"]
+            )
+        if self.control_path:
+            options.extend(["-o", f"ControlPath={self.control_path}"])
+        if self.require_existing_master:
+            # A vanished master must fail instead of opening a direct connection or prompting.
+            options.extend(
+                [
+                    "-o",
+                    "ControlMaster=no",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ProxyCommand=false",
+                ]
+            )
+        return options
+
+    def _connection_options(self, executable: str) -> list[str]:
+        options = [*self._control_options]
+        if self.port is not None:
+            port_flag = "-P" if executable == "scp" else "-p"
+            options.extend([port_flag, str(self.port)])
+        if self.connect_kwargs:
+            options.extend(["-i", self.connect_kwargs["key_filename"][0]])
+        return options
+
+    @property
+    def ssh_options(self) -> str:
+        """Options which let rsync reuse this session's control master."""
+        return shlex.join(self._control_options)
+
+    @property
+    def is_connected(self) -> bool:
+        result = self._context.run(
+            self._command("ssh", "-O", "check", self._target), hide=True, warn=True
+        )
+        return result.ok
+
+    def _command(self, executable: str, *args: str) -> str:
+        return shlex.join([executable, *self._connection_options(executable), *args])
+
+    def _master_start_command(self) -> str:
+        options: list[str] = []
+        if self.control_path:
+            options.extend(["-o", f"ControlPath={self.control_path}"])
+        if self.port is not None:
+            options.extend(["-p", str(self.port)])
+        if self.connect_kwargs:
+            options.extend(["-i", self.connect_kwargs["key_filename"][0]])
+        return shlex.join(["ssh", *options, "-o", "ControlMaster=yes", "-fN", self._target])
+
+    def _prepare_control_directory(self) -> None:
+        assert self.control_path
+        parent = Path(self.control_path).parent
+        parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        resolved_parent = parent.resolve(strict=True)
+        if parent.absolute() != resolved_parent:
+            raise RuntimeError(
+                f"OpenSSH control socket directory must not contain symlinks: {parent}"
+            )
+        directory_mode = resolved_parent.stat()
+        if directory_mode.st_uid != os.getuid() or directory_mode.st_mode & 0o022:
+            raise RuntimeError(
+                f"OpenSSH control socket directory must be owned by the current user and not "
+                f"group/world-writable: {resolved_parent}"
+            )
+
+    def open(self) -> None:
+        if self.is_connected:
+            return
+        if self.require_existing_master:
+            raise RuntimeError(
+                f"No existing OpenSSH control master found for {self._target}. "
+                f"Start one first (for example, `{self._master_start_command()}`) and retry."
+            )
+        assert self.control_persist
+        if self.control_path:
+            self._prepare_control_directory()
+        self._context.run(self._command("ssh", "-fN", self._target), hide=False)
+
+    def run(self, command: str, hide: bool = True, warn: bool = False, **kwargs) -> RunResult:
+        self.open()
+        return self._context.run(
+            self._command("ssh", self._target, command), hide=hide, warn=warn, **kwargs
+        )
+
+    def local(self, command: str, hide: bool = True, **kwargs) -> RunResult:
+        return self._context.run(command, hide=hide, **kwargs)
+
+    def put(self, local_path: str, remote_path: str) -> None:
+        self.open()
+        self._context.run(
+            self._command("scp", local_path, f"{self._scp_target}:{remote_path}"), hide=True
+        )
+
+    def get(self, remote_path: str, local_path: str) -> None:
+        self.open()
+        self._context.run(
+            self._command("scp", f"{self._scp_target}:{remote_path}", local_path), hide=True
+        )
+
+    def forward_local(
+        self,
+        local_port: int,
+        remote_port: Optional[int] = None,
+        remote_host: str = "localhost",
+        local_host: str = "localhost",
+    ):
+        self.open()
+        forward = f"{local_host}:{local_port}:{remote_host}:{remote_port or local_port}"
+        start = self._command("ssh", "-O", "forward", "-L", forward, self._target)
+        stop = self._command("ssh", "-O", "cancel", "-L", forward, self._target)
+
+        class ForwardContext:
+            def __enter__(self):
+                self._session.open()
+                self._session._context.run(start, hide=True)
+                return self
+
+            def __exit__(self, *_):
+                self._session.open()
+                self._session._context.run(stop, hide=True, warn=True)
+
+            def __init__(self, session):
+                self._session = session
+
+        return ForwardContext(self)
+
+    def close(self) -> None:
+        # The control master intentionally outlives this Python process. OpenSSH exits it after
+        # ControlPersist has elapsed without clients; later operations probe the socket first.
+        pass
+
+
 @dataclass(kw_only=True)
 class SSHTunnel(Tunnel):
     """
@@ -173,6 +346,11 @@ class SSHTunnel(Tunnel):
     Currently only supports SlurmExecutor.
 
     Uses key based authentication if *identity* is provided else password authentication.
+    Set *use_openssh* to multiplex commands and transfers through an OpenSSH control master.
+    Set *require_existing_master* to reuse a master configured and started outside NeMo Run without
+    ever creating a connection. Otherwise, *control_persist* specifies the lifetime of a master
+    which NeMo Run may create. Without *use_openssh* or *control_persist*, the existing in-process
+    Fabric/Paramiko connection is used.
 
     Examples
     --------
@@ -188,7 +366,9 @@ class SSHTunnel(Tunnel):
             host=os.environ["ANOTHER_SSH_HOST"],
             user=os.environ["ANOTHER_SSH_USER"],
             job_dir=os.environ["ANOTHER_REMOTE_JOBDIR"],
-            identity="path_to_private_key"
+            identity="path_to_private_key",
+            use_openssh=True,
+            control_persist="10m",
         )
 
     """
@@ -199,8 +379,28 @@ class SSHTunnel(Tunnel):
     identity: Optional[str] = None
     shell: Optional[str] = None
     pre_command: Optional[str] = None
+    use_openssh: bool = False
+    require_existing_master: bool = False
+    control_persist: Optional[str] = None
+    control_path: Optional[str] = None
 
     def __post_init__(self):
+        if self.control_persist:
+            self.use_openssh = True
+        if self.require_existing_master and not self.use_openssh:
+            raise ValueError("require_existing_master requires use_openssh")
+        if self.require_existing_master and self.control_persist:
+            raise ValueError("require_existing_master cannot be combined with control_persist")
+        if self.use_openssh and not self.require_existing_master and not self.control_persist:
+            raise ValueError("OpenSSH master creation requires control_persist")
+        if self.control_path and not self.use_openssh:
+            raise ValueError("control_path requires use_openssh")
+        if self.control_persist == "":
+            raise ValueError("control_persist must not be empty")
+        if self.use_openssh and not shutil.which("ssh"):
+            raise RuntimeError("OpenSSH multiplexing requires the ssh executable")
+        if self.use_openssh and not shutil.which("scp"):
+            raise RuntimeError("OpenSSH multiplexing requires the scp executable")
         self.console = CONSOLE
         self.session = None
         self.auth_handler: Callable = authentication_handler
@@ -224,8 +424,23 @@ class SSHTunnel(Tunnel):
         tunnel.run(command)
 
     def connect(self):
+        if self.use_openssh and not self.session:
+            self.session = _OpenSSHSession(
+                host=self.host,
+                user=self.user,
+                port=self.port,
+                identity=self.identity,
+                control_persist=self.control_persist,
+                control_path=self.control_path
+                or (
+                    None
+                    if self.require_existing_master
+                    else os.path.join(get_nemorun_home(), ".ssh", "control-%C")
+                ),
+                require_existing_master=self.require_existing_master,
+            )
         if not (self.session and self.session.is_connected):
-            self._authenticate()
+            self.session.open() if self.use_openssh else self._authenticate()
 
     def _check_connect(self):
         if not (self.session and self.session.is_connected):

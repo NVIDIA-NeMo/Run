@@ -372,6 +372,27 @@ class TestSlurmRayRequest:
         with pytest.warns(UserWarning, match="cpus_per_gpu.*requires.*gpus_per_task"):
             request.materialize()
 
+    def test_ntasks_excludes_ntasks_per_node(self):
+        # An explicit ntasks is a total task count that would be capped by the
+        # default ntasks_per_node=1 if both were emitted. SlurmBatchRequest already
+        # drops ntasks_per_node when ntasks is set; this path has to do the same.
+        executor = SlurmExecutor(account="test_account", nodes=2, ntasks=8)
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        assert "#SBATCH --ntasks=8" in script
+        assert "#SBATCH --ntasks-per-node" not in script
+
     def test_heterogeneous_basic(self):
         """Test materialize generates correct SBATCH blocks for heterogeneous jobs."""
         from unittest.mock import Mock

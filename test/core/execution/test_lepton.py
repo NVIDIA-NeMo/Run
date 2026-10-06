@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import subprocess
 import tempfile
 from types import SimpleNamespace
@@ -192,17 +193,61 @@ class TestLeptonExecutor:
         )
         response = executor.copy_directory_data_command(local_dir_path, dest_path)
 
-        # The response is in the format ["sh", "-c", "<command>"]
-        # The actual command is in the final index of the response
-        command = response[-1]
+        # The response is ["sh", "-c", script, "sh", dest, encoded_path, tarball_path, *chunks]
         mock_subprocess.assert_called_once()
         assert mock_file.call_count == 1
 
-        assert "rm -rf /mock/destination/path && mkdir -p /mock/destination/path && echo" in command
-        assert (
-            "base64 -d > /mock/destination/path/archive.tar.gz && tar -xzf /mock/destination/path/archive.tar.gz -C /mock/destination/path && rm /mock/destination/path/archive.tar.gz"
-            in command
+        assert response[0] == "sh"
+        assert response[1] == "-c"
+        script = response[2]
+        assert 'rm -rf "$dest" && mkdir -p "$dest"' in script
+        assert 'base64 -d "$enc" > "$tgz"' in script
+        assert 'tar -xzf "$tgz" -C "$dest"' in script
+
+        assert response[3] == "sh"
+        assert response[4] == dest_path
+        assert response[5] == f"{dest_path}/archive.b64"
+        assert response[6] == f"{dest_path}/archive.tar.gz"
+
+        encoded_data = base64.b64encode(b"mock tarball").decode("utf-8")
+        assert "".join(response[7:]) == encoded_data
+
+    @patch("subprocess.run")
+    @patch("builtins.open", new_callable=mock_open, read_data=b"x" * 200_000)
+    def test_copy_directory_data_command_chunks_large_payload(self, mock_file, mock_subprocess):
+        """A payload over MAX_ARG_STRLEN (128 KiB) must be split across many argv
+        entries rather than embedded in a single one, which is the bug #420 reports."""
+        local_dir_path = "/mock/local/dir"
+        dest_path = "/mock/destination/path"
+
+        executor = LeptonExecutor(
+            container_image="nvcr.io/nvidia/test:latest",
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
         )
+        response = executor.copy_directory_data_command(local_dir_path, dest_path)
+
+        chunks = response[7:]
+        max_arg_strlen = 131072
+        assert len(chunks) > 1
+        for chunk in chunks:
+            assert len(chunk) < max_arg_strlen
+
+        encoded_data = base64.b64encode(b"x" * 200_000).decode("utf-8")
+        assert "".join(chunks) == encoded_data
+
+    @patch("builtins.open", new_callable=mock_open, read_data=b"x" * 2_000_000)
+    @patch("subprocess.run")
+    def test_copy_directory_data_command_rejects_oversized_payload(
+        self, mock_subprocess, mock_file
+    ):
+        executor = LeptonExecutor(
+            container_image="nvcr.io/nvidia/test:latest",
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+        with pytest.raises(RuntimeError, match="byte ceiling this data mover can carry"):
+            executor.copy_directory_data_command("/mock/local/dir", "/mock/destination/path")
 
     @patch("tempfile.TemporaryDirectory")
     def test_copy_directory_data_command_fails(self, mock_tempdir):

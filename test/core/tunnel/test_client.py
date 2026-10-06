@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2024-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from unittest.mock import MagicMock, call, mock_open, patch
+from unittest.mock import MagicMock, PropertyMock, call, mock_open, patch
 
 import pytest
 
@@ -23,6 +23,7 @@ from nemo_run.core.tunnel.client import (
     PackagingJob,
     SSHConfigFile,
     SSHTunnel,
+    _OpenSSHSession,
     authentication_handler,
     delete_tunnel_dir,
 )
@@ -135,6 +136,8 @@ class TestSSHTunnel:
         assert ssh_tunnel.user == "test_user"
         assert ssh_tunnel.job_dir == "/remote/job"
         assert ssh_tunnel.identity is None
+        assert ssh_tunnel.control_persist is None
+        assert ssh_tunnel.control_path is None
         assert ssh_tunnel.session is None
 
     def test_set_job_dir(self, ssh_tunnel):
@@ -250,6 +253,318 @@ class TestSSHTunnel:
         with patch.object(ssh_tunnel, "run") as mock_run:
             ssh_tunnel.setup()
             mock_run.assert_called_once_with(f"mkdir -p {ssh_tunnel.job_dir}")
+
+
+class TestOpenSSHSession:
+    @pytest.fixture
+    def context(self):
+        with patch("nemo_run.core.tunnel.client.Context") as mock_context:
+            yield mock_context.return_value
+
+    @pytest.fixture
+    def session(self, context, tmp_path):
+        return _OpenSSHSession(
+            host="test.host",
+            user="test_user",
+            port=2222,
+            identity="/path/to/key",
+            control_persist="10m",
+            control_path=str(tmp_path / "control-%C"),
+            require_existing_master=False,
+        )
+
+    def test_connect_starts_control_master(self, session, context):
+        context.run.return_value.ok = False
+
+        session.open()
+
+        assert context.run.call_count == 2
+        check_command = context.run.call_args_list[0].args[0]
+        open_command = context.run.call_args_list[1].args[0]
+        assert "ControlMaster=auto" in check_command
+        assert "ControlPersist=10m" in check_command
+        assert "ControlPath=" in check_command
+        assert "-p 2222" in open_command
+        assert "-i /path/to/key" in open_command
+        assert "-fN test_user@test.host" in open_command
+
+    def test_new_session_reuses_existing_control_master(self, session, context):
+        context.run.return_value.ok = True
+        second_session = _OpenSSHSession(
+            host=session.host,
+            user=session.user,
+            port=session.port,
+            identity=session.connect_kwargs["key_filename"][0],
+            control_persist=session.control_persist,
+            control_path=session.control_path,
+            require_existing_master=False,
+        )
+
+        second_session.open()
+
+        context.run.assert_called_once()
+
+    def test_run_uses_control_master(self, session, context):
+        context.run.side_effect = [MagicMock(ok=True), MagicMock()]
+
+        session.run("squeue", hide=False, warn=True)
+
+        check_command = context.run.call_args_list[0].args[0]
+        command = context.run.call_args_list[1].args[0]
+        assert "-O check" in check_command
+        assert command.endswith("test_user@test.host squeue")
+        context.run.assert_any_call(command, hide=False, warn=True)
+
+    def test_put_and_get_use_control_master(self, session, context):
+        context.run.return_value.ok = True
+
+        session.put("local file", "/remote/file")
+        put_command = context.run.call_args.args[0]
+        assert put_command.startswith("scp ")
+        assert "ControlPath=" in put_command
+        assert "-P 2222" in put_command
+        assert "'local file' test_user@test.host:/remote/file" in put_command
+
+        context.reset_mock()
+        session.get("/remote/file", "local file")
+        get_command = context.run.call_args.args[0]
+        assert get_command.startswith("scp ")
+        assert "test_user@test.host:/remote/file 'local file'" in get_command
+
+    def test_forward_local_adds_and_cancels_forward(self, session, context):
+        context.run.return_value.ok = True
+
+        with session.forward_local(7000, remote_host="compute"):
+            pass
+
+        commands = [call.args[0] for call in context.run.call_args_list]
+        assert sum("-O check" in command for command in commands) == 3
+        assert any("-O forward -L localhost:7000:compute:7000" in command for command in commands)
+        assert any("-O cancel -L localhost:7000:compute:7000" in command for command in commands)
+
+    def test_expired_master_is_restarted_between_operations(self, session, context):
+        context.run.side_effect = [
+            MagicMock(ok=True),
+            MagicMock(),
+            MagicMock(ok=False),
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        session.run("squeue")
+        session.run("sacct")
+
+        assert "-O check" in context.run.call_args_list[0].args[0]
+        assert "-O check" in context.run.call_args_list[2].args[0]
+        assert "-fN test_user@test.host" in context.run.call_args_list[3].args[0]
+        assert context.run.call_args_list[4].args[0].endswith("test_user@test.host sacct")
+
+    def test_ipv6_put_and_get_bracket_host(self, context, tmp_path):
+        session = _OpenSSHSession(
+            host="2001:db8::1",
+            user="test_user",
+            port=22,
+            identity=None,
+            control_persist="10m",
+            control_path=str(tmp_path / "control-%C"),
+            require_existing_master=False,
+        )
+        context.run.return_value.ok = True
+
+        session.put("local", "/remote/file")
+        assert "test_user@[2001:db8::1]:/remote/file" in context.run.call_args.args[0]
+
+        context.reset_mock()
+        session.get("/remote/file", "local")
+        assert "test_user@[2001:db8::1]:/remote/file" in context.run.call_args.args[0]
+
+    def test_creation_rejects_unsafe_control_directory(self, context, tmp_path):
+        unsafe_directory = tmp_path / "unsafe"
+        unsafe_directory.mkdir(mode=0o777)
+        unsafe_directory.chmod(0o777)
+        session = _OpenSSHSession(
+            host="test.host",
+            user="test_user",
+            port=None,
+            identity=None,
+            control_persist="10m",
+            control_path=str(unsafe_directory / "control-%C"),
+            require_existing_master=False,
+        )
+        context.run.return_value.ok = False
+
+        with pytest.raises(RuntimeError, match="not group/world-writable"):
+            session.open()
+
+    def test_creation_rejects_symlinked_control_directory(self, context, tmp_path):
+        safe_directory = tmp_path / "safe"
+        safe_directory.mkdir(mode=0o700)
+        symlink = tmp_path / "linked"
+        symlink.symlink_to(safe_directory, target_is_directory=True)
+        session = _OpenSSHSession(
+            host="test.host",
+            user="test_user",
+            port=None,
+            identity=None,
+            control_persist="10m",
+            control_path=str(symlink / "control-%C"),
+            require_existing_master=False,
+        )
+        context.run.return_value.ok = False
+
+        with pytest.raises(RuntimeError, match="must not contain symlinks"):
+            session.open()
+
+    def test_close_leaves_control_master_running(self, session, context):
+        session.close()
+
+        context.run.assert_not_called()
+
+    @patch("nemo_run.core.tunnel.client.shutil.which", return_value="/usr/bin/ssh")
+    def test_tunnel_connect_uses_openssh_session(self, _):
+        tunnel = SSHTunnel(
+            host="test.host",
+            user="test_user",
+            job_dir="/remote/job",
+            control_persist="10m",
+        )
+
+        with patch.object(_OpenSSHSession, "is_connected", new_callable=PropertyMock) as connected:
+            connected.return_value = False
+            with patch.object(_OpenSSHSession, "open") as open_session:
+                tunnel.connect()
+
+        assert isinstance(tunnel.session, _OpenSSHSession)
+        assert tunnel.session.control_path.endswith("/.ssh/control-%C")
+        open_session.assert_called_once()
+
+    @patch("nemo_run.core.tunnel.client.shutil.which", return_value="/usr/bin/ssh")
+    def test_tunnel_reuses_master_from_ssh_config(self, _):
+        tunnel = SSHTunnel(
+            host="login-ptyche",
+            user="test_user",
+            job_dir="/remote/job",
+            use_openssh=True,
+            require_existing_master=True,
+        )
+
+        with patch.object(_OpenSSHSession, "is_connected", new_callable=PropertyMock) as connected:
+            connected.return_value = True
+            with patch.object(_OpenSSHSession, "open") as open_session:
+                tunnel.connect()
+
+        assert isinstance(tunnel.session, _OpenSSHSession)
+        assert tunnel.session.control_path is None
+        assert tunnel.session.control_persist is None
+        open_session.assert_not_called()
+
+    def test_reuse_only_operations_cannot_fall_back_or_prompt(self, context):
+        session = _OpenSSHSession(
+            host="login-ptyche",
+            user="test_user",
+            port=None,
+            identity=None,
+            control_persist=None,
+            control_path=None,
+            require_existing_master=True,
+        )
+        context.run.return_value.ok = True
+
+        session.run("squeue")
+        run_command = context.run.call_args_list[-1].args[0]
+        session.put("local", "/remote/file")
+        put_command = context.run.call_args_list[-1].args[0]
+
+        for command in (run_command, put_command, session.ssh_options):
+            assert "ControlMaster=no" in command
+            assert "BatchMode=yes" in command
+            assert "ProxyCommand=false" in command
+
+    def test_recovery_command_includes_explicit_overrides(self, context, tmp_path):
+        control_path = tmp_path / "socket path-%C"
+        session = _OpenSSHSession(
+            host="login-ptyche",
+            user="test user",
+            port=2222,
+            identity="/key path/id_ed25519",
+            control_persist=None,
+            control_path=str(control_path),
+            require_existing_master=True,
+        )
+        context.run.return_value.ok = False
+
+        with pytest.raises(RuntimeError, match="No existing OpenSSH control master") as error:
+            session.open()
+
+        message = str(error.value)
+        assert "ControlPath=" in message
+        assert str(control_path) in message
+        assert "-p 2222" in message
+        assert "/key path/id_ed25519" in message
+        assert "ControlMaster=yes" in message
+        assert "test user@login-ptyche" in message
+
+    def test_existing_master_mode_does_not_create_connection(self, context):
+        session = _OpenSSHSession(
+            host="login-ptyche",
+            user="test_user",
+            port=None,
+            identity=None,
+            control_persist=None,
+            control_path=None,
+            require_existing_master=True,
+        )
+        context.run.return_value.ok = False
+
+        with pytest.raises(RuntimeError, match=r"ControlMaster=yes.*test_user@login-ptyche"):
+            session.open()
+
+        context.run.assert_called_once()
+        check_command = context.run.call_args.args[0]
+        assert "-O check" in check_command
+        assert "ControlPath=" not in check_command
+        assert "ControlPersist=" not in check_command
+        assert " -p " not in check_command
+        assert " -i " not in check_command
+
+    def test_control_path_requires_openssh(self):
+        with pytest.raises(ValueError, match="control_path requires use_openssh"):
+            SSHTunnel(
+                host="test.host",
+                user="test_user",
+                job_dir="/remote/job",
+                control_path="/tmp/control-%C",
+            )
+
+    def test_existing_master_requires_openssh(self):
+        with pytest.raises(ValueError, match="require_existing_master requires use_openssh"):
+            SSHTunnel(
+                host="test.host",
+                user="test_user",
+                job_dir="/remote/job",
+                require_existing_master=True,
+            )
+
+    @patch("nemo_run.core.tunnel.client.shutil.which", return_value="/usr/bin/ssh")
+    def test_creation_mode_requires_control_persist(self, _):
+        with pytest.raises(ValueError, match="creation requires control_persist"):
+            SSHTunnel(host="test.host", user="test_user", job_dir="/remote/job", use_openssh=True)
+
+    @patch("nemo_run.core.tunnel.client.shutil.which", return_value="/usr/bin/ssh")
+    def test_existing_master_rejects_control_persist(self, _):
+        with pytest.raises(ValueError, match="cannot be combined"):
+            SSHTunnel(
+                host="test.host",
+                user="test_user",
+                job_dir="/remote/job",
+                use_openssh=True,
+                require_existing_master=True,
+                control_persist="1d",
+            )
+
+    def test_empty_control_persist_is_rejected(self):
+        with pytest.raises(ValueError, match="control_persist must not be empty"):
+            SSHTunnel(host="test.host", user="test_user", job_dir="/remote/job", control_persist="")
 
 
 class TestSSHConfigFile:
