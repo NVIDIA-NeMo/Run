@@ -17,6 +17,7 @@ import copy
 import os
 import re
 from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -503,6 +504,44 @@ class TestSlurmBatchRequest:
             "#SBATCH --output=/root/sample_job/sbatch_account-account.sample_job_%A_%a.out"
             in sbatch_script
         )
+
+    def test_dummy_batch_request_ntasks(
+        self,
+        dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.executor.ntasks = 8
+
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --ntasks=8" in sbatch_script
+        assert "--ntasks-per-node" not in sbatch_script
+
+    def test_dummy_batch_request_ntasks_per_node_default(
+        self,
+        dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --ntasks-per-node=1" in sbatch_script
+        assert "#SBATCH --ntasks=" not in sbatch_script
+
+    def test_srun_ntasks_drops_ntasks_per_node(self):
+        # sbatch and srun must apply the same exclusion, or the two drift apart.
+        executor = SlurmExecutor(account="account", tunnel=LocalTunnel(job_dir="/tmp"), ntasks=8)
+        mock_slurm = MagicMock()
+        with patch.object(
+            SlurmExecutor, "slurm", new_callable=PropertyMock, return_value=mock_slurm
+        ):
+            executor.srun("echo hi", job_name="interactive")
+
+        srun_cmd = mock_slurm.run.call_args.args[0]
+        assert "--ntasks=8" in srun_cmd
+        assert "--ntasks-per-node" not in srun_cmd
+
+    def test_ntasks_rejected_for_heterogeneous(self):
+        with pytest.raises(AssertionError, match="ntasks cannot be combined with heterogeneous"):
+            SlurmExecutor(account="account", ntasks=8, heterogeneous=True)
 
     def test_dummy_batch_additonal_params(
         self,

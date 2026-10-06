@@ -13,12 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
 from unittest.mock import MagicMock, patch
 
 import pytest
 from torchx.specs.api import AppState
 
 from nemo_run.config import Partial, Script
+from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.run.job import Job, JobGroup
@@ -102,7 +104,7 @@ def test_job_status_launched(simple_task, docker_executor, mock_runner):
     mock_runner.status.assert_called_once_with("test-handle")
 
 
-def test_job_status_exception(simple_task, docker_executor, mock_runner):
+def test_job_status_exception(simple_task, docker_executor, mock_runner, caplog):
     job = Job(
         id="test-job",
         task=simple_task,
@@ -113,7 +115,10 @@ def test_job_status_exception(simple_task, docker_executor, mock_runner):
     )
 
     mock_runner.status.side_effect = Exception("Test exception")
-    assert job.status(mock_runner) == AppState.RUNNING
+    with caplog.at_level("ERROR", logger="nemo_run.run.job"):
+        assert job.status(mock_runner) == AppState.RUNNING
+    assert "Failed to get status for job test-handle" in caplog.text
+    assert "Test exception" in caplog.text
 
 
 def test_job_logs(simple_task, docker_executor, mock_runner):
@@ -381,6 +386,61 @@ def test_job_group_init_mixed_executor_types(simple_task):
         )
 
 
+def test_job_group_builtin_executors_opt_in():
+    # SUPPORTED_EXECUTORS and supports_job_group() must not drift apart.
+    for executor_type in JobGroup.SUPPORTED_EXECUTORS:
+        assert executor_type.supports_job_group(), executor_type.__name__
+
+
+def test_job_group_accepts_downstream_executor(simple_task):
+    @dataclass(kw_only=True)
+    class CustomExecutor(Executor):
+        @classmethod
+        def supports_job_group(cls) -> bool:
+            return True
+
+    executor = CustomExecutor(job_dir="/tmp/custom")
+    job_group = JobGroup(
+        id="test-group",
+        tasks=[simple_task, simple_task],
+        executors=executor,
+    )
+
+    assert not job_group._merge
+    assert job_group.executors == [executor, executor]
+
+
+def test_job_group_rejects_executor_without_opt_in(simple_task):
+    @dataclass(kw_only=True)
+    class UnsupportedExecutor(Executor):
+        pass
+
+    with pytest.raises(AssertionError, match="Unsupported executor type"):
+        JobGroup(
+            id="test-group",
+            tasks=[simple_task],
+            executors=UnsupportedExecutor(job_dir="/tmp/unsupported"),
+        )
+
+
+def test_job_group_slurm_subclass_keeps_group_semantics(simple_task):
+    @dataclass(kw_only=True)
+    class CustomSlurmExecutor(SlurmExecutor):
+        pass
+
+    job_group = JobGroup(
+        id="test-group",
+        tasks=[simple_task, simple_task],
+        executors=CustomSlurmExecutor(
+            account="test_account", partition="test", job_dir="/tmp/test"
+        ),
+    )
+
+    assert job_group._merge
+    assert isinstance(job_group.executors, CustomSlurmExecutor)
+    assert job_group.executors.run_as_group
+
+
 def test_job_group_properties(simple_task, docker_executor):
     # Mock the property behavior directly
     job_group = JobGroup(
@@ -437,7 +497,7 @@ def test_job_group_status_launched(simple_task, docker_executor, mock_runner):
     mock_runner.status.assert_called_once_with("handle1")
 
 
-def test_job_group_status_exception(simple_task, docker_executor, mock_runner):
+def test_job_group_status_exception(simple_task, docker_executor, mock_runner, caplog):
     job_group = JobGroup(
         id="test-group",
         tasks=[simple_task, simple_task],
@@ -448,9 +508,12 @@ def test_job_group_status_exception(simple_task, docker_executor, mock_runner):
     )
 
     mock_runner.status.side_effect = Exception("Test exception")
-    status = job_group.status(mock_runner)
+    with caplog.at_level("ERROR", logger="nemo_run.run.job"):
+        status = job_group.status(mock_runner)
     assert status == AppState.UNKNOWN
     assert job_group.states == [AppState.UNKNOWN]
+    assert "Failed to get status for job handle handle1" in caplog.text
+    assert "Test exception" in caplog.text
 
 
 def test_job_group_logs(simple_task, docker_executor, mock_runner):

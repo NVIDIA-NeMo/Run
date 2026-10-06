@@ -135,6 +135,12 @@ class SlurmRayRequest:
             k: v for k, v in args.items() if v is not None and k in SlurmExecutor.SBATCH_FLAGS
         }
 
+        # Same exclusion as SlurmBatchRequest.materialize(): ntasks-per-node acts as a
+        # per-node maximum when ntasks is also present, so leaving its default of 1 in
+        # place would cap an explicit ntasks request.
+        if parameters.get("ntasks") is not None:
+            parameters.pop("ntasks_per_node", None)
+
         # rename and reformat parameters
 
         if "cpus_per_gpu" in parameters and "gpus_per_task" not in parameters:

@@ -14,13 +14,15 @@
 name: "Build, validate, and release NeMo Run"
 
 on:
+  merge_group:
+    types: [checks_requested]
   push:
     branches:
       - "main"
+      - "pull-request/**"
       - "[rv][0-9].[0-9].[0-9]"
       - "[rv][0-9].[0-9].[0-9]rc[0-9]"
       - "deploy-release/*"
-  pull_request:
   workflow_dispatch:
     inputs:
       release-ref:
@@ -57,13 +59,13 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   release:
-    if: '!cancelled()'
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@v1.4.3
+    if: ${{ !cancelled() }}
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_library.yml@f7af92c4d1caea5a58577ce4ac5314f7de1bc5d4 # v1.4.3
     with:
       release-ref: ${{ inputs.release-ref || github.sha }}
       python-package: nemo_run
@@ -82,7 +84,7 @@ jobs:
 
   release-summary:
     needs: [release]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.release.result != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
       - name: Result

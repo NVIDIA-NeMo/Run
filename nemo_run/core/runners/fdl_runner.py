@@ -30,6 +30,12 @@ def fdl_direct_run(
     fdl_package_cfg: str = typer.Option(
         None, "--package-cfg", "-p", help="Serialized Package config."
     ),
+    fdl_main_module: str = typer.Option(
+        None,
+        "--main-module",
+        help="Saved submit script to load before deserializing; without it, "
+        "__main__.py is looked up three directories above a config file.",
+    ),
     fdl_config: str = typer.Argument(..., help="Serialized fdl config."),
 ):
     import os
@@ -40,7 +46,7 @@ def fdl_direct_run(
     from nemo_run.config import Partial
     from nemo_run.core.packaging.base import Packager
     from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
-    from nemo_run.run.experiment import maybe_load_external_main
+    from nemo_run.run.experiment import load_external_main, maybe_load_external_main
     from nemo_run.run.task import dryrun_fn
 
     if fdl_package_cfg:
@@ -50,11 +56,19 @@ def fdl_direct_run(
         fdl_package: Packager = fdl.build(fdl_deser_package)
         fdl_package.setup()
 
+    if fdl_main_module:
+        # Explicitly requested, so a missing or broken module is an error rather
+        # than a deserialization failure later on.
+        if not os.path.isfile(fdl_main_module):
+            raise FileNotFoundError(f"--main-module '{fdl_main_module}' does not exist")
+        load_external_main(fdl_main_module)
+
     if os.path.isfile(fdl_config):
-        try:
-            maybe_load_external_main(Path(fdl_config).parent.parent.parent)
-        except Exception as e:
-            logging.warning(f"Failed to load external main: {e}")
+        if not fdl_main_module:
+            try:
+                maybe_load_external_main(Path(fdl_config).parent.parent.parent)
+            except Exception as e:
+                logging.warning(f"Failed to load external main: {e}")
 
         fdl_config = Path(fdl_config).read_text()
 
