@@ -459,6 +459,38 @@ def test_job_group_properties(simple_task, docker_executor):
     assert job_group.executor == docker_executor
 
 
+
+@pytest.mark.parametrize(
+    ("states", "expected"),
+    [
+        ([AppState.SUCCEEDED, AppState.FAILED], AppState.FAILED),
+        ([AppState.FAILED, AppState.RUNNING], AppState.FAILED),
+        ([AppState.RUNNING, AppState.FAILED], AppState.FAILED),
+        ([AppState.FAILED, AppState.CANCELLED], AppState.FAILED),
+        ([AppState.RUNNING, AppState.PENDING], AppState.RUNNING),
+        ([AppState.PENDING, AppState.SUBMITTED], AppState.PENDING),
+        ([AppState.SUBMITTED, AppState.UNSUBMITTED], AppState.SUBMITTED),
+        ([AppState.UNKNOWN, AppState.SUCCEEDED], AppState.UNKNOWN),
+        ([AppState.UNSUBMITTED, AppState.SUCCEEDED], AppState.UNSUBMITTED),
+        ([AppState.SUCCEEDED, AppState.SUCCEEDED], AppState.SUCCEEDED),
+        ([AppState.SUCCEEDED, AppState.CANCELLED], AppState.CANCELLED),
+        ([AppState.CANCELLED, AppState.SUCCEEDED], AppState.CANCELLED),
+        ([AppState.CANCELLED, AppState.CANCELLED], AppState.CANCELLED),
+    ],
+)
+def test_job_group_state_aggregation(simple_task, docker_executor, states, expected):
+    job_group = JobGroup(
+        id="test-group",
+        tasks=[simple_task, simple_task],
+        executors=docker_executor,
+        launched=True,
+        handles=["handle1", "handle2"],
+        states=states,
+    )
+
+    assert job_group.state == expected
+
+
 def test_job_group_serialize(simple_task, docker_executor):
     job_group = JobGroup(
         id="test-group",
@@ -746,6 +778,24 @@ def test_job_group_cleanup_not_terminal(simple_task, docker_executor):
     with patch.object(docker_executor, "cleanup") as mock_cleanup:
         job_group.cleanup()
         mock_cleanup.assert_not_called()
+
+
+
+@pytest.mark.parametrize("states", [[], [AppState.SUCCEEDED], [AppState.SUCCEEDED] * 3])
+def test_job_group_incomplete_states_prevent_cleanup(simple_task, docker_executor, states):
+    job_group = JobGroup(
+        id="test-group",
+        tasks=[simple_task, simple_task],
+        executors=docker_executor,
+        launched=True,
+        handles=["handle1", "handle2"],
+        states=states,
+    )
+
+    assert job_group.state == AppState.UNKNOWN
+    with patch.object(docker_executor, "cleanup") as mock_cleanup:
+        job_group.cleanup()
+    mock_cleanup.assert_not_called()
 
 
 def test_job_group_cleanup_exception(simple_task, docker_executor):
