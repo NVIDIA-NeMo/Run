@@ -744,8 +744,10 @@ class TypeParser:
             return self.parse_buildable(value, annotation)
 
         parser = self.get_parser(annotation)
+        if len(value) >= 2 and value[0] == value[-1] == '"':
+            value = value[1:-1]
         try:
-            return parser(value.strip('"'), annotation)
+            return parser(value, annotation)
         except ParseError:
             raise
         except Exception as e:
