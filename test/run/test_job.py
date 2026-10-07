@@ -459,7 +459,7 @@ def test_job_group_properties(simple_task, docker_executor):
     assert job_group.executor == docker_executor
 
 
-@pytest.mark.parametrize
+@pytest.mark.parametrize(
     ("states", "expected"),
     [
         ([AppState.SUCCEEDED, AppState.FAILED], AppState.FAILED),
