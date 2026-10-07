@@ -605,13 +605,13 @@ def _try_set_all(config: _BuildableT, _walk: bool = False, **kwargs) -> _Buildab
             _val = val(config) if _walk else val
             setattr(config, key, _val)
 
-        for attr_name in dir(config):
-            try:
-                if hasattr(config, attr_name):
-                    attr = getattr(config, attr_name)
-                    if isinstance(attr, (fdl.Config, fdl.Partial)):
-                        _try_set_all(attr, _walk=_walk, **kwargs)
-            except ValueError:
-                pass
+    for attr_name in dir(config):
+        try:
+            if hasattr(config, attr_name):
+                attr = getattr(config, attr_name)
+                if isinstance(attr, (fdl.Config, fdl.Partial)):
+                    _try_set_all(attr, _walk=_walk, **kwargs)
+        except ValueError:
+            pass
 
     return config

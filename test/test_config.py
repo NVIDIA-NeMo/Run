@@ -245,6 +245,25 @@ class TestPartial:
         new_partial = partial.walk(seq_length=lambda cfg: cfg.seq_length * 2)
         assert new_partial.model.seq_length == 20
 
+    def test_walk_multiple_keys(self):
+        partial = run.Partial(train, model=dummy_model(), optim=optimizer())
+        new_partial = partial.walk(
+            seq_length=lambda cfg: cfg.seq_length * 2, hidden=lambda cfg: cfg.hidden + 1
+        )
+        assert new_partial.model.seq_length == 20
+        assert new_partial.model.hidden == 101
+
+    def test_walk_multiple_keys_two_levels_down(self):
+        def wrap(nested: NestedData):
+            return nested
+
+        partial = run.Partial(
+            wrap, nested=run.Config(NestedData, data=run.Config(Data, name="x", value=1))
+        )
+        new_partial = partial.walk(name=lambda cfg: cfg.name + "!", value=lambda cfg: cfg.value * 2)
+        assert new_partial.nested.data.name == "x!"
+        assert new_partial.nested.data.value == 2
+
     def test_broadcast(self):
         partial = run.Partial(train, model=dummy_model(), optim=optimizer())
         new_partial = partial.broadcast(hidden=2)
