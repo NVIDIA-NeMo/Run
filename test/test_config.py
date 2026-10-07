@@ -245,6 +245,14 @@ class TestPartial:
         new_partial = partial.walk(seq_length=lambda cfg: cfg.seq_length * 2)
         assert new_partial.model.seq_length == 20
 
+    def test_walk_multiple_keys(self):
+        partial = run.Partial(train, model=dummy_model(), optim=optimizer())
+        new_partial = partial.walk(
+            seq_length=lambda cfg: cfg.seq_length * 2, hidden=lambda cfg: cfg.hidden + 1
+        )
+        assert new_partial.model.seq_length == 20
+        assert new_partial.model.hidden == 101
+
     def test_broadcast(self):
         partial = run.Partial(train, model=dummy_model(), optim=optimizer())
         new_partial = partial.broadcast(hidden=2)
