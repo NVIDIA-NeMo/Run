@@ -459,8 +459,7 @@ def test_job_group_properties(simple_task, docker_executor):
     assert job_group.executor == docker_executor
 
 
-
-@pytest.mark.parametrize(
+@pytest.mark.parametrize
     ("states", "expected"),
     [
         ([AppState.SUCCEEDED, AppState.FAILED], AppState.FAILED),
@@ -778,7 +777,6 @@ def test_job_group_cleanup_not_terminal(simple_task, docker_executor):
     with patch.object(docker_executor, "cleanup") as mock_cleanup:
         job_group.cleanup()
         mock_cleanup.assert_not_called()
-
 
 
 @pytest.mark.parametrize("states", [[], [AppState.SUCCEEDED], [AppState.SUCCEEDED] * 3])
