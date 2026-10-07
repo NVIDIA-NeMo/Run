@@ -75,6 +75,19 @@ class TestSimpleValueParsing:
         assert parse_cli_args(func, ['a="world"']).a == "world"
         assert parse_cli_args(func, ["a=unquoted"]).a == "unquoted"
 
+    def test_string_parsing_keeps_unpaired_quotes(self):
+        def func(a: str):
+            pass
+
+        assert parse_cli_args(func, ['a=say "hi"']).a == 'say "hi"'
+        assert parse_cli_args(func, ['a="quoted" word']).a == '"quoted" word'
+
+    def test_dict_value_keeps_inner_quotes(self):
+        def func(a: Dict[str, str]):
+            pass
+
+        assert parse_cli_args(func, ['a={"k":"say \\"hi\\""}']).a == {"k": 'say "hi"'}
+
     def test_bool_parsing(self):
         def func(a: bool):
             pass
