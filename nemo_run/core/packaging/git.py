@@ -105,10 +105,11 @@ class GitArchivePackager(Packager):
 
         if self.basepath:
             path = Path(self.basepath)
+        path = Path(path).expanduser()
 
-        subprocess.check_call(f"cd {str(path)} && git rev-parse", shell=True)
+        subprocess.check_call(f"cd {shlex.quote(str(path))} && git rev-parse", shell=True)
         output = subprocess.run(
-            f"cd {str(path)} && git rev-parse --show-toplevel",
+            f"cd {shlex.quote(str(path))} && git rev-parse --show-toplevel",
             check=True,
             stdout=subprocess.PIPE,
             shell=True,
@@ -196,8 +197,8 @@ class GitArchivePackager(Packager):
         with ctx.cd(git_base_path):
             self._concatenate_tar_files(ctx, f"{output_file}.tmp", fragments_to_merge)
 
-        gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
-        rm_cmd = f"rm {output_file}.tmp"
+        gzip_cmd = f"gzip -c {shlex.quote(f'{output_file}.tmp')} > {shlex.quote(output_file)}"
+        rm_cmd = f"rm {shlex.quote(f'{output_file}.tmp')}"
 
         with ctx.cd(git_base_path):
             ctx.run(gzip_cmd)
