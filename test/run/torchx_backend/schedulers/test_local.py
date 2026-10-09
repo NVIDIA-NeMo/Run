@@ -13,14 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import tempfile
+import time
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 from torchx.schedulers.api import AppDryRunInfo, DescribeAppResponse
-from torchx.specs import AppDef, AppState, Role
+from torchx.specs import AppDef, AppState, Role, is_terminal
 
+from nemo_run.config import Script
 from nemo_run.core.execution.local import LocalExecutor
+from nemo_run.run.job import JobGroup
+from nemo_run.run.torchx_backend.runner import Runner
+from nemo_run.run.torchx_backend.schedulers import local as local_module
 from nemo_run.run.torchx_backend.schedulers.local import (
     PersistentLocalScheduler,
     _get_job_dirs,
@@ -89,6 +96,88 @@ def test_describe_existing_app(mock_save, local_scheduler):
         assert response == expected_response
         mock_super_describe.assert_called_once_with(app_id=app_id)
         mock_save.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "first_state, last_state",
+    [
+        (AppState.FAILED, AppState.RUNNING),
+        (AppState.FAILED, AppState.SUCCEEDED),
+        (AppState.FAILED, None),
+        (AppState.RUNNING, AppState.RUNNING),
+        (AppState.RUNNING, AppState.FAILED),
+    ],
+)
+@mock.patch("nemo_run.run.torchx_backend.schedulers.local._save_job_dir")
+def test_describe_group_returns_requested_response(
+    mock_save, local_scheduler, first_state, last_state
+):
+    group = JobGroup(
+        id="group",
+        tasks=[Script(inline="true"), Script(inline="true")],
+        executors=LocalExecutor(),
+        handles=["local://test/first", "local://test/last"],
+        launched=True,
+    )
+    local_scheduler.experiment = SimpleNamespace(jobs=[group])
+    local_scheduler._apps = {"first": mock.Mock(), "last": mock.Mock()}
+    expected = DescribeAppResponse(app_id="first", state=first_state)
+    last = DescribeAppResponse(app_id="last", state=last_state) if last_state else None
+    responses = {"first": expected, "last": last}
+
+    with mock.patch(
+        "torchx.schedulers.local_scheduler.LocalScheduler.describe",
+        side_effect=lambda app_id: responses[app_id],
+    ):
+        response = local_scheduler.describe("first")
+
+    assert response is expected
+    # Keep the existing behavior that a terminal group member stops its siblings.
+    should_kill = is_terminal(first_state) or (last_state and is_terminal(last_state))
+    for app in local_scheduler._apps.values():
+        assert app.kill.call_count == int(bool(should_kill))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="TorchX local processes require POSIX")
+def test_failed_local_child_is_not_hidden_by_successful_sibling(
+    tmp_path, monkeypatch, local_scheduler
+):
+    monkeypatch.setattr(local_module, "LOCAL_JOB_DIRS", str(tmp_path / "jobs.json"))
+    with Runner("test_session", {"local": lambda *args, **kwargs: local_scheduler}) as runner:
+        handles = []
+        scripts = []
+        for index, exit_code in enumerate([1, 0]):
+            script = tmp_path / f"child_{index}.py"
+            script.write_text(f"raise SystemExit({exit_code})\n")
+            scripts.append(Script(path=str(script), entrypoint=sys.executable))
+            app = AppDef(
+                name=f"child-{index}",
+                roles=[Role(name="main", image="", entrypoint=sys.executable, args=[str(script)])],
+            )
+            handles.append(
+                runner.run(app, "local", cfg=LocalExecutor(job_dir=str(tmp_path / "logs")))
+            )
+
+        # Let both children finish before enabling the group's sibling-stop behavior.
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            individual = [runner.status(handle).state for handle in handles]
+            if all(is_terminal(state) for state in individual):
+                break
+            time.sleep(0.01)
+        assert individual == [AppState.FAILED, AppState.SUCCEEDED]
+
+        group = JobGroup(
+            id="real-group",
+            tasks=scripts,
+            executors=LocalExecutor(),
+            handles=handles,
+            launched=True,
+        )
+        local_scheduler.experiment = SimpleNamespace(jobs=[group])
+
+        assert group.status(runner) == AppState.FAILED
+        assert group.states == [AppState.FAILED, AppState.SUCCEEDED]
 
 
 @mock.patch("nemo_run.run.torchx_backend.schedulers.local._get_job_dirs")
