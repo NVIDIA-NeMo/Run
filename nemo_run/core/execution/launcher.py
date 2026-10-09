@@ -138,7 +138,10 @@ class SlurmTemplate(Launcher):
 
         # If using inline template or absolute path template
         template_content = self.get_template_content()
-        env = jinja2.Environment(autoescape=jinja2.select_autoescape(["html", "xml"]))
+        # Shell source loaded with from_string must not be HTML-escaped.
+        env = jinja2.Environment(
+            autoescape=jinja2.select_autoescape(["html", "xml"], default_for_string=False)
+        )
         template = env.from_string(template_content)
 
         # Create variables dictionary with command and additional variables
