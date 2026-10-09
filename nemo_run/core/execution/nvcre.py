@@ -131,6 +131,12 @@ class NvcreExecutor(Executor):
     # ── Extra pod config ──────────────────────────────────────────────────────
     volumes: list[dict[str, Any]] = field(default_factory=list)
     volume_mounts: list[dict[str, Any]] = field(default_factory=list)
+    # Init containers copied verbatim into the WorkloadRun's ``spec.initContainers``, e.g. one that
+    # clones a pinned Megatron-Bridge into a shared volume so it replaces the image's copy.  Each
+    # entry is a Kubernetes container dict (name, image, command, args, volumeMounts, ...).  The
+    # volumes they mount must be declared in ``volumes``, and ``volume_mounts`` must mount them
+    # into the training container for the files to be visible there.
+    init_containers: list[dict[str, Any]] = field(default_factory=list)
     # Env vars sourced from K8s Secrets: {ENV_VAR_NAME: (secret_name, secret_key)}.
     # Use this instead of env_vars for sensitive values such as HF_TOKEN or NGC_API_KEY.
     secret_env_vars: dict[str, tuple[str, str]] = field(default_factory=dict)
@@ -338,6 +344,8 @@ class NvcreExecutor(Executor):
             spec["volumes"] = vols
         if vmounts:
             spec["volumeMounts"] = vmounts
+        if self.init_containers:
+            spec["initContainers"] = list(self.init_containers)
 
         if self.image_pull_secret:
             spec["imagePullSecrets"] = [{"name": self.image_pull_secret}]
