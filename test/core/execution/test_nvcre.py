@@ -172,6 +172,29 @@ class TestNvcreExecutor:
         assert "checkpoint" not in spec
         assert "gangScheduler" not in spec
 
+    def test_build_workloadrun_yaml_init_containers(self, executor):
+        init_container = {
+            "name": "megatron-bridge-clone",
+            "image": "nvcr.io/nvidia/nemo:26.08.01",
+            "command": ["/bin/bash", "-c"],
+            "args": [
+                "set -ex\ngit clone --depth 1 -b main https://example.com/mb.git /mnt/workspace/mb"
+            ],
+            "volumeMounts": [{"name": "workspace", "mountPath": "/mnt/workspace"}],
+        }
+        executor.volumes = [{"name": "workspace", "emptyDir": {}}]
+        executor.volume_mounts = [{"name": "workspace", "mountPath": "/mnt/workspace"}]
+        executor.init_containers = [init_container]
+
+        spec = executor.build_workloadrun_yaml(["python"])["spec"]
+
+        assert spec["initContainers"] == [init_container]
+        assert spec["volumes"] == [{"name": "workspace", "emptyDir": {}}]
+        assert spec["volumeMounts"] == [{"name": "workspace", "mountPath": "/mnt/workspace"}]
+
+    def test_build_workloadrun_yaml_omits_empty_init_containers(self, executor):
+        assert "initContainers" not in executor.build_workloadrun_yaml(["python"])["spec"]
+
     def test_build_workloadrun_yaml_full(self, executor):
         executor.node_selector = {"gpu-type": "h100"}
         executor.env_vars = {"FOO": "bar"}
