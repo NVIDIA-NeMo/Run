@@ -683,6 +683,22 @@ class TestPythonicParser:
         assert parser.parse_constructor("list(1, 2, 3)") == [1, 2, 3]
         assert parser.parse_constructor("tuple(1, 2, 3)") == (1, 2, 3)
         assert parser.parse_constructor("set(1, 2, 3)") == {1, 2, 3}
+        assert parser.parse_constructor("list(1, 'a,b')") == [1, "a,b"]
+        assert parser.parse_constructor('list(1, "a,b")') == [1, "a,b"]
+        assert parser.parse_constructor("tuple('a,b', 2)") == ("a,b", 2)
+        assert parser.parse_constructor("set(1, 'a,b')") == {1, "a,b"}
+        assert parser.parse_constructor("dict(x='a,b', y=2)") == {"x": "a,b", "y": 2}
+        assert parser.parse_constructor("list('a\\'b')") == ["a'b"]
+        assert parser.parse_constructor("list(1, 'two', [3, 4])") == [1, "two", [3, 4]]
+        assert parser.parse_constructor("dict(x=dict(a=1, b=2), y=3)") == {
+            "x": {"a": 1, "b": 2},
+            "y": 3,
+        }
+        assert parser.parse_constructor("list('''it's fine''', 2)") == ["it's fine", 2]
+        assert parser.parse_constructor('list("""a "b" c""", 3)') == ['a "b" c', 3]
+        assert parser.parse_constructor("list(it's fine, 2)") == ["it's fine", 2]
+        assert parser.parse_constructor("list(O'Brien, 2)") == ["O'Brien", 2]
+        assert parser.parse_constructor("list(r'a,b', 2)") == ["a,b", 2]
 
     def test_parse_comprehension(self, parser):
         assert parser.parse_comprehension("[x for x in range(3)]") == [0, 1, 2]

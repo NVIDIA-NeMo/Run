@@ -156,6 +156,18 @@ def cli_exception_handler(func):
     return wrapper
 
 
+_CONSTRUCTOR_STRING_PREFIXES = {"r", "u", "b", "f", "fr", "rf", "rb", "br", "ur", "ru"}
+
+
+def _constructor_quote_opens(current_arg: str) -> bool:
+    # An apostrophe inside an unquoted word (it's, O'Brien) is not a string.
+    # A quote still opens after a delimiter, or after a string prefix such as r.
+    token = current_arg.strip()
+    if token == "" or token.lower() in _CONSTRUCTOR_STRING_PREFIXES:
+        return True
+    return current_arg.rstrip()[-1] in "([{=:,"
+
+
 class PythonicParser:
     """
     A parser for handling Pythonic-style command-line arguments.
@@ -304,8 +316,14 @@ class PythonicParser:
         if constructor_match:
             constructor, args = constructor_match.groups()
             if constructor == "dict":
-                pairs = re.findall(r"(\w+)\s*=\s*([^,]+)(?:,|$)", args)
-                return {k: self.parse_value(v.strip()) for k, v in pairs}
+                parsed = {}
+                for piece in self._split_constructor_args(args):
+                    pair = re.fullmatch(r"(\w+)\s*=\s*(.+)", piece)
+                    if not pair:
+                        continue
+                    key, raw = pair.groups()
+                    parsed[key] = self.parse_value(raw.strip())
+                return parsed
             else:
                 parsed_args = self.parse_constructor_args(args)
                 if constructor == "list":
@@ -334,21 +352,60 @@ class PythonicParser:
             >>> parser.parse_constructor_args("1, 'two', [3, 4]")
             [1, 'two', [3, 4]]
         """
-        parsed_args = []
+        return [self.parse_value(part) for part in self._split_constructor_args(args)]
+
+    def _split_constructor_args(self, args: str) -> List[str]:
+        parts = []
         current_arg = ""
         nesting_level = 0
-        for char in args + ",":
+        quote = ""
+        escaped = False
+        i = 0
+        text = args + ","
+        while i < len(text):
+            char = text[i]
+            if quote:
+                if escaped:
+                    current_arg += char
+                    escaped = False
+                    i += 1
+                    continue
+                if char == "\\":
+                    current_arg += char
+                    escaped = True
+                    i += 1
+                    continue
+                if text.startswith(quote, i):
+                    current_arg += quote
+                    i += len(quote)
+                    quote = ""
+                    continue
+                current_arg += char
+                i += 1
+                continue
+            if char in ("'", '"') and _constructor_quote_opens(current_arg):
+                if text.startswith(char * 3, i):
+                    quote = char * 3
+                    current_arg += quote
+                    i += 3
+                    continue
+                quote = char
+                current_arg += char
+                i += 1
+                continue
             if char == "," and nesting_level == 0:
                 if current_arg:
-                    parsed_args.append(self.parse_value(current_arg.strip()))
+                    parts.append(current_arg.strip())
                     current_arg = ""
-            else:
-                current_arg += char
-                if char in "([{":
-                    nesting_level += 1
-                elif char in ")]}":
-                    nesting_level -= 1
-        return parsed_args
+                i += 1
+                continue
+            current_arg += char
+            if char in "([{":
+                nesting_level += 1
+            elif char in ")]}":
+                nesting_level -= 1
+            i += 1
+        return parts
 
     def parse_comprehension(self, value: str) -> Any:
         """
