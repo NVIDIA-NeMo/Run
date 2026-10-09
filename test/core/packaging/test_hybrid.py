@@ -16,8 +16,9 @@
 import filecmp
 import os
 import subprocess
+import tarfile
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +26,50 @@ import pytest
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.hybrid import HybridPackager
 from test.conftest import MockContext
+
+
+@pytest.mark.parametrize("extract_at_root", [False, True])
+@pytest.mark.parametrize("path_part", ["job_dir", "name", "subarchive"])
+@pytest.mark.parametrize("special_name", ["training package", "user's package"])
+@patch("nemo_run.core.packaging.hybrid.Context", MockContext)
+def test_hybrid_packager_with_quoted_paths(tmp_path, extract_at_root, path_part, special_name):
+    job_dir = tmp_path / (special_name if path_part == "job_dir" else "job")
+    job_dir.mkdir()
+    name = special_name if path_part == "name" else "training"
+    source = tmp_path / "source"
+    source.mkdir()
+    sub_packagers = {}
+    expected_files = {}
+    subarchives = []
+    for folder_name in ("code", "data"):
+        filename = f"{folder_name}.txt"
+        content = f"Content from {folder_name}".encode()
+        (source / filename).write_bytes(content)
+        archive_name = special_name if path_part == "subarchive" else "package"
+        subarchive = tmp_path / f"{archive_name}_{folder_name}.tar.gz"
+        with tarfile.open(subarchive, "w:gz") as archive:
+            archive.add(source / filename, arcname=filename)
+        subarchives.append(subarchive)
+        packager = MagicMock(spec=Packager)
+        packager.package.return_value = str(subarchive)
+        sub_packagers[folder_name] = packager
+        member_name = filename if extract_at_root else f"{folder_name}/{filename}"
+        expected_files[member_name] = content
+
+    hybrid = HybridPackager(sub_packagers=sub_packagers, extract_at_root=extract_at_root)
+
+    output = hybrid.package(source, str(job_dir), name)
+
+    assert output == str(job_dir / f"{name}.tar.gz")
+    with tarfile.open(output) as archive:
+        actual_files = {
+            str(PurePosixPath(member.name)): archive.extractfile(member).read()
+            for member in archive.getmembers()
+            if member.isfile()
+        }
+    assert actual_files == expected_files
+    assert list(job_dir.iterdir()) == [Path(output)]
+    assert not any(subarchive.exists() for subarchive in subarchives)
 
 
 @pytest.fixture
