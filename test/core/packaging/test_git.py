@@ -40,6 +40,61 @@ def mock_check_call(cmd, *args, **kwargs):
         raise subprocess.CalledProcessError(1, cmd)
 
 
+@pytest.mark.parametrize(
+    "repo_name, job_name, archive_name, use_basepath, home_relative",
+    [
+        ("repo", "output", "bundle", False, False),
+        ("repo with spaces", "output", "bundle", False, False),
+        ("repo with spaces", "output", "bundle", True, False),
+        ("repo", "output with spaces", "bundle", False, False),
+        ("repo", "output", "bundle with spaces", False, False),
+        ("repo with spaces", "output", "bundle", True, True),
+    ],
+)
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_paths_with_spaces(
+    tmp_path, monkeypatch, repo_name, job_name, archive_name, use_basepath, home_relative
+):
+    repo = tmp_path / repo_name
+    repo.mkdir()
+    (repo / "payload.txt").write_text("archive contents", encoding="utf-8")
+    for args in [
+        ["init", "--initial-branch=main"],
+        ["add", "payload.txt"],
+        [
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-m",
+            "fixture",
+        ],
+    ]:
+        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+    job_dir = tmp_path / job_name
+    job_dir.mkdir()
+    packager = GitArchivePackager(
+        basepath=str(repo) if use_basepath else "", include_submodules=False
+    )
+    if home_relative:
+        monkeypatch.setenv("HOME", str(tmp_path))
+        packager.basepath = f"~/{repo_name}"
+
+    archive = packager.package(tmp_path if use_basepath else repo, str(job_dir), archive_name)
+
+    assert archive == str(job_dir / f"{archive_name}.tar.gz")
+    with tarfile.open(archive) as tar:
+        assert tar.getnames() == [".", "./payload.txt"]
+        assert tar.extractfile("./payload.txt").read() == b"archive contents"
+    assert not Path(f"{archive}.tmp").exists()
+    assert not Path(f"{archive}.tmp.base").exists()
+    assert not list(repo.glob("temp_extract_*"))
+    assert list(job_dir.iterdir()) == [Path(archive)]
+
+
 @pytest.fixture
 def temp_repo(tmpdir):
     repo_path = tmpdir.mkdir("repo")
