@@ -154,6 +154,18 @@ def cli_exception_handler(func):
     return wrapper
 
 
+_CONSTRUCTOR_STRING_PREFIXES = {"r", "u", "b", "f", "fr", "rf", "rb", "br", "ur", "ru"}
+
+
+def _constructor_quote_opens(current_arg: str) -> bool:
+    # An apostrophe inside an unquoted word (it's, O'Brien) is not a string.
+    # A quote still opens after a delimiter, or after a string prefix such as r.
+    token = current_arg.strip()
+    if token == "" or token.lower() in _CONSTRUCTOR_STRING_PREFIXES:
+        return True
+    return current_arg.rstrip()[-1] in "([{=:,"
+
+
 class PythonicParser:
     """
     A parser for handling Pythonic-style command-line arguments.
@@ -369,7 +381,7 @@ class PythonicParser:
                 current_arg += char
                 i += 1
                 continue
-            if char in ("'", '"'):
+            if char in ("'", '"') and _constructor_quote_opens(current_arg):
                 if text.startswith(char * 3, i):
                     quote = char * 3
                     current_arg += quote
