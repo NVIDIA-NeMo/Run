@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import os
+import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict
@@ -45,7 +46,7 @@ class HybridPackager(Packager):
         # Create an empty tar to append packaged files from each sub-packager
         tmp_tar = final_tar_gz + ".tmp"
         ctx = Context()
-        ctx.run(f"tar -cf {tmp_tar} --files-from /dev/null")
+        ctx.run(f"tar -cf {shlex.quote(tmp_tar)} --files-from /dev/null")
 
         # For each subpackager, run its .package() method,
         # extract the content and add it to the final tar
@@ -57,12 +58,12 @@ class HybridPackager(Packager):
             tmp_extract_dir = os.path.join(job_dir, f"__extract_{folder_name}")
             os.makedirs(tmp_extract_dir, exist_ok=True)
 
-            ctx.run(f"tar -xf {subarchive_path} -C {tmp_extract_dir}")
+            ctx.run(f"tar -xf {shlex.quote(subarchive_path)} -C {shlex.quote(tmp_extract_dir)}")
 
             # If extract_at_root is True then add files directly to the archive root.
             # Otherwise, add them under a subfolder named after the key.
             if self.extract_at_root:
-                ctx.run(f"tar -rf {tmp_tar} -C {tmp_extract_dir} .")
+                ctx.run(f"tar -rf {shlex.quote(tmp_tar)} -C {shlex.quote(tmp_extract_dir)} .")
             else:
                 sysname = os.uname().sysname
                 if sysname == "Darwin":
@@ -72,13 +73,16 @@ class HybridPackager(Packager):
                     transform_option = f"-s ',^\\.$,{folder_name},' -s ',^\\./,{folder_name}/,'"
                 else:
                     transform_option = f"--transform='s,^,{folder_name}/,'"
-                ctx.run(f"tar {transform_option} -rf {tmp_tar} -C {tmp_extract_dir} .")
+                ctx.run(
+                    f"tar {transform_option} -rf {shlex.quote(tmp_tar)}"
+                    f" -C {shlex.quote(tmp_extract_dir)} ."
+                )
 
-            ctx.run(f"rm -rf {tmp_extract_dir}")
-            ctx.run(f"rm {subarchive_path}")
+            ctx.run(f"rm -rf {shlex.quote(tmp_extract_dir)}")
+            ctx.run(f"rm {shlex.quote(subarchive_path)}")
 
         # Finally, compress the combined tar
-        ctx.run(f"gzip -c {tmp_tar} > {final_tar_gz}")
-        ctx.run(f"rm {tmp_tar}")
+        ctx.run(f"gzip -c {shlex.quote(tmp_tar)} > {shlex.quote(final_tar_gz)}")
+        ctx.run(f"rm {shlex.quote(tmp_tar)}")
 
         return final_tar_gz
