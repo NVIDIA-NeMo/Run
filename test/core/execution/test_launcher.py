@@ -14,6 +14,9 @@
 # limitations under the License.
 
 import os
+import shlex
+import shutil
+import subprocess
 import tempfile
 
 import pytest
@@ -23,6 +26,40 @@ from nemo_run.core.execution.launcher import SlurmRay, SlurmTemplate
 
 
 class TestSlurmTemplate:
+    @pytest.mark.parametrize("source", ["inline", "absolute"])
+    def test_shell_template_preserves_command_and_variables(self, tmp_path, source):
+        content = "#!/bin/bash\n{{ setup }}\n{{ command }}"
+        kwargs = {"template_vars": {"setup": 'export LABEL="a&b<c>"'}}
+        if source == "inline":
+            kwargs["template_inline"] = content
+        else:
+            path = tmp_path / "launcher.sh.j2"
+            path.write_text(content)
+            kwargs["template_path"] = str(path)
+        command = ["printf", "'%s\\n'", "'a&b<c>'", '"$LABEL"']
+
+        rendered = SlurmTemplate(**kwargs).transform(command).inline
+
+        assert rendered == '#!/bin/bash\nexport LABEL="a&b<c>"\n' + " ".join(command)
+
+    @pytest.mark.parametrize("source", ["inline", "absolute"])
+    @pytest.mark.skipif(shutil.which("bash") is None, reason="Bash is required")
+    def test_rendered_shell_template_runs_quoted_command(self, tmp_path, source):
+        content = "#!/bin/bash\n{{ command }}"
+        if source == "inline":
+            template = SlurmTemplate(template_inline=content)
+        else:
+            path = tmp_path / "launcher.sh.j2"
+            path.write_text(content)
+            template = SlurmTemplate(template_path=str(path))
+        value = "training run: a&b<c>"
+        rendered = template.render_template(["printf", "'%s\\n'", shlex.quote(value)])
+
+        result = subprocess.run(["bash", "-c", rendered], capture_output=True, text=True, timeout=5)
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == value + "\n"
+
     def test_init_validation(self):
         """Test that SlurmTemplate requires either template_path or template_inline."""
         # Should raise error when neither template_path nor template_inline are provided
