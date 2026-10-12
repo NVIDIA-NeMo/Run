@@ -1,52 +1,34 @@
- {
-    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-    "extends": [
-      "github>NVIDIA-NeMo/FW-CI-templates//renovate-config/safe-python#add-renovate-config"
-    ],
-    "baseBranchPatterns": [
-      "$default",
-      "r0.11.0"
-    ],
-    "dependencyDashboardApproval": true,
-    "automerge": false,
-    "prConcurrentLimit": 1,
-    "prHourlyLimit": 1,
-    "packageRules": [
-      {
-        "description": "Allow security PRs for selected packages",
-        "matchJsonata": [
-          "$exists(vulnerabilityFixVersion)"
-        ],
-        "matchPackageNames": [
-          "pytest"
-        ],
-        "enabled": true
-      },
-      {
-        "description": "Disable security PRs for other packages",
-        "matchJsonata": [
-          "$exists(vulnerabilityFixVersion)"
-        ],
-        "matchPackageNames": [
-          "!pytest"
-        ],
-        "enabled": false
-      }
-    ],
-    "vulnerabilityAlerts": {
-      "enabled": null,
-      "dependencyDashboardApproval": false,
-      "minimumReleaseAge": null,
-      "rangeStrategy": "update-lockfile",
-      "prCreation": "immediate",
-      "vulnerabilityFixStrategy": "lowest",
-      "automerge": false,
-      "groupName": "security updates",
-      "groupSlug": "security-updates",
-      "groupSingleUpdates": true,
-      "separateMajorMinor": false,
-      "addLabels": [
-        "dependencies"
-      ]
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>NVIDIA-NeMo/FW-CI-templates//renovate-config/python-uv#add-renovate-config-2"
+  ],
+  "baseBranchPatterns": [
+    "$default"
+  ],
+  "constraints": {
+    "uv": "0.11.8"
+  },
+  "packageRules": [
+    {
+      "description": "Keep execution backends and their direct SDKs in one non-major update PR.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchPackageNames": [
+        "torchx",
+        "leptonai",
+        "skypilot",
+        "ray",
+        "kubernetes"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Python integrations",
+      "groupSlug": "python-integrations",
+      "groupSingleUpdates": true
     }
-  }
+  ]
+}
