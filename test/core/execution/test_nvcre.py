@@ -872,6 +872,31 @@ class TestNvcreExecutor:
         manifest = e.build_workloadrun_yaml(["python"])
         assert manifest["spec"]["orchestration"] == {"testScale": "intra-node"}
 
+    def test_build_workloadrun_yaml_orchestration_placement_only(self):
+        e = NvcreExecutor(namespace="ns", container_image="img", placement="Unpinned")
+        e.job_name = "job1"
+        e.experiment_id = "my-exp_123456789"
+        e.timeout_per_job = ""
+        e.test_scale = None
+        manifest = e.build_workloadrun_yaml(["python"])
+        assert manifest["spec"]["orchestration"] == {"placement": "Unpinned"}
+
+    def test_build_workloadrun_yaml_placement_alongside_other_orchestration(self):
+        e = NvcreExecutor(
+            namespace="ns", container_image="img", placement="Unpinned", timeout_per_job="2h"
+        )
+        e.job_name = "job1"
+        e.experiment_id = "my-exp_123456789"
+        manifest = e.build_workloadrun_yaml(["python"])
+        assert manifest["spec"]["orchestration"] == {"timeoutPerJob": "2h", "placement": "Unpinned"}
+
+    def test_build_workloadrun_yaml_omits_placement_by_default(self):
+        e = NvcreExecutor(namespace="ns", container_image="img")
+        e.job_name = "job1"
+        e.experiment_id = "my-exp_123456789"
+        manifest = e.build_workloadrun_yaml(["python"])
+        assert "placement" not in manifest["spec"].get("orchestration", {})
+
     # ── nvcrectl_base / kubectl_base kubeconfig/context ────────────────────────
 
     def test_nvcrectl_base_includes_kubeconfig_and_context(self):
