@@ -139,11 +139,7 @@ class NvcreExecutor(Executor):
     secret_env_vars: dict[str, tuple[str, str]] = field(default_factory=dict)
 
     # ── Orchestration ─────────────────────────────────────────────────────────
-    timeout_per_job: str = "24h"
-    test_scale: Optional[str] = None  # "intra-node" | "intra-rack" | "full-scale"
-    # ``orchestration.placement``. "Unpinned" runs one job of exactly ``nodes`` nodes and leaves the rest of
-    # the target untouched (NVCRE >= v0.7.0); unset keeps NVCRE's default of covering the whole target.
-    placement: Optional[str] = None
+    timeout_per_job: str = "12h"
     max_restarts: int = 0
     # Set to enable checkpointing; PVC size is required by the API (e.g. "500Gi").
     checkpoint_storage_size: Optional[str] = None
@@ -350,15 +346,10 @@ class NvcreExecutor(Executor):
         if self.image_pull_secret:
             spec["imagePullSecrets"] = [{"name": self.image_pull_secret}]
 
-        orch: dict[str, Any] = {}
+        orch: dict[str, Any] = {"placement": "Unpinned"}
         if self.timeout_per_job:
             orch["timeoutPerJob"] = self.timeout_per_job
-        if self.test_scale:
-            orch["testScale"] = self.test_scale
-        if self.placement:
-            orch["placement"] = self.placement
-        if orch:
-            spec["orchestration"] = orch
+        spec["orchestration"] = orch
 
         if self.checkpoint_storage_size:
             checkpoint: dict[str, Any] = {"storageSize": self.checkpoint_storage_size}

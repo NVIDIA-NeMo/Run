@@ -202,7 +202,6 @@ class TestNvcreExecutor:
         executor.volume_mounts = [{"name": "v", "mountPath": "/mnt"}]
         executor.image_pull_secret = "ngc-secret"
         executor.timeout_per_job = "2h"
-        executor.test_scale = "full-scale"
         executor.max_restarts = 3
         executor.checkpoint_storage_size = "500Gi"
         executor.checkpoint_storage_class = "fast-ssd"
@@ -217,7 +216,7 @@ class TestNvcreExecutor:
         assert spec["volumes"] == executor.volumes
         assert spec["volumeMounts"] == executor.volume_mounts
         assert spec["imagePullSecrets"] == [{"name": "ngc-secret"}]
-        assert spec["orchestration"] == {"timeoutPerJob": "2h", "testScale": "full-scale"}
+        assert spec["orchestration"] == {"placement": "Unpinned", "timeoutPerJob": "2h"}
         assert spec["checkpoint"] == {
             "storageSize": "500Gi",
             "storageClassName": "fast-ssd",
@@ -854,48 +853,28 @@ class TestNvcreExecutor:
 
     # ── build_workloadrun_yaml orchestration branches ─────────────────────────
 
-    def test_build_workloadrun_yaml_no_orchestration_when_both_empty(self):
+    def test_build_workloadrun_yaml_always_requests_unpinned_placement(self):
+        e = NvcreExecutor(namespace="ns", container_image="img")
+        e.job_name = "job1"
+        e.experiment_id = "my-exp_123456789"
+        manifest = e.build_workloadrun_yaml(["python"])
+        assert manifest["spec"]["orchestration"] == {
+            "placement": "Unpinned",
+            "timeoutPerJob": e.timeout_per_job,
+        }
+
+    def test_build_workloadrun_yaml_unpinned_placement_without_timeout(self):
         e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "job1"
         e.experiment_id = "my-exp_123456789"
         e.timeout_per_job = ""
-        e.test_scale = None
-        manifest = e.build_workloadrun_yaml(["python"])
-        assert "orchestration" not in manifest["spec"]
-
-    def test_build_workloadrun_yaml_orchestration_test_scale_only(self):
-        e = NvcreExecutor(namespace="ns", container_image="img")
-        e.job_name = "job1"
-        e.experiment_id = "my-exp_123456789"
-        e.timeout_per_job = ""
-        e.test_scale = "intra-node"
-        manifest = e.build_workloadrun_yaml(["python"])
-        assert manifest["spec"]["orchestration"] == {"testScale": "intra-node"}
-
-    def test_build_workloadrun_yaml_orchestration_placement_only(self):
-        e = NvcreExecutor(namespace="ns", container_image="img", placement="Unpinned")
-        e.job_name = "job1"
-        e.experiment_id = "my-exp_123456789"
-        e.timeout_per_job = ""
-        e.test_scale = None
         manifest = e.build_workloadrun_yaml(["python"])
         assert manifest["spec"]["orchestration"] == {"placement": "Unpinned"}
 
-    def test_build_workloadrun_yaml_placement_alongside_other_orchestration(self):
-        e = NvcreExecutor(
-            namespace="ns", container_image="img", placement="Unpinned", timeout_per_job="2h"
-        )
-        e.job_name = "job1"
-        e.experiment_id = "my-exp_123456789"
-        manifest = e.build_workloadrun_yaml(["python"])
-        assert manifest["spec"]["orchestration"] == {"timeoutPerJob": "2h", "placement": "Unpinned"}
-
-    def test_build_workloadrun_yaml_omits_placement_by_default(self):
+    def test_executor_has_no_placement_or_test_scale_fields(self):
         e = NvcreExecutor(namespace="ns", container_image="img")
-        e.job_name = "job1"
-        e.experiment_id = "my-exp_123456789"
-        manifest = e.build_workloadrun_yaml(["python"])
-        assert "placement" not in manifest["spec"].get("orchestration", {})
+        assert not hasattr(e, "placement")
+        assert not hasattr(e, "test_scale")
 
     # ── nvcrectl_base / kubectl_base kubeconfig/context ────────────────────────
 
