@@ -84,7 +84,7 @@ lint = [
 ]
 
 docs = [
-    "astroid==3.3.8",
+    "astroid==3.3.11",
     "colorama>=0.4.6",
     "myst-parser",
     "sphinx>=7",
