@@ -172,6 +172,29 @@ class TestNvcreExecutor:
         assert "checkpoint" not in spec
         assert "gangScheduler" not in spec
 
+    def test_build_workloadrun_yaml_init_containers(self, executor):
+        init_container = {
+            "name": "megatron-bridge-clone",
+            "image": "nvcr.io/nvidia/nemo:26.08.01",
+            "command": ["/bin/bash", "-c"],
+            "args": [
+                "set -ex\ngit clone --depth 1 -b main https://example.com/mb.git /mnt/workspace/mb"
+            ],
+            "volumeMounts": [{"name": "workspace", "mountPath": "/mnt/workspace"}],
+        }
+        executor.volumes = [{"name": "workspace", "emptyDir": {}}]
+        executor.volume_mounts = [{"name": "workspace", "mountPath": "/mnt/workspace"}]
+        executor.init_containers = [init_container]
+
+        spec = executor.build_workloadrun_yaml(["python"])["spec"]
+
+        assert spec["initContainers"] == [init_container]
+        assert spec["volumes"] == [{"name": "workspace", "emptyDir": {}}]
+        assert spec["volumeMounts"] == [{"name": "workspace", "mountPath": "/mnt/workspace"}]
+
+    def test_build_workloadrun_yaml_omits_empty_init_containers(self, executor):
+        assert "initContainers" not in executor.build_workloadrun_yaml(["python"])["spec"]
+
     def test_build_workloadrun_yaml_full(self, executor):
         executor.node_selector = {"gpu-type": "h100"}
         executor.env_vars = {"FOO": "bar"}
@@ -179,7 +202,6 @@ class TestNvcreExecutor:
         executor.volume_mounts = [{"name": "v", "mountPath": "/mnt"}]
         executor.image_pull_secret = "ngc-secret"
         executor.timeout_per_job = "2h"
-        executor.test_scale = "full-scale"
         executor.max_restarts = 3
         executor.checkpoint_storage_size = "500Gi"
         executor.checkpoint_storage_class = "fast-ssd"
@@ -194,7 +216,7 @@ class TestNvcreExecutor:
         assert spec["volumes"] == executor.volumes
         assert spec["volumeMounts"] == executor.volume_mounts
         assert spec["imagePullSecrets"] == [{"name": "ngc-secret"}]
-        assert spec["orchestration"] == {"timeoutPerJob": "2h", "testScale": "full-scale"}
+        assert spec["orchestration"] == {"placement": "Unpinned", "timeoutPerJob": "2h"}
         assert spec["checkpoint"] == {
             "storageSize": "500Gi",
             "storageClassName": "fast-ssd",
@@ -831,23 +853,28 @@ class TestNvcreExecutor:
 
     # ── build_workloadrun_yaml orchestration branches ─────────────────────────
 
-    def test_build_workloadrun_yaml_no_orchestration_when_both_empty(self):
+    def test_build_workloadrun_yaml_always_requests_unpinned_placement(self):
         e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "job1"
         e.experiment_id = "my-exp_123456789"
-        e.timeout_per_job = ""
-        e.test_scale = None
         manifest = e.build_workloadrun_yaml(["python"])
-        assert "orchestration" not in manifest["spec"]
+        assert manifest["spec"]["orchestration"] == {
+            "placement": "Unpinned",
+            "timeoutPerJob": e.timeout_per_job,
+        }
 
-    def test_build_workloadrun_yaml_orchestration_test_scale_only(self):
+    def test_build_workloadrun_yaml_unpinned_placement_without_timeout(self):
         e = NvcreExecutor(namespace="ns", container_image="img")
         e.job_name = "job1"
         e.experiment_id = "my-exp_123456789"
         e.timeout_per_job = ""
-        e.test_scale = "intra-node"
         manifest = e.build_workloadrun_yaml(["python"])
-        assert manifest["spec"]["orchestration"] == {"testScale": "intra-node"}
+        assert manifest["spec"]["orchestration"] == {"placement": "Unpinned"}
+
+    def test_executor_has_no_placement_or_test_scale_fields(self):
+        e = NvcreExecutor(namespace="ns", container_image="img")
+        assert not hasattr(e, "placement")
+        assert not hasattr(e, "test_scale")
 
     # ── nvcrectl_base / kubectl_base kubeconfig/context ────────────────────────
 

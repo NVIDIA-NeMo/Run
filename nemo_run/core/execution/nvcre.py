@@ -131,13 +131,15 @@ class NvcreExecutor(Executor):
     # ── Extra pod config ──────────────────────────────────────────────────────
     volumes: list[dict[str, Any]] = field(default_factory=list)
     volume_mounts: list[dict[str, Any]] = field(default_factory=list)
+    # Container dicts emitted as ``spec.initContainers``. Declare any volumes they share in
+    # ``volumes`` and mount them into the training container via ``volume_mounts``.
+    init_containers: list[dict[str, Any]] = field(default_factory=list)
     # Env vars sourced from K8s Secrets: {ENV_VAR_NAME: (secret_name, secret_key)}.
     # Use this instead of env_vars for sensitive values such as HF_TOKEN or NGC_API_KEY.
     secret_env_vars: dict[str, tuple[str, str]] = field(default_factory=dict)
 
     # ── Orchestration ─────────────────────────────────────────────────────────
-    timeout_per_job: str = "24h"
-    test_scale: Optional[str] = None  # "intra-node" | "intra-rack" | "full-scale"
+    timeout_per_job: str = "12h"
     max_restarts: int = 0
     # Set to enable checkpointing; PVC size is required by the API (e.g. "500Gi").
     checkpoint_storage_size: Optional[str] = None
@@ -338,17 +340,16 @@ class NvcreExecutor(Executor):
             spec["volumes"] = vols
         if vmounts:
             spec["volumeMounts"] = vmounts
+        if self.init_containers:
+            spec["initContainers"] = list(self.init_containers)
 
         if self.image_pull_secret:
             spec["imagePullSecrets"] = [{"name": self.image_pull_secret}]
 
-        orch: dict[str, Any] = {}
+        orch: dict[str, Any] = {"placement": "Unpinned"}
         if self.timeout_per_job:
             orch["timeoutPerJob"] = self.timeout_per_job
-        if self.test_scale:
-            orch["testScale"] = self.test_scale
-        if orch:
-            spec["orchestration"] = orch
+        spec["orchestration"] = orch
 
         if self.checkpoint_storage_size:
             checkpoint: dict[str, Any] = {"storageSize": self.checkpoint_storage_size}
