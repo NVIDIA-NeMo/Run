@@ -22,9 +22,50 @@ from nemo_run.config import Config
 from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
+    import_executor,
 )
 from nemo_run.core.execution.launcher import FaultTolerance, Launcher, Torchrun
 from nemo_run.core.execution.slurm import SlurmExecutor
+
+
+@pytest.fixture
+def executor_file(tmp_path):
+    path = tmp_path / "executors.py"
+    path.write_text(
+        "from nemo_run import LocalExecutor\n"
+        "calls = []\n"
+        "def local(nodes=1):\n"
+        "    calls.append(nodes)\n"
+        "    return LocalExecutor(nodes=nodes)\n"
+        "def required(nodes):\n"
+        "    return LocalExecutor(nodes=nodes)\n"
+        "instance = LocalExecutor(nodes=3)\n"
+    )
+    return str(path)
+
+
+def test_import_executor_without_calling_factory(executor_file):
+    factory = import_executor("local", file_path=executor_file, call=False, nodes=4)
+
+    assert callable(factory)
+    assert factory.__globals__["calls"] == []
+    assert factory(nodes=2).nodes == 2
+
+
+def test_import_executor_without_calling_required_factory(executor_file):
+    factory = import_executor("required", file_path=executor_file, call=False)
+
+    assert callable(factory)
+    assert factory(nodes=2).nodes == 2
+
+
+@pytest.mark.parametrize("call", [True, False])
+def test_import_executor_instance(executor_file, call):
+    assert import_executor("instance", file_path=executor_file, call=call).nodes == 3
+
+
+def test_import_executor_calls_factory_by_default(executor_file):
+    assert import_executor("local", file_path=executor_file, nodes=4).nodes == 4
 
 
 class TestExecutorMacros:
