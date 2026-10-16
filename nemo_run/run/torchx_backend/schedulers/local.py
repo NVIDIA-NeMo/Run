@@ -125,8 +125,8 @@ class PersistentLocalScheduler(SchedulerMixin, LocalScheduler):  # type: ignore
                     to_kill = False
                     for handle in maybe_job_to_kill.handles:
                         _, _, _id = parse_app_handle(handle)
-                        resp = super().describe(app_id=_id)
-                        if resp and is_terminal(resp.state):
+                        group_resp = super().describe(app_id=_id)
+                        if group_resp and is_terminal(group_resp.state):
                             to_kill = True
 
                     if to_kill:
