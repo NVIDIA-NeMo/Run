@@ -205,6 +205,28 @@ class TestComplexTypeParsing:
         assert "Error parsing argument" in str(exc_info.value)
         assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
 
+    def test_literal_non_string_parsing(self):
+        def int_func(a: Literal[1, 2, 3]):
+            pass
+
+        # Integer Literals must be selectable from their string CLI form.
+        result = parse_cli_args(int_func, ["a=2"])
+        assert result.a == 2
+        assert type(result.a) is int
+
+        with pytest.raises(LiteralParseError) as exc_info:
+            parse_cli_args(int_func, ["a=5"])
+        assert "Expected one of (1, 2, 3), got '5'" in str(exc_info.value)
+
+        def bool_func(a: Literal[True, False]):
+            pass
+
+        assert parse_cli_args(bool_func, ["a=True"]).a is True
+        assert parse_cli_args(bool_func, ["a=false"]).a is False
+
+        # parse_value path (no surrounding function) must behave the same.
+        assert parse_value("3", Literal[1, 2, 3]) == 3
+
     def test_forward_ref_parsing(self):
         def func(tokenizer: Optional[ForwardRef("TokenizerSpec")]):
             pass
