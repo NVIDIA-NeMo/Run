@@ -42,6 +42,9 @@ from nemo_run.core.packaging.git import GitArchivePackager
 logger = logging.getLogger(__name__)
 
 _NVCRE_WORKLOADRUN_API = "nvcre.nvidia.com/v1alpha1"
+_RUNTIME_API_VERSION = "trainer.kubeflow.org/v1alpha1"
+_RUNTIME_NAME_SUFFIX = "-runtime"
+_RUNTIME_NODE_NAME = "node"
 _DATA_MOVER_IMAGE = "alpine:3.19"
 # Archived code lives here under job_dir / code_dir; configs/ and scripts/ sit beside it.
 _CODE_SUBDIR = "code"
@@ -134,6 +137,10 @@ class NvcreExecutor(Executor):
     # Container dicts emitted as ``spec.initContainers``. Declare any volumes they share in
     # ``volumes`` and mount them into the training container via ``volume_mounts``.
     init_containers: list[dict[str, Any]] = field(default_factory=list)
+    # Linux capabilities added to the training container, e.g. ["SYS_ADMIN"], which Nsight Systems
+    # needs to trace GPU kernels where the driver sets RmProfilingAdminOnly=1. WorkloadRun has no
+    # field for this, so it is emitted as a TrainingRuntime override (``_capabilities_override``).
+    capabilities: list[str] = field(default_factory=list)
     # Env vars sourced from K8s Secrets: {ENV_VAR_NAME: (secret_name, secret_key)}.
     # Use this instead of env_vars for sensitive values such as HF_TOKEN or NGC_API_KEY.
     secret_env_vars: dict[str, tuple[str, str]] = field(default_factory=dict)
@@ -362,12 +369,39 @@ class NvcreExecutor(Executor):
         if self.gang_scheduler_name:
             spec["gangScheduler"] = {"schedulerName": self.gang_scheduler_name}
 
+        if self.capabilities:
+            spec["overrides"] = [self._capabilities_override()]
+
         return {
             "apiVersion": _NVCRE_WORKLOADRUN_API,
             "kind": "WorkloadRun",
             "metadata": {"name": self._safe_name(), "namespace": self.namespace},
             "spec": spec,
         }
+
+    def _capabilities_override(self) -> dict[str, Any]:
+        """``spec.overrides`` entry that adds ``capabilities`` to the training container.
+
+        The operator merges an override dependency into the TrainingRuntime it generated when
+        apiVersion, kind and name match; named lists (replicated jobs, containers) merge by name,
+        while ``add`` replaces the container's whole capability list. An empty ``when`` always
+        matches.
+        """
+        container = {
+            "name": _RUNTIME_NODE_NAME,
+            "securityContext": {"capabilities": {"add": list(self.capabilities)}},
+        }
+        replicated_job = {
+            "name": _RUNTIME_NODE_NAME,
+            "template": {"spec": {"template": {"spec": {"containers": [container]}}}},
+        }
+        runtime = {
+            "apiVersion": _RUNTIME_API_VERSION,
+            "kind": "TrainingRuntime",
+            "metadata": {"name": f"{self._safe_name()}{_RUNTIME_NAME_SUFFIX}"},
+            "spec": {"template": {"spec": {"replicatedJobs": [replicated_job]}}},
+        }
+        return {"when": {}, "dependencies": [runtime]}
 
     def _name_suffix(self, *extra: str) -> str:
         """Hash of the full, untruncated task identity (experiment id + task name).

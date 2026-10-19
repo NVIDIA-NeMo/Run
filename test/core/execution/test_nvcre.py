@@ -195,6 +195,62 @@ class TestNvcreExecutor:
     def test_build_workloadrun_yaml_omits_empty_init_containers(self, executor):
         assert "initContainers" not in executor.build_workloadrun_yaml(["python"])["spec"]
 
+    # ── capabilities override ─────────────────────────────────────────────────
+
+    def test_build_workloadrun_yaml_omits_overrides_without_capabilities(self, executor):
+        assert "overrides" not in executor.build_workloadrun_yaml(["python"])["spec"]
+
+    def test_build_workloadrun_yaml_adds_capabilities_through_a_runtime_override(self, executor):
+        executor.capabilities = ["SYS_ADMIN"]
+
+        manifest = executor.build_workloadrun_yaml(["python"])
+
+        [override] = manifest["spec"]["overrides"]
+        assert override["when"] == {}  # an empty condition always matches
+        [runtime] = override["dependencies"]
+        # The operator merges it into the runtime it generates only if all three of these match.
+        assert runtime["apiVersion"] == "trainer.kubeflow.org/v1alpha1"
+        assert runtime["kind"] == "TrainingRuntime"
+        assert runtime["metadata"]["name"] == f"{manifest['metadata']['name']}-runtime"
+        [replicated_job] = runtime["spec"]["template"]["spec"]["replicatedJobs"]
+        assert replicated_job["name"] == "node"
+        [container] = replicated_job["template"]["spec"]["template"]["spec"]["containers"]
+        assert container == {
+            "name": "node",
+            "securityContext": {"capabilities": {"add": ["SYS_ADMIN"]}},
+        }
+
+    def test_capabilities_override_lists_every_requested_capability(self, executor):
+        executor.capabilities = ["SYS_ADMIN", "IPC_LOCK"]
+
+        [override] = executor.build_workloadrun_yaml(["python"])["spec"]["overrides"]
+
+        [runtime] = override["dependencies"]
+        [replicated_job] = runtime["spec"]["template"]["spec"]["replicatedJobs"]
+        [container] = replicated_job["template"]["spec"]["template"]["spec"]["containers"]
+        assert container["securityContext"]["capabilities"]["add"] == ["SYS_ADMIN", "IPC_LOCK"]
+
+    def test_capabilities_do_not_change_the_rest_of_the_manifest(self, executor):
+        before = executor.build_workloadrun_yaml(["python"])
+        executor.capabilities = ["SYS_ADMIN"]
+
+        after = executor.build_workloadrun_yaml(["python"])
+
+        assert {k: v for k, v in after["spec"].items() if k != "overrides"} == before["spec"]
+        assert after["metadata"] == before["metadata"]
+
+    def test_capabilities_override_runtime_name_follows_a_long_workloadrun_name(self):
+        e = NvcreExecutor(namespace="ns", container_image="img", capabilities=["SYS_ADMIN"])
+        e.job_name = "a-very-long-task-name-" * 5
+        e.experiment_id = "exp1"
+        e.job_dir = "/tmp/exp1/job"
+
+        manifest = e.build_workloadrun_yaml(["python"])
+
+        assert len(manifest["metadata"]["name"]) <= 63
+        [runtime] = manifest["spec"]["overrides"][0]["dependencies"]
+        assert runtime["metadata"]["name"] == f"{manifest['metadata']['name']}-runtime"
+
     def test_build_workloadrun_yaml_full(self, executor):
         executor.node_selector = {"gpu-type": "h100"}
         executor.env_vars = {"FOO": "bar"}
