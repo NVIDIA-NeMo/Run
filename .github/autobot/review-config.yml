@@ -7,3 +7,9 @@ approval:
     - run_team
     - run_maintainers
     - automation
+
+auto-review:
+  enabled: true
+  mode: comment
+  on: status_change
+  when: ready_for_review
