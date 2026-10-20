@@ -335,6 +335,30 @@ class TestFactoryLoading:
         assert result.model.hidden == 10
         assert result.model.activation == "relu"
 
+    def test_factory_args_containing_commas(self, monkeypatch):
+        def layered_model(layers: List[int] = None, activation: str = "relu"):
+            return Config(DummyModel, hidden=sum(layers or []), activation=activation)
+
+        monkeypatch.setattr(sys.modules["__main__"], "layered_model", layered_model, raising=False)
+
+        def func(model: DummyModel):
+            pass
+
+        result = parse_cli_args(func, ["model=layered_model(layers=[1, 2, 3])"])
+        assert result.model.hidden == 6
+        assert result.model.activation == "relu"
+
+        result = parse_cli_args(func, ["model=layered_model(activation='a,b')"])
+        assert result.model.hidden == 0
+        assert result.model.activation == "a,b"
+
+        result = parse_cli_args(func, ["model=layered_model(layers=[4,5], activation='a,b')"])
+        assert result.model.hidden == 9
+        assert result.model.activation == "a,b"
+
+        result = parse_cli_args(func, ["model=layered_model(layers=[1, 2], )"])
+        assert result.model.hidden == 3
+
     def test_dotted_import_factory(self):
         def func(model: DummyModel):
             pass
