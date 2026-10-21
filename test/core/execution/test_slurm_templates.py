@@ -596,6 +596,36 @@ class TestSlurmBatchRequest:
         sbatch_script = het_slurm_request.materialize()
         assert "#SBATCH --dependency=afterok:depend1:depend2" in sbatch_script
 
+    @pytest.mark.parametrize("gpu_index", [0, 1])
+    def test_het_batch_request_gpus_per_component(self, gpu_index):
+        executors = [
+            SlurmExecutor(
+                account="account",
+                heterogeneous=True,
+                tunnel=LocalTunnel(job_dir="/root/experiment"),
+            )
+            for _ in range(2)
+        ]
+        executors[gpu_index].gpus_per_node = 8
+        executor = SlurmExecutor.merge(executors, num_tasks=2)
+        executor.job_dir = "/root/experiment/sample_job"
+
+        sbatch_script = SlurmBatchRequest(
+            launch_cmd=["sbatch"],
+            jobs=["sample_job-0", "sample_job-1"],
+            command_groups=[["echo a"], ["echo b"]],
+            executor=executor,
+            max_retries=0,
+            extra_env={},
+        ).materialize()
+
+        assert "=None" not in sbatch_script
+        flags = [line for line in sbatch_script.splitlines() if line.startswith("#SBATCH")]
+        hetjob = flags.index("#SBATCH hetjob")
+        groups = [flags[:hetjob], flags[hetjob + 1 :]]
+        assert "#SBATCH --gpus-per-node=8" in groups[gpu_index]
+        assert not any("--gpus-per-node" in flag for flag in groups[1 - gpu_index])
+
     def test_group_batch_request_materialize(
         self,
         group_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
