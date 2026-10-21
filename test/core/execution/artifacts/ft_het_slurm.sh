@@ -6,6 +6,7 @@
 
 # Parameters
 #SBATCH --account=account
+#SBATCH --gpus-per-node=8
 #SBATCH --job-name=account-account.sample_job-0
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
@@ -14,6 +15,7 @@
 #SBATCH --time=00:10:00
 #SBATCH hetjob
 #SBATCH --account=account
+#SBATCH --gpus-per-node=0
 #SBATCH --job-name=account-account.sample_job-1
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
