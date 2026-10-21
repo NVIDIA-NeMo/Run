@@ -144,7 +144,18 @@ class GitArchivePackager(Packager):
         # Finally, concatenate all fragments in one pass for performance and portability.
         base_tar_tmp = f"{output_file}.tmp.base"
         git_archive_cmd = f"git archive --format=tar --output={shlex.quote(base_tar_tmp)} {self.ref}:{git_sub_path}"
-        git_submodule_cmd = "git submodule foreach --recursive 'git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD'"
+        # $displaypath is relative to the top-level repo, while $sm_path is relative to the
+        # immediate parent, so only $displaypath places nested submodules correctly. The base
+        # archive is rooted at subpath, so skip submodules outside of it and strip it from
+        # the prefix of the ones inside.
+        sm_sub_path = os.path.normpath(self.subpath or ".")
+        sm_sub_path = "" if sm_sub_path == "." else shlex.quote(os.path.join(sm_sub_path, ""))
+        sm_archive_cmd = (
+            f'git archive --format=tar --prefix="${{displaypath#{sm_sub_path}}}/" '
+            '--output="$sha1.tmp" HEAD'
+        )
+        sm_cmd = f'case "$displaypath/" in {sm_sub_path}*) {sm_archive_cmd} ;; esac'
+        git_submodule_cmd = f"git submodule foreach --recursive {shlex.quote(sm_cmd)}"
 
         with ctx.cd(git_base_path):
             ctx.run(git_archive_cmd)
