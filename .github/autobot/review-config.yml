@@ -1,0 +1,15 @@
+# .github/autobot/review-config.yml
+# Read from the default branch; changes take effect after merge.
+# Formal verdicts require approval.enabled and active membership in an eligible team.
+approval:
+  enabled: true
+  eligible_teams:
+    - run_team
+    - run_maintainers
+    - automation
+
+auto-review:
+  enabled: true
+  mode: approve
+  on: commit
+  when: ready_for_review

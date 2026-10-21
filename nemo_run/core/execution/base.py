@@ -224,9 +224,10 @@ def import_executor(
             - The file should contain a dictionary named `EXECUTOR_MAP` that maps executor names to their corresponding instances.
             - The file can be located anywhere in the file system, but if not provided, it defaults to `get_nemorun_home()/executors.py`.
         call (bool): If True, the value from the module is called with the rest of the given kwargs.
+            If False, return the value without calling it; kwargs are unused.
 
     Returns:
-        Executor: The executor instance corresponding to the given name.
+        The executor instance, or the factory itself when call is False.
     """
 
     if not file_path:
@@ -238,6 +239,6 @@ def import_executor(
     assert spec.loader
     spec.loader.exec_module(module)
     executor_fn = getattr(module, name)
-    if not callable(executor_fn):
+    if not call or not callable(executor_fn):
         return executor_fn
     return executor_fn(**kwargs)  # type: ignore

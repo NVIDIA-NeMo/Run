@@ -477,6 +477,82 @@ def test_package_without_include_submodules(packager, temp_repo):
         assert len(os.listdir(os.path.join(job_dir, "extracted_output", "submodule"))) == 0
 
 
+@pytest.mark.parametrize(
+    "subpath, expected_files",
+    [
+        (
+            "",
+            [
+                ".gitmodules",
+                "a/a.txt",
+                "ext/mid/.gitmodules",
+                "ext/mid/mid.txt",
+                "ext/mid/third/inner/inner.txt",
+                "file1.txt",
+                "file2.txt",
+            ],
+        ),
+        (
+            ".",
+            [
+                ".gitmodules",
+                "a/a.txt",
+                "ext/mid/.gitmodules",
+                "ext/mid/mid.txt",
+                "ext/mid/third/inner/inner.txt",
+                "file1.txt",
+                "file2.txt",
+            ],
+        ),
+        ("a", ["a.txt"]),
+        ("ext", ["mid/.gitmodules", "mid/mid.txt", "mid/third/inner/inner.txt"]),
+        ("./ext/", ["mid/.gitmodules", "mid/mid.txt", "mid/third/inner/inner.txt"]),
+    ],
+)
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_with_nested_submodules(temp_repo, tmpdir, subpath, expected_files):
+    temp_repo = Path(temp_repo)
+
+    def git(cwd, *args):
+        subprocess.check_call(["git", "-c", "protocol.file.allow=always", *args], cwd=cwd)
+
+    inner_path = Path(tmpdir.mkdir("inner"))
+    git(inner_path, "init", "--initial-branch=main")
+    (inner_path / "inner.txt").write_text("Inner file")
+    git(inner_path, "add", ".")
+    git(inner_path, "commit", "-m", "Initial inner commit")
+
+    # mid has inner as a submodule, and the main repo has mid as a submodule,
+    # so inner is checked out at ext/mid/third/inner.
+    mid_path = Path(tmpdir.mkdir("mid"))
+    git(mid_path, "init", "--initial-branch=main")
+    (mid_path / "mid.txt").write_text("Mid file")
+    git(mid_path, "submodule", "add", str(inner_path), "third/inner")
+    git(mid_path, "add", ".")
+    git(mid_path, "commit", "-m", "Initial mid commit")
+
+    (temp_repo / "a").mkdir()
+    (temp_repo / "a" / "a.txt").write_text("A file")
+    git(temp_repo, "submodule", "add", str(mid_path), "ext/mid")
+    git(temp_repo, "submodule", "update", "--init", "--recursive")
+    git(temp_repo, "add", ".")
+    git(temp_repo, "commit", "-m", "Add nested submodules")
+    assert (temp_repo / "ext" / "mid" / "third" / "inner" / "inner.txt").exists()
+
+    packager = GitArchivePackager(ref="HEAD", subpath=subpath, include_submodules=True)
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(temp_repo, job_dir, "test_package")
+        extract_dir = os.path.join(job_dir, "extracted_output")
+        os.makedirs(extract_dir)
+        subprocess.check_call(["tar", "-xzf", output_file, "-C", extract_dir, "--ignore-zeros"])
+        extracted_files = sorted(
+            os.path.relpath(os.path.join(dirpath, filename), extract_dir)
+            for dirpath, _dirnames, filenames in os.walk(extract_dir)
+            for filename in filenames
+        )
+        assert extracted_files == expected_files
+
+
 def _make_uncompressed_tar_from_dir(src_dir: Path, tar_path: Path):
     # Create an uncompressed tar at tar_path from the contents of src_dir
     # with files at the root of the archive
