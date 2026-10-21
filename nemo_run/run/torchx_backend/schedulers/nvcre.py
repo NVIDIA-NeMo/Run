@@ -331,10 +331,9 @@ def _container_command(executor: NvcreExecutor, cmd: list[str]) -> list[str]:
     if prefix:
         wrapper = [nsys_entrypoint, *prefix]
         if cmd[: len(wrapper)] == wrapper:
-            # The postfix is a real, empty argv entry here, unlike on Slurm where
-            # it is joined into a shell string.
+            # package() appends the postfix only when it is non-empty.
             cmd = cmd[len(wrapper) :]
-            if cmd and cmd[-1] == postfix:
+            if postfix and cmd and cmd[-1] == postfix:
                 cmd = cmd[:-1]
 
     if isinstance(executor.get_launcher(), (Torchrun, FaultTolerance)):

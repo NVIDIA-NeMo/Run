@@ -614,9 +614,9 @@ def test_profiling_wraps_once_and_still_selects_torchrun(scheduler, tmp_path, wo
     executor, app = _prepared_app(
         tmp_path, run.Partial(_train, x=2), workdir_pvc, launcher=Launcher(nsys_profile=True)
     )
-    # package() already wrapped the role and appended an empty postfix argument.
+    # package() already wrapped the role; the empty postfix is not appended.
     role_cmd = [app.roles[0].entrypoint] + app.roles[0].args
-    assert role_cmd[0] == "nsys" and role_cmd[-1] == ""
+    assert role_cmd[0] == "nsys" and "" not in role_cmd
     prefix = executor.get_launcher_prefix()
 
     cmd = _request_cmd(scheduler, app, executor)
@@ -625,6 +625,16 @@ def test_profiling_wraps_once_and_still_selects_torchrun(scheduler, tmp_path, wo
     assert cmd[: 1 + len(prefix)] == ["nsys", *prefix]
     assert cmd[1 + len(prefix)] == "torchrun"
     assert "" not in cmd
+
+
+def test_profiling_keeps_a_trailing_empty_user_argument(scheduler, tmp_path):
+    task = run.Script(path="train.py", args=["--tag", ""])
+    executor, app = _prepared_app(tmp_path, task, "my-pvc", launcher=Launcher(nsys_profile=True))
+
+    cmd = _request_cmd(scheduler, app, executor)
+
+    assert _nsys_tokens(cmd) == [0]
+    assert cmd[-2:] == ["--tag", ""]
 
 
 def test_profiling_with_explicit_torchrun_launcher_wraps_once(scheduler, tmp_path):
