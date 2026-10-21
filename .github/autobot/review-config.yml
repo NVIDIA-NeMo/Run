@@ -10,6 +10,6 @@ approval:
 
 auto-review:
   enabled: true
-  mode: comment
-  on: status_change
+  mode: approve
+  on: commit
   when: ready_for_review
