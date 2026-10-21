@@ -402,9 +402,13 @@ class PythonicParser:
             current_arg += char
             if char in "([{":
                 nesting_level += 1
-            elif char in ")]}":
+            elif char in ")]}" and nesting_level > 0:
                 nesting_level -= 1
             i += 1
+        if current_arg:
+            # An unclosed bracket or quote kept the final comma from splitting. Keep the tail
+            # without that comma instead of dropping it.
+            parts.append(current_arg[:-1].strip())
         return parts
 
     def parse_comprehension(self, value: str) -> Any:
@@ -1394,7 +1398,8 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
             raise ValueError(f"No matching factory found for: {factory_str}")
 
         if args_str:
-            cli_args = [arg.strip() for arg in args_str.split(",") if arg.strip()]
+            # Split on top-level commas only, so lists and quoted strings stay whole.
+            cli_args = [arg for arg in PythonicParser()._split_constructor_args(args_str) if arg]
             partial_factory = parse_cli_args(factory_fn, cli_args, output_type=Partial)
             return fdl.build(partial_factory)()
 
