@@ -402,9 +402,13 @@ class PythonicParser:
             current_arg += char
             if char in "([{":
                 nesting_level += 1
-            elif char in ")]}":
+            elif char in ")]}" and nesting_level > 0:
                 nesting_level -= 1
             i += 1
+        if current_arg:
+            # An unclosed bracket or quote kept the final comma from splitting. Keep the tail
+            # without that comma instead of dropping it.
+            parts.append(current_arg[:-1].strip())
         return parts
 
     def parse_comprehension(self, value: str) -> Any:

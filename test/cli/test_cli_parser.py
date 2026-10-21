@@ -359,6 +359,18 @@ class TestFactoryLoading:
         result = parse_cli_args(func, ["model=layered_model(layers=[1, 2], )"])
         assert result.model.hidden == 3
 
+        # Unbalanced brackets in an unquoted string still reach the factory.
+        result = parse_cli_args(func, ["model=layered_model(activation=relu[)"])
+        assert result.model.activation == "relu["
+
+        result = parse_cli_args(func, ["model=layered_model(activation=relu), layers=[2])"])
+        assert result.model.hidden == 2
+        assert result.model.activation == "relu)"
+
+        # An unfinished list is an error, not a silently dropped argument.
+        with pytest.raises(ParseError):
+            parse_cli_args(func, ["model=layered_model(layers=[1)"])
+
     def test_dotted_import_factory(self):
         def func(model: DummyModel):
             pass
