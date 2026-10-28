@@ -281,9 +281,9 @@ class LeptonExecutor(Executor):
         Ensure the required arguments are specified for mounts.
         """
         for mount in self.mounts:
-            # Verify that 'path' and 'mount_path' are both present in the mounts list
-            if not all(key in mount for key in ["path", "mount_path"]):
-                raise RuntimeError("Must specify a 'path' and 'mount_path' for all mounts")
+            # The Lepton SDK requires an explicit storage source for every mount.
+            if not all(key in mount for key in ["from", "path", "mount_path"]):
+                raise RuntimeError("Must specify 'from', 'path', and 'mount_path' for all mounts")
 
     def create_lepton_job(self, name: str):
         """

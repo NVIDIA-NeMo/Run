@@ -25,6 +25,7 @@ executor = run.LeptonExecutor(
     gpus_per_node=8,
     nemo_run_dir="/nemo-workspace/nemo-run",  # path on remote storage for NeMo-Run metadata
     mounts=[{
+        "from": "node-nfs:lepton-shared-fs",      # storage source
         "path": "/nemo-workspace",            # remote storage path
         "mount_path": "/nemo-workspace",      # container mount point
     }],
@@ -42,7 +43,10 @@ Key parameters:
 | `nodes` | Number of pods |
 | `gpus_per_node` | GPUs per pod |
 | `nemo_run_dir` | Directory on remote storage where NeMo-Run saves experiment metadata |
-| `mounts` | Remote storage mounts (`path` + `mount_path`) |
+| `mounts` | Remote storage mounts (`from` + `path` + `mount_path`) |
+
+With `leptonai==0.27.3`, each mount must include `from` to select its storage source.
+Replace `node-nfs:lepton-shared-fs` with your workspace's storage source.
 
 ## E2E workflow
 
@@ -58,7 +62,11 @@ executor = run.LeptonExecutor(
     nodes=1,
     gpus_per_node=8,
     nemo_run_dir="/nemo-workspace/nemo-run",
-    mounts=[{"path": "/nemo-workspace", "mount_path": "/nemo-workspace"}],
+    mounts=[{
+        "from": "node-nfs:lepton-shared-fs",
+        "path": "/nemo-workspace",
+        "mount_path": "/nemo-workspace",
+    }],
 )
 
 with run.Experiment("my-experiment") as exp:
