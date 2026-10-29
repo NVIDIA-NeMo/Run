@@ -4392,7 +4392,7 @@ wheels = [
 
 [[package]]
 name = "leptonai"
-version = "0.26.7"
+version = "0.27.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -4411,7 +4411,7 @@ dependencies = [
     { name = "pydantic", version = "2.14.0a1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "python-multipart" },
     { name = "pyyaml" },
-    { name = "ray" },
+    { name = "ray", extra = ["default"] },
     { name = "requests" },
     { name = "rich" },
     { name = "typing-extensions", version = "4.12.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.12' and python_full_version < '3.14') or (python_full_version < '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version < '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version < '3.12' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.14' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (python_full_version >= '3.14' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (python_full_version >= '3.14' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
@@ -4419,7 +4419,7 @@ dependencies = [
     { name = "uvicorn" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/4d/2b5ab13294b23326ba1d8ef6ad703b1d9535bf72a0617030ddd6238eb925/leptonai-0.26.7-py3-none-any.whl", hash = "sha256:74996da36bf177d2b148887dd349627ab8cd78b94623d543bc91ed9ad65ba0e2", size = 2452890, upload-time = "2025-11-07T20:07:14.99Z" },
+    { url = "https://files.pythonhosted.org/packages/11/20/00efcee03ad7663e2240f888baeb064d294f267ffc385d9b6b5b65e9d797/leptonai-0.27.3-py3-none-any.whl", hash = "sha256:f9d1eef1fd8079b2bdf526f1a47a8c942cdc016f264e909ce9e8d47252918975", size = 2491772, upload-time = "2026-06-05T02:09:22.558Z" },
 ]
 
 [[package]]
@@ -5190,7 +5190,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.4" },
     { name = "kubernetes", marker = "extra == 'kubeflow'" },
     { name = "kubernetes", marker = "extra == 'ray'" },
-    { name = "leptonai", specifier = ">=0.26.6" },
+    { name = "leptonai", specifier = ">=0.26.6,<=0.27.3" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "omegaconf", specifier = ">=2.3.0" },
     { name = "ray", extras = ["default"], marker = "extra == 'ray'", specifier = ">=2.56.0" },
