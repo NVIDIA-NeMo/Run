@@ -1,6 +1,6 @@
 # KubeRayExecutor
 
-Configure Ray clusters and jobs on Kubernetes via the [KubeRay operator](https://ray-project.github.io/kuberay/).
+Configure Ray clusters and jobs on Kubernetes via the [KubeRay operator](https://docs.ray.io/en/latest/cluster/kubernetes/index.html).
 
 ```{note}
 `KubeRayExecutor` is not used directly with `run.Experiment`. It is passed to `RayCluster` and `RayJob` helpers. For the full Ray workflow see [Ray Clusters & Jobs](../ray.md).
