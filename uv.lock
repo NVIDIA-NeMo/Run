@@ -5190,7 +5190,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.4" },
     { name = "kubernetes", marker = "extra == 'kubeflow'" },
     { name = "kubernetes", marker = "extra == 'ray'" },
-    { name = "leptonai", specifier = "==0.27.3" },
+    { name = "leptonai", specifier = ">=0.26.6,<=0.27.3" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "omegaconf", specifier = ">=2.3.0" },
     { name = "ray", extras = ["default"], marker = "extra == 'ray'", specifier = ">=2.56.0" },
