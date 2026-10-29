@@ -45,7 +45,7 @@ Key parameters:
 | `nemo_run_dir` | Directory on remote storage where NeMo-Run saves experiment metadata |
 | `mounts` | Remote storage mounts (`from` + `path` + `mount_path`) |
 
-With `leptonai==0.27.3`, each mount must include `from` to select its storage source.
+For the supported `leptonai>=0.26.6,<=0.27.3` range, each mount must include `from` to select its storage source.
 Replace `node-nfs:lepton-shared-fs` with your workspace's storage source.
 
 ## E2E workflow
