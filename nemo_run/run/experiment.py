@@ -1101,6 +1101,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                         job.executor,
                         name=job.id,
                         tail_logs=job.tail_logs,
+                        dependencies=job.dependencies,
                     )
                 else:
                     if isinstance(job.tasks, str):
@@ -1115,6 +1116,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                         job.executors,
                         name=job.id,
                         tail_logs=job.tail_logs,
+                        dependencies=job.dependencies,
                     )
         except Exception as e:
             self.console.log(
