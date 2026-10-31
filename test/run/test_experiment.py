@@ -373,6 +373,24 @@ def test_reset_uses_nanosecond_timestamp(temp_dir):
     )
 
 
+def test_reset_preserves_job_dependencies(temp_dir):
+    with Experiment("test-exp") as exp:
+        job1_id = exp.add(run.Partial(dummy_function, x=1, y=2), name="job1")
+        exp.add(run.Partial(dummy_function, x=3, y=4), name="job2", dependencies=[job1_id])
+        exp.add([run.Partial(dummy_function, x=5, y=6)], name="group", dependencies=[job1_id])
+        exp._prepare()
+
+    Path(os.path.join(exp._exp_dir, Experiment._DONE_FILE)).touch()
+
+    reconstructed = Experiment.from_id(exp._id)
+    reconstructed.reset()
+
+    assert [job.id for job in reconstructed.jobs] == ["job1", "job2", "group"]
+    assert reconstructed.jobs[0].dependencies == []
+    assert reconstructed.jobs[1].dependencies == ["job1"]
+    assert reconstructed.jobs[2].dependencies == ["job1"]
+
+
 @patch("nemo_run.run.experiment.get_runner")
 def test_experiment_from_id(mock_get_runner, temp_dir):
     """Test reconstructing an experiment from its ID."""
