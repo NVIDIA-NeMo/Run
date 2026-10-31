@@ -1120,7 +1120,6 @@ class TypeParser:
 type_parser = TypeParser()
 
 
-@lru_cache(maxsize=128)
 def parse_value(value: str, annotation: Type = None) -> Any:
     if annotation is None:
         annotation = type_parser.infer_type(value)

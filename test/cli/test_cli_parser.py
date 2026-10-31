@@ -135,6 +135,20 @@ class TestComplexTypeParsing:
 
         assert parse_cli_args(func, ["a=[[1, 2], [3, 4]]"]).a == [[1, 2], [3, 4]]
 
+    def test_identical_mutable_values_are_not_shared(self):
+        def func(a: List[int], b: List[int], c: Dict[str, int] = None):
+            pass
+
+        first = parse_cli_args(func, ["a=[1, 2]", "b=[1, 2]", "c={'x': 1}"])
+        assert first.a is not first.b
+
+        first.a.append(3)
+        first.c["y"] = 2
+        second = parse_cli_args(func, ["a=[1, 2]", "b=[1, 2]", "c={'x': 1}"])
+        assert first.b == [1, 2]
+        assert second.a == [1, 2]
+        assert second.c == {"x": 1}
+
     def test_unparameterized_list_parsing(self):
         def func(a: list, b: List = None, c: Optional[list] = None):
             pass
