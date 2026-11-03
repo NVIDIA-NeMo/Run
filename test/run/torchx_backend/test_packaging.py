@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from dataclasses import dataclass
 from unittest.mock import MagicMock
 
@@ -239,6 +240,87 @@ def test_package_torchrun(mock_executor):
             fn_or_script=fn_or_script,
             executor=mock_executor,
         )
+
+
+_RDZV_ENV_NAMES = ("MASTER_ADDR", "MASTER_PORT", "NODE_RANK", "SLURM_NODEID")
+
+
+def _package_local_multinode(tmp_path, monkeypatch, process_env=None, env_vars=None):
+    for name in _RDZV_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in (process_env or {}).items():
+        monkeypatch.setenv(name, value)
+    executor = LocalExecutor(
+        ntasks_per_node=4,
+        nodes=2,
+        launcher=Torchrun(rdzv_port=29400),
+        env_vars=env_vars or {},
+        job_dir=str(tmp_path),
+    )
+    role = package(name="test", fn_or_script=Script(path="train.py"), executor=executor).roles[0]
+    args = dict(zip(role.args[:12:2], role.args[1:12:2]))
+    return role, args
+
+
+@pytest.mark.parametrize(
+    "process_env, env_vars, endpoint, node_rank",
+    [
+        (
+            {"MASTER_ADDR": "10.0.0.1", "MASTER_PORT": "29500", "NODE_RANK": "1"},
+            None,
+            "10.0.0.1:29500",
+            "1",
+        ),
+        (
+            None,
+            {"MASTER_ADDR": "10.0.0.1", "MASTER_PORT": "29500", "NODE_RANK": "1"},
+            "10.0.0.1:29500",
+            "1",
+        ),
+        (
+            {"MASTER_ADDR": "10.0.0.9", "MASTER_PORT": "1", "NODE_RANK": "0"},
+            {"MASTER_ADDR": "10.0.0.1", "MASTER_PORT": "29500", "NODE_RANK": "1"},
+            "10.0.0.1:29500",
+            "1",
+        ),
+        ({"MASTER_ADDR": "10.0.0.1", "SLURM_NODEID": "1"}, None, "10.0.0.1:29400", "1"),
+        ({"NODE_RANK": "0"}, {"MASTER_ADDR": "10.0.0.1"}, "10.0.0.1:29400", "0"),
+    ],
+)
+def test_package_torchrun_local_multinode_rendezvous(
+    tmp_path, monkeypatch, process_env, env_vars, endpoint, node_rank
+):
+    role, args = _package_local_multinode(tmp_path, monkeypatch, process_env, env_vars)
+
+    assert role.entrypoint == "torchrun"
+    assert args["--rdzv-endpoint"] == endpoint
+    assert args["--node-rank"] == node_rank
+    assert args["--nnodes"] == "2"
+    assert args["--nproc-per-node"] == "4"
+    assert not any("${" in arg for arg in role.args)
+
+
+def test_package_torchrun_local_multinode_same_rdzv_id_on_all_nodes(tmp_path, monkeypatch):
+    rdzv = {"MASTER_ADDR": "10.0.0.1", "MASTER_PORT": "29500"}
+    _, head = _package_local_multinode(tmp_path, monkeypatch, env_vars={**rdzv, "NODE_RANK": "0"})
+    _, worker = _package_local_multinode(tmp_path, monkeypatch, env_vars={**rdzv, "NODE_RANK": "1"})
+
+    assert head["--rdzv-id"] == worker["--rdzv-id"]
+
+
+@pytest.mark.parametrize(
+    "process_env, missing",
+    [
+        ({}, "MASTER_ADDR and NODE_RANK (or SLURM_NODEID)"),
+        ({"NODE_RANK": "1"}, "MASTER_ADDR"),
+        ({"MASTER_ADDR": "10.0.0.1", "MASTER_PORT": "29500"}, "NODE_RANK (or SLURM_NODEID)"),
+    ],
+)
+def test_package_torchrun_local_multinode_without_rendezvous_env_raises(
+    tmp_path, monkeypatch, process_env, missing
+):
+    with pytest.raises(ValueError, match=re.escape(f"needs {missing} set")):
+        _package_local_multinode(tmp_path, monkeypatch, process_env)
 
 
 def test_package_fault_tolerance(mock_executor):
