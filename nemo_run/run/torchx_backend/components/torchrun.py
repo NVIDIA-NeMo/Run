@@ -117,9 +117,25 @@ def torchrun(
         nproc_per_node = str(nproc_per_node)
         node_rank = "0"
     else:
-        if use_env and os.getenv("MASTER_ADDR") and os.getenv("MASTER_PORT"):
-            master_addr = os.environ["MASTER_ADDR"]
-            master_port = os.environ["MASTER_PORT"]
+        # With use_env (LocalExecutor), the rendezvous comes from this process's environment
+        # or from the env passed to the run (executor.env_vars), which takes precedence.
+        run_env = {**os.environ, **(env or {})} if use_env else {}
+        master_addr = run_env.get("MASTER_ADDR")
+        # set node rank to relative node id in the current allocation
+        env_node_rank = run_env.get("NODE_RANK") or run_env.get("SLURM_NODEID")
+
+        # LocalExecutor has no macro values, so torchrun would get the literal placeholders.
+        if use_env and not (master_addr and env_node_rank):
+            missing = ["MASTER_ADDR"] if not master_addr else []
+            missing += ["NODE_RANK (or SLURM_NODEID)"] if not env_node_rank else []
+            raise ValueError(
+                f"Multi-node torchrun with LocalExecutor ({nnodes_rep} nodes) needs "
+                f"{' and '.join(missing)} set in the environment or in executor.env_vars "
+                "on every node. MASTER_PORT defaults to the launcher's rdzv_port."
+            )
+
+        if master_addr:
+            master_port = run_env.get("MASTER_PORT") or str(rdzv_port)
             rdzv_endpoint = torchx_dist._noquote(master_addr + ":" + master_port)
             random.seed(rdzv_endpoint)
         else:
@@ -127,14 +143,7 @@ def torchrun(
 
         num_nodes = nnodes_rep
         nproc_per_node = str(nproc_per_node)
-
-        # set node rank to relative node id in the current allocation
-        if use_env and os.getenv("NODE_RANK"):
-            node_rank = os.environ["NODE_RANK"]
-        elif use_env and os.getenv("SLURM_NODEID"):
-            node_rank = os.environ["SLURM_NODEID"]
-        else:
-            node_rank = torchx_dist._noquote(f"$${ExecutorMacros.NODE_RANK_VAR}")
+        node_rank = env_node_rank or torchx_dist._noquote(f"$${ExecutorMacros.NODE_RANK_VAR}")
 
     if env is None:
         env = {}
