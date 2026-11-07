@@ -2040,6 +2040,34 @@ class TestKubeRayWaitUntilRunningEdgeCases:
                 )
             assert result is False
 
+    def test_wait_until_running_sleeps_between_attempts(
+        self, cluster_with_basic_executor, mock_k8s_clients
+    ):
+        """Head pod becomes ready on a later poll; polling must sleep between attempts."""
+        mock_api, mock_core_api = mock_k8s_clients
+
+        def _pod(phase):
+            pod = Mock()
+            pod.metadata.labels = {"ray.io/node-type": "head"}
+            pod.metadata.name = "test-cluster-head"
+            pod.status.phase = phase
+            pod.status.conditions = None
+            pods = Mock()
+            pods.items = [pod]
+            return pods
+
+        mock_core_api.list_namespaced_pod.side_effect = [_pod("Pending"), _pod("Running")]
+
+        with patch.object(cluster_with_basic_executor, "status") as mock_status:
+            mock_status.return_value = {"head": {"serviceIP": "10.0.0.1"}}
+            with patch("nemo_run.run.ray.kuberay.time.sleep") as mock_sleep:
+                result = cluster_with_basic_executor.wait_until_running(
+                    timeout=10, delay_between_attempts=2
+                )
+
+        assert result is True
+        mock_sleep.assert_called_once_with(2)
+
 
 class TestKubeRayExecutorLifecycleEdgeCases:
     """Test KubeRayExecutor lifecycle edge cases."""
