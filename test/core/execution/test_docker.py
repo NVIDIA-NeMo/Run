@@ -333,6 +333,24 @@ class TestDockerContainer:
         assert container.extra_env == {"EXTRA": "value"}
         assert container.executor.experiment_id == "exp123"
 
+    @patch("nemo_run.core.execution.docker.ensure_network")
+    def test_run_retries_disables_auto_remove(self, mock_ensure_network):
+        """Docker rejects AutoRemove together with a restart policy."""
+        for retries, expect_remove in [(0, True), (3, False)]:
+            executor = DockerExecutor(container_image="test:latest", retries=retries)
+            executor.experiment_id = "exp123"
+            container = DockerContainer(
+                name="test-container",
+                command=["python", "script.py"],
+                executor=executor,
+                extra_env={},
+            )
+            client = MagicMock()
+            container.run(client, "job123")
+            kwargs = client.containers.run.call_args.kwargs
+            assert kwargs["remove"] is expect_remove
+            assert ("restart_policy" in kwargs) is bool(retries)
+
     def test_get_container(self, mock_docker_client, mock_container):
         """Test get_container method."""
         executor = DockerExecutor(container_image="test:latest")
