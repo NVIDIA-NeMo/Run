@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from dataclasses import dataclass
 from typing import Optional, Union
 from unittest.mock import Mock, mock_open, patch
@@ -486,3 +487,19 @@ class TestGetUnderlyingTypes:
             str,
             type(None),
         }
+
+
+def test_nemorun_home_env_var_expands_user(monkeypatch):
+    import importlib
+
+    import nemo_run.config as config_module
+
+    original = config_module.get_nemorun_home()
+    monkeypatch.setenv("NEMORUN_HOME", "~/custom_nemorun_home")
+    try:
+        importlib.reload(config_module)
+        assert config_module.get_nemorun_home() == os.path.expanduser("~/custom_nemorun_home")
+    finally:
+        monkeypatch.undo()
+        importlib.reload(config_module)
+        config_module.set_nemorun_home(original)
