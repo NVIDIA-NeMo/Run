@@ -75,7 +75,12 @@ class RayCluster:
             dryrun=dryrun,
         )
         if wait_until_ready and not dryrun:
-            self.backend.wait_until_running(timeout=timeout)
+            ready = self.backend.wait_until_running(timeout=timeout)
+            if ready is False:
+                raise RuntimeError(
+                    f"Ray cluster '{self.name}' did not become ready "
+                    "(it failed, was cancelled, timed out or its status could not be retrieved)."
+                )
 
     def status(self, display: bool = True):
         return self.backend.status(display=display)  # type: ignore[attr-defined]

@@ -248,6 +248,7 @@ class KubeRayCluster:
                 f"Ray cluster '{name}' not ready yet – svc_ip_ready={svc_ip_ready}, pod_ready={pod_ready}"
             )
 
+            time.sleep(poll_window)
             remaining -= poll_window
 
         logger.debug(f"Ray cluster '{name}' status is not running yet, timing out...")
