@@ -755,6 +755,16 @@ class TestSlurmBatchRequest:
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --exclusive" not in sbatch_script
 
+    def test_exclusive_parameter_false(self, dummy_slurm_request_with_artifact):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+
+        # exclusive=False means "not exclusive"; sbatch rejects --exclusive=False
+        dummy_slurm_request.executor.exclusive = False
+        dummy_slurm_request.executor.additional_parameters = {"requeue": False}
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "--exclusive" not in sbatch_script
+        assert "--requeue" not in sbatch_script
+
     def test_exclusive_parameter_string(self, dummy_slurm_request_with_artifact):
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
 
