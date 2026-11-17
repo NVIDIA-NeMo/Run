@@ -224,6 +224,26 @@ class TestSlurmRayRequest:
         script = request.materialize()
         assert "#SBATCH --custom-param=custom_value" in script
 
+    def test_false_flags_are_omitted(self):
+        """A False flag is not requested; sbatch rejects --exclusive=False."""
+        executor = SlurmExecutor(
+            account="test_account", exclusive=False, additional_parameters={"requeue": False}
+        )
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+        assert "#SBATCH --exclusive" not in script
+        assert "#SBATCH --requeue" not in script
+
     def test_dependencies(self):
         """Test materialize with job dependencies."""
         executor = SlurmExecutor(

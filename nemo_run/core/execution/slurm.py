@@ -895,6 +895,10 @@ class SlurmBatchRequest:
         if self.executor.additional_parameters is not None:
             parameters.update(self.executor.additional_parameters)
 
+        # A False flag (e.g. exclusive=False) means "don't request it"; sbatch has no
+        # --flag=False form and rejects it, so drop it like None.
+        parameters = {k: v for k, v in parameters.items() if v is not False}
+
         # now create
         sbatch_cmd = " ".join([shlex.quote(arg) for arg in self.launch_cmd])
 
