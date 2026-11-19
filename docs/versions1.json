@@ -4,10 +4,15 @@
         "url": "http://docs.nvidia.com/nemo/run/nightly/"
     },
     {
-        "name": "0.12.0 (latest)",
+        "name": "0.12.1 (latest) · 26.10.01",
         "preferred": true,
-        "version": "0.12.0",
+        "version": "0.12.1",
         "url": "http://docs.nvidia.com/nemo/run/latest/"
+    },
+    {
+        "name": "0.12.0",
+        "version": "0.12.0",
+        "url": "http://docs.nvidia.com/nemo/run/0.12.0/"
     },
     {
         "name": "0.11.0",
