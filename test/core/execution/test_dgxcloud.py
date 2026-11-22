@@ -1016,10 +1016,62 @@ class TestDGXCloudExecutor:
 
             assert status is None
 
+    @pytest.mark.parametrize("nodes, workload_type", [(1, "trainings"), (2, "distributed")])
     @patch("requests.get")
-    def test_cancel(self, mock_get):
+    @patch("requests.post")
+    def test_cancel(self, mock_post, mock_get, nodes, workload_type):
+        mock_response = MagicMock()
+        mock_response.status_code = 202
+        mock_post.return_value = mock_response
+
+        with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+                nodes=nodes,
+            )
+
+            executor.cancel("job123")
+
+            # Run:AI suspends with a POST on the endpoint create_training_job used.
+            mock_post.assert_called_once_with(
+                f"https://dgxapi.example.com/workloads/{workload_type}/job123/suspend",
+                headers=executor._default_headers(token="test_token"),
+            )
+            mock_get.assert_not_called()
+
+    @patch("requests.post")
+    def test_cancel_explicit_workload_type(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=202)
+
+        with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                kube_apiserver_url="https://127.0.0.1:443",
+                client_id="test_app_id",
+                client_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+            )
+
+            executor.cancel("job123", workload_type="distributed")
+
+            mock_post.assert_called_once_with(
+                "https://dgxapi.example.com/workloads/distributed/job123/suspend",
+                headers=executor._default_headers(token="test_token"),
+            )
+
+    @patch("requests.get")
+    def test_status_explicit_workload_type(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.json.return_value = {"actualPhase": "Running"}
         mock_get.return_value = mock_response
 
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
@@ -1033,15 +1085,14 @@ class TestDGXCloudExecutor:
                 pvc_nemo_run_dir="/workspace/nemo_run",
             )
 
-            executor.cancel("job123")
-
+            assert executor.status("job123", "distributed") == DGXCloudState.RUNNING
             mock_get.assert_called_once_with(
-                "https://dgxapi.example.com/workloads/distributed/job123/suspend",
+                "https://dgxapi.example.com/workloads/distributed/job123",
                 headers=executor._default_headers(token="test_token"),
             )
 
-    @patch("requests.get")
-    def test_cancel_no_token(self, mock_get):
+    @patch("requests.post")
+    def test_cancel_no_token(self, mock_post):
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value=None):
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
@@ -1055,7 +1106,7 @@ class TestDGXCloudExecutor:
 
             executor.cancel("job123")
 
-            mock_get.assert_not_called()
+            mock_post.assert_not_called()
 
     def test_assign(self):
         set_nemorun_home("/nemo_home")
