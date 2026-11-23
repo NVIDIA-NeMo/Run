@@ -51,9 +51,17 @@ def mock_check_call(cmd, *args, **kwargs):
         ("repo with spaces", "output", "bundle", True, True),
     ],
 )
+@pytest.mark.parametrize("include_extras", [False, True])
 @patch("nemo_run.core.packaging.git.Context", MockContext)
 def test_package_paths_with_spaces(
-    tmp_path, monkeypatch, repo_name, job_name, archive_name, use_basepath, home_relative
+    tmp_path,
+    monkeypatch,
+    repo_name,
+    job_name,
+    archive_name,
+    use_basepath,
+    home_relative,
+    include_extras,
 ):
     repo = tmp_path / repo_name
     repo.mkdir()
@@ -74,10 +82,16 @@ def test_package_paths_with_spaces(
         ],
     ]:
         subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+    if include_extras:
+        (repo / "extras").mkdir()
+        (repo / "extras" / "first.txt").write_text("first extra", encoding="utf-8")
+        (repo / "extras" / "second.txt").write_text("second extra", encoding="utf-8")
     job_dir = tmp_path / job_name
     job_dir.mkdir()
     packager = GitArchivePackager(
-        basepath=str(repo) if use_basepath else "", include_submodules=False
+        basepath=str(repo) if use_basepath else "",
+        include_submodules=False,
+        include_pattern=str(repo / "extras" / "*.txt") if include_extras else "",
     )
     if home_relative:
         monkeypatch.setenv("HOME", str(tmp_path))
@@ -87,11 +101,17 @@ def test_package_paths_with_spaces(
 
     assert archive == str(job_dir / f"{archive_name}.tar.gz")
     with tarfile.open(archive) as tar:
-        assert tar.getnames() == [".", "./payload.txt"]
+        expected_names = {".", "./payload.txt"}
+        if include_extras:
+            expected_names.update({"./extras", "./extras/first.txt", "./extras/second.txt"})
+            assert tar.extractfile("./extras/first.txt").read() == b"first extra"
+            assert tar.extractfile("./extras/second.txt").read() == b"second extra"
+        assert sorted(tar.getnames()) == sorted(expected_names)
         assert tar.extractfile("./payload.txt").read() == b"archive contents"
     assert not Path(f"{archive}.tmp").exists()
     assert not Path(f"{archive}.tmp.base").exists()
     assert not list(repo.glob("temp_extract_*"))
+    assert not list(repo.glob("additional_*.tmp"))
     assert list(job_dir.iterdir()) == [Path(archive)]
 
 
