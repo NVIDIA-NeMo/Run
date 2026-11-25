@@ -419,8 +419,13 @@ mkdir -p {self.pvc_job_dir}/logs
             return self.nprocs_per_node
         return 1
 
-    def status(self, job_id: str) -> Optional[DGXCloudState]:
-        workload_type = "distributed" if self.nodes > 1 else "trainings"
+    def _workload_type(self) -> str:
+        """Run:AI endpoint ``create_training_job`` submits this executor's workloads to."""
+        return "distributed" if self.nodes > 1 else "trainings"
+
+    def status(self, job_id: str, workload_type: Optional[str] = None) -> Optional[DGXCloudState]:
+        """Phase of a workload; ``workload_type`` defaults to the one ``launch`` creates."""
+        workload_type = workload_type or self._workload_type()
         url = f"{self.base_url}/workloads/{workload_type}/{job_id}"
         token = self.get_auth_token()
         if not token:
@@ -449,8 +454,9 @@ mkdir -p {self.pvc_job_dir}/logs
         stream: bool,
         stderr: Optional[bool] = None,
         stdout: Optional[bool] = None,
+        workload_type: Optional[str] = None,
     ) -> Iterable[str]:
-        state = self.status(job_id)
+        state = self.status(job_id, workload_type)
         while state != DGXCloudState.RUNNING:
             logger.info("Job %s — status: %s", job_id[:12], state.value if state else "Unknown")
             if state in (
@@ -462,7 +468,7 @@ mkdir -p {self.pvc_job_dir}/logs
                 logger.warning("Job reached terminal state %s before logs were available", state)
                 return
             time.sleep(15)
-            state = self.status(job_id)
+            state = self.status(job_id, workload_type)
 
         if not self.launched_from_cluster:
             logger.info("Job %s is RUNNING. Logs are available in the Run:AI UI.", job_id[:12])
@@ -474,7 +480,7 @@ mkdir -p {self.pvc_job_dir}/logs
             )
             while True:
                 time.sleep(30)
-                state = self.status(job_id)
+                state = self.status(job_id, workload_type)
                 logger.info("Job %s — status: %s", job_id[:12], state.value if state else "Unknown")
                 if state in terminal:
                     yield f"Job finished with status: {state.value}"
@@ -544,18 +550,20 @@ mkdir -p {self.pvc_job_dir}/logs
                 proc.terminate()
                 proc.wait(timeout=2)
 
-    def cancel(self, job_id: str):
+    def cancel(self, job_id: str, workload_type: Optional[str] = None):
         # Retrieve the authentication token for the REST calls
         token = self.get_auth_token()
         if not token:
             logger.error("Failed to retrieve auth token for cancellation request.")
             return
 
-        # Build the DELETE request to cancel the job
-        url = f"{self.base_url}/workloads/distributed/{job_id}/suspend"
+        # Run:AI suspends a workload with a POST to the endpoint it was created on:
+        # single-node jobs are trainings, multi-node jobs are distributed workloads.
+        workload_type = workload_type or self._workload_type()
+        url = f"{self.base_url}/workloads/{workload_type}/{job_id}/suspend"
         headers = self._default_headers(token=token)
 
-        response = requests.get(url, headers=headers)
+        response = requests.post(url, headers=headers)
         if response.status_code >= 200 and response.status_code < 300:
             logger.info(
                 "Successfully cancelled job %s on DGX with response code %d",

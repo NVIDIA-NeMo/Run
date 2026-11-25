@@ -37,6 +37,10 @@ from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
 
 logger = logging.getLogger(__name__)
 
+# Ray jobs are always submitted as Run:AI distributed workloads, even on a single node,
+# so status, logs and cancel must not infer the endpoint from the node count.
+_WORKLOAD_TYPE = "distributed"
+
 
 # ---------------------------------------------------------------------------
 # Ray bootstrap template
@@ -291,7 +295,7 @@ class DGXCloudRayJob:
             logger.warning("No workload ID; call start() first.")
             return None
 
-        state = self.executor.status(self.workload_id)
+        state = self.executor.status(self.workload_id, _WORKLOAD_TYPE)
         info = {
             "workload_id": self.workload_id,
             "state": state.value if state else "Unknown",
@@ -313,7 +317,7 @@ class DGXCloudRayJob:
         if not self.workload_id:
             logger.warning("No workload ID to cancel.")
             return
-        self.executor.cancel(self.workload_id)
+        self.executor.cancel(self.workload_id, _WORKLOAD_TYPE)
         if wait:
             terminal = {
                 DGXCloudState.COMPLETED,
@@ -322,7 +326,7 @@ class DGXCloudRayJob:
                 DGXCloudState.DEGRADED,
             }
             for _ in range(60):
-                state = self.executor.status(self.workload_id)
+                state = self.executor.status(self.workload_id, _WORKLOAD_TYPE)
                 if state in terminal:
                     logger.info("Workload %s reached %s", self.workload_id, state)
                     return
@@ -333,7 +337,9 @@ class DGXCloudRayJob:
         if not self.workload_id:
             logger.warning("No workload ID; call start() first.")
             return
-        for line in self.executor.fetch_logs(self.workload_id, stream=follow):
+        for line in self.executor.fetch_logs(
+            self.workload_id, stream=follow, workload_type=_WORKLOAD_TYPE
+        ):
             print(line, end="" if follow else "\n")
 
     def wait(self, poll: int | None = None) -> str:
@@ -353,7 +359,7 @@ class DGXCloudRayJob:
         }
         while True:
             time.sleep(poll)
-            state = self.executor.status(self.workload_id)
+            state = self.executor.status(self.workload_id, _WORKLOAD_TYPE)
             if state:
                 logger.info("Ray job %s — status: %s", self.name, state.value)
             if state in terminal:
