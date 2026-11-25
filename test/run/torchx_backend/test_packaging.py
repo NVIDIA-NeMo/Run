@@ -21,7 +21,7 @@ from torchx import specs
 
 from nemo_run.config import RUNDIR_NAME, Partial, Script
 from nemo_run.core.execution.base import Executor
-from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
+from nemo_run.core.execution.launcher import FaultTolerance, Launcher, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.packaging.base import Packager
@@ -297,6 +297,36 @@ def test_package_fault_tolerance(mock_executor):
         "arg1",
         "arg2",
     ]
+
+
+def test_package_nsys_profile_local_has_no_empty_arg(tmpdir):
+    executor = LocalExecutor(job_dir=str(tmpdir), launcher=Launcher(nsys_profile=True))
+    fn_or_script = Script(path="train.py", args=["--lr", "0.1"], entrypoint="python")
+    app_def = package(
+        name="test",
+        fn_or_script=fn_or_script,
+        executor=executor,
+    )
+    role = app_def.roles[0]
+    assert role.entrypoint == "nsys"
+    assert role.args[0] == "profile"
+    assert role.args[-4:] == ["python", "train.py", "--lr", "0.1"]
+    assert "" not in role.args
+
+
+def test_package_nsys_profile_keeps_nonempty_postfix(mock_executor, tmpdir):
+    mock_executor.job_dir = str(tmpdir)
+    mock_executor.get_launcher = lambda: Launcher(nsys_profile=True)
+    mock_executor.get_nsys_entrypoint = lambda: ("bash -c 'nsys", "'")
+    fn_or_script = Script(path="train.py", args=["--lr", "0.1"], entrypoint="python")
+    app_def = package(
+        name="test",
+        fn_or_script=fn_or_script,
+        executor=mock_executor,
+    )
+    role = app_def.roles[0]
+    assert role.entrypoint == "bash -c 'nsys"
+    assert role.args[-5:] == ["python", "train.py", "--lr", "0.1", "'"]
 
 
 def test_merge_executables():
