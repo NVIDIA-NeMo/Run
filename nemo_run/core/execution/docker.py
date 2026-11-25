@@ -292,7 +292,8 @@ class DockerContainer:
             self.executor.container_image,
             command,
             detach=True,
-            remove=True,
+            # Docker rejects AutoRemove combined with a restart policy; `delete` cleans up.
+            remove=not self.executor.retries,
             name=self.name,
             hostname=self.name[-32:],
             network=self.executor.network,
