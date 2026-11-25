@@ -182,6 +182,25 @@ class TestSlurmRayCluster:
 
             assert job_id is None
 
+    def test_create_cluster_already_exists_with_command_raises(self, cluster, mock_tunnel):
+        """A command must never be silently dropped when a cluster is reused."""
+        with patch.object(cluster, "status") as mock_status:
+            mock_status.return_value = {"job_id": "12345", "state": "RUNNING"}
+
+            with pytest.raises(RuntimeError, match="was NOT executed"):
+                cluster.create(command="python train.py", workdir="/remote/code")
+
+            # No sbatch script should ever be submitted for the reused cluster.
+            mock_tunnel.put.assert_not_called()
+
+    def test_create_cluster_already_exists_with_command_groups_raises(self, cluster):
+        """Same guard applies to command_groups, not just the primary command."""
+        with patch.object(cluster, "status") as mock_status:
+            mock_status.return_value = {"job_id": "12345", "state": "PENDING"}
+
+            with pytest.raises(RuntimeError, match="was NOT executed"):
+                cluster.create(command_groups=[["echo", "a"], ["echo", "b"]])
+
     def test_create_dryrun(self, cluster, capsys):
         """Test dry run mode."""
         job_id = cluster.create(dryrun=True)
@@ -545,6 +564,14 @@ class TestSlurmRayJob:
         assert job.cluster_dir == "/tmp/test_jobs/test-job"
         assert job.job_id is None
 
+    def test_job_initialization_with_cluster_name(self, basic_executor):
+        """cluster_name, when set, targets the cluster's own directory, not the job's name."""
+        job = SlurmRayJob(name="test-job", executor=basic_executor, cluster_name="shared-cluster")
+
+        assert job.name == "test-job"
+        assert job.cluster_name == "shared-cluster"
+        assert job.cluster_dir == "/tmp/test_jobs/shared-cluster"
+
     def test_logs_path(self, job):
         """Test logs path construction."""
         expected_path = "/tmp/test_jobs/test-job/logs/ray-job.log"
@@ -650,6 +677,22 @@ class TestSlurmRayJob:
             # Verify main functionality
             mock_cluster.create.assert_called_once()
             assert job.job_id == "12345"
+
+    def test_start_uses_cluster_name_when_set(self, basic_executor):
+        """start() must attach to cluster_name's cluster, not the job's own name."""
+        job = SlurmRayJob(name="test-job", executor=basic_executor, cluster_name="shared-cluster")
+
+        with patch("nemo_run.run.ray.slurm.SlurmRayCluster") as mock_cluster_class:
+            mock_cluster = Mock()
+            mock_cluster.create.return_value = None
+            mock_cluster_class.return_value = mock_cluster
+
+            with patch.object(job, "status"):
+                job.start(command="python train.py", workdir="/workspace", dryrun=True)
+
+            mock_cluster_class.assert_called_once_with(
+                name="shared-cluster", executor=basic_executor
+            )
 
     def test_start_dryrun(self, job):
         """Test starting job in dryrun mode."""

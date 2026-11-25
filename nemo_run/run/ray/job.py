@@ -63,7 +63,14 @@ class RayJob:
             raise ValueError(f"Unsupported executor: {self.executor.__class__}")
 
         backend_cls = backend_map[self.executor.__class__]
-        self.backend = backend_cls(name=self.name, executor=self.executor)
+        if isinstance(self.executor, SlurmExecutor):
+            # SlurmRayJob derives its cluster_dir from cluster_name at construction
+            # time, so it must be passed in rather than set on the instance after.
+            self.backend = backend_cls(
+                name=self.name, executor=self.executor, cluster_name=self.cluster_name
+            )
+        else:
+            self.backend = backend_cls(name=self.name, executor=self.executor)
 
         if isinstance(self.executor, LeptonExecutor):
             self.backend.cluster_name = self.cluster_name

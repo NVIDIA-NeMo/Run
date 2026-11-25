@@ -603,6 +603,15 @@ Useful Commands
         if status["job_id"] is not None:
             job_state = status["state"]
             if job_state in ["PENDING", "RUNNING", "CONFIGURING"]:
+                if command is not None or command_groups is not None:
+                    raise RuntimeError(
+                        f"Ray cluster '{name}' already exists with ID {status['job_id']} "
+                        f"and is currently in {job_state} state. Submitting a new command "
+                        f"into an already-running cluster is not yet supported, so the "
+                        f"given command was NOT executed. Cancel the existing cluster "
+                        f"first, or call create() without a command to just ensure the "
+                        f"cluster keeps running."
+                    )
                 logger.debug(
                     f"Ray cluster '{name}' already exists with ID {status['job_id']} "
                     f"and is currently in {job_state} state. "
@@ -1073,23 +1082,29 @@ class SlurmRayJob:
     Parameters
     ----------
     name : str
-        Logical name of the Ray cluster (not necessarily the Slurm job-name).
+        Logical name of this Ray job (not necessarily the Slurm job-name).
     job_id : str
         Numeric Slurm job id returned by ``sbatch``.
     cluster_dir : str
         Remote directory where cluster artefacts (logs, SBATCH script, etc.) are stored.
     executor : SlurmExecutor
         The executor used to submit/run the job. We only need it for its tunnel.
+    cluster_name : str, optional
+        Name of an existing RayCluster to target. If not provided, defaults to *name*,
+        so a cluster is created (or reused) under the job's own name as before.
     """
 
     name: str
     executor: SlurmExecutor
+    cluster_name: Optional[str] = None
 
     # ---------------------------------------------------------------------
     # Internals
     # ---------------------------------------------------------------------
     def __post_init__(self):
-        self.cluster_dir = os.path.join(self.executor.tunnel.job_dir, self.name)
+        self.cluster_dir = os.path.join(
+            self.executor.tunnel.job_dir, self.cluster_name or self.name
+        )
         self.job_id = None
 
     def _logs_path(self) -> str:
@@ -1203,9 +1218,9 @@ class SlurmRayJob:
         if self.job_id is None:
             self.job_id = get_last_job_id(self.cluster_dir, self.executor)
 
-        cluster = SlurmRayCluster(name=self.name, executor=self.executor)
+        cluster = SlurmRayCluster(name=self.cluster_name or self.name, executor=self.executor)
         if self.job_id is not None:
-            cluster.cluster_map[self.name] = str(self.job_id)
+            cluster.cluster_map[cluster.name] = str(self.job_id)
 
         status_info = cluster.status(display=False)
 
@@ -1363,7 +1378,7 @@ Useful Commands (to be run on the login node of the Slurm cluster)
         # ------------------------------------------------------------------
         # Spin up / reuse the Ray *cluster* (Slurm array job)
         # ------------------------------------------------------------------
-        cluster = SlurmRayCluster(name=self.name, executor=self.executor)
+        cluster = SlurmRayCluster(name=self.cluster_name or self.name, executor=self.executor)
         job_id = cluster.create(
             pre_ray_start_commands=pre_ray_start_commands,
             dryrun=dryrun,
