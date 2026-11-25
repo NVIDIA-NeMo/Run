@@ -15,6 +15,8 @@
 
 import inspect
 import importlib
+from pkgutil import resolve_name
+
 import yaml
 from fiddle._src import config as config_lib
 from fiddle._src import partial
@@ -123,9 +125,18 @@ class YamlSerializer:
         is_partial = config_dict.pop("_partial_", False)
 
         # Import the target function/class
-        module_name, func_name = target_path.rsplit(".", 1)
-        module = importlib.import_module(module_name)
-        target = getattr(module, func_name)
+        module_name, attr_name = target_path.rsplit(".", 1)
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            if not exc.name or not (
+                module_name == exc.name or module_name.startswith(f"{exc.name}.")
+            ):
+                raise
+            # The module prefix may contain a class, e.g. pathlib.Path.cwd.
+            target = resolve_name(target_path)
+        else:
+            target = getattr(module, attr_name)
 
         # Convert the DictConfig to dot list arguments
         dot_list = dictconfig_to_dot_list(OmegaConf.create(config_dict))
