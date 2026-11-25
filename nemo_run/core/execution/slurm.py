@@ -939,8 +939,9 @@ class SlurmBatchRequest:
                         "gpus_per_task": resource_req.gpus_per_task,
                     }
                 )
-                for k in sorted(parameters):
-                    sbatch_flags.append(_as_sbatch_flag(k, het_parameters[k]))
+                for k in sorted(het_parameters):
+                    if het_parameters[k] is not None:
+                        sbatch_flags.append(_as_sbatch_flag(k, het_parameters[k]))
                 if i != final_group_index:
                     sbatch_flags.append("#SBATCH hetjob")
         else:
