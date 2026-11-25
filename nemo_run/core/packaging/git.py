@@ -190,9 +190,7 @@ class GitArchivePackager(Packager):
 
             if include_pattern == "":
                 continue
-            include_pattern_relative_path = include_pattern_relative_path or shlex.quote(
-                str(git_base_path)
-            )
+            include_pattern_relative_path = include_pattern_relative_path or str(git_base_path)
             relative_include_pattern = os.path.relpath(
                 include_pattern, include_pattern_relative_path
             )
