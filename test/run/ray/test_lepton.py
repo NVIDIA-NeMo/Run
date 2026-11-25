@@ -120,7 +120,9 @@ class TestLeptonRayCluster:
             resource_shape="gpu.8xh100-80gb",
             container_image="nvcr.io/nvidia/nemo:25.09",
             nemo_run_dir="/workspace/nemo-run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
             node_group="test-node-group",
             nodes=2,
             nprocs_per_node=8,
@@ -612,7 +614,9 @@ class TestLeptonRayJob:
             resource_shape="gpu.8xh100-80gb",
             container_image="nvcr.io/nvidia/nemo:25.09",
             nemo_run_dir="/workspace/nemo-run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
             node_group="test-node-group",
             nodes=2,
             nprocs_per_node=8,

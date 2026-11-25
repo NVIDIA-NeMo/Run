@@ -52,7 +52,9 @@ class TestLeptonExecutor:
             nodes=2,
             gpus_per_node=8,
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         assert executor.resource_shape == "gpu.8xh100-80gb"
@@ -61,7 +63,9 @@ class TestLeptonExecutor:
         assert executor.nodes == 2
         assert executor.gpus_per_node == 8
         assert executor.nemo_run_dir == "/workspace/nemo_run"
-        assert executor.mounts == [{"path": "/workspace", "mount_path": "/workspace"}]
+        assert executor.mounts == [
+            {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+        ]
 
     def test_init_with_node_reservation(self):
         """Test initialization with node_reservation parameter."""
@@ -72,7 +76,9 @@ class TestLeptonExecutor:
             nodes=2,
             gpus_per_node=8,
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
             node_reservation="my-reservation-id",
         )
 
@@ -83,7 +89,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             node_reservation="",
         )
 
@@ -94,7 +100,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         assert executor.node_reservation == ""
@@ -109,7 +115,9 @@ class TestLeptonExecutor:
             gpus_per_node=8,
             secret_vars={"WANDB_API_KEY": "WANDB_API_KEY.zozhang"},
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         assert executor.secret_vars == {"WANDB_API_KEY": "WANDB_API_KEY.zozhang"}
@@ -129,7 +137,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         executor.stop_job("job123")
@@ -153,7 +161,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         executor.stop_job("job123")
@@ -173,7 +181,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         executor.stop_job("job123")
@@ -189,7 +197,9 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
         response = executor.copy_directory_data_command(local_dir_path, dest_path)
 
@@ -223,7 +233,9 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
         response = executor.copy_directory_data_command(local_dir_path, dest_path)
 
@@ -244,7 +256,9 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
         with pytest.raises(RuntimeError, match="byte ceiling this data mover can carry"):
             executor.copy_directory_data_command("/mock/local/dir", "/mock/destination/path")
@@ -259,7 +273,9 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
         with pytest.raises(OSError, match="Temporary directory creation failed"):
             executor.copy_directory_data_command(local_dir_path, dest_path)
@@ -291,7 +307,9 @@ class TestLeptonExecutor:
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
             node_group="123456",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         executor.move_data()
@@ -309,7 +327,15 @@ class TestLeptonExecutor:
             ),
             completions=1,
             parallelism=1,
-            mounts=[Mount(path="/workspace", mount_path="/workspace")],
+            mounts=[
+                Mount(
+                    **{
+                        "from": "local-storage:nfs",
+                        "path": "/workspace",
+                        "mount_path": "/workspace",
+                    }
+                )
+            ],
         )
 
         custom_name = "data-mover-1"
@@ -342,7 +368,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         node_group_id = executor._node_group_id(mock_client)
@@ -356,7 +382,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         with pytest.raises(RuntimeError):
@@ -378,7 +404,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="zzzzz",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         with pytest.raises(RuntimeError):
@@ -400,7 +426,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         node_ids = executor._valid_node_ids(None, mock_client)
@@ -414,7 +440,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         node_ids = executor._valid_node_ids(None, mock_client)
@@ -436,7 +462,7 @@ class TestLeptonExecutor:
             node_group="123456",
             env_vars={"TEST_ENV": "test-value"},
             secret_vars={"TEST_SECRET": "test-secret"},
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
         executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
         executor._node_group_id = MagicMock(return_value=node_group)
@@ -464,7 +490,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             node_reservation="my-reservation-id",
         )
         executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
@@ -492,7 +518,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             # No node_reservation set
         )
         executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
@@ -519,7 +545,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             node_reservation="",  # Empty string
         )
         executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
@@ -537,7 +563,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         assert executor.can_be_preempted is False
@@ -548,7 +574,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             can_be_preempted=True,
         )
 
@@ -558,7 +584,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             can_preempt=True,
         )
 
@@ -568,7 +594,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             can_be_preempted=True,
             queue_priority="high-8000",
         )
@@ -586,7 +612,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
         executor._valid_node_ids = MagicMock(return_value=["node-id-1"])
         executor._node_group_id = MagicMock(return_value=node_group)
@@ -607,7 +633,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             can_be_preempted=True,
         )
         executor._valid_node_ids = MagicMock(return_value=["node-id-1"])
@@ -633,7 +659,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             can_preempt=True,
         )
         executor._valid_node_ids = MagicMock(return_value=["node-id-1"])
@@ -659,7 +685,7 @@ class TestLeptonExecutor:
             container_image="test-image",
             nemo_run_dir="/test/path",
             node_group="123456",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             can_be_preempted=True,
             queue_priority="high-8000",
         )
@@ -676,7 +702,9 @@ class TestLeptonExecutor:
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
             nodes=3,
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         assert executor.nnodes() == 3
@@ -685,7 +713,9 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         assert executor.nnodes() == 1
@@ -695,7 +725,9 @@ class TestLeptonExecutor:
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
             gpus_per_node=4,
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         assert executor.nproc_per_node() == 4
@@ -706,7 +738,9 @@ class TestLeptonExecutor:
             nemo_run_dir="/workspace/nemo_run",
             gpus_per_node=0,
             nprocs_per_node=3,
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         assert executor.nproc_per_node() == 3
@@ -715,7 +749,9 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         assert executor.nproc_per_node() == 1
@@ -724,7 +760,9 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            mounts=[
+                {"from": "local-storage:nfs", "path": "/workspace", "mount_path": "/workspace"}
+            ],
         )
 
         assert executor._validate_mounts() is None
@@ -744,11 +782,21 @@ class TestLeptonExecutor:
 
         assert executor._validate_mounts() is None
 
+    def test_missing_storage_mount_source(self):
+        executor = LeptonExecutor(
+            container_image="nvcr.io/nvidia/test:latest",
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        with pytest.raises(RuntimeError, match="Must specify 'from', 'path', and 'mount_path'"):
+            executor._validate_mounts()
+
     def test_missing_storage_mount_options(self):
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/workspace"}],
         )
 
         with pytest.raises(RuntimeError):
@@ -758,7 +806,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"mount_path": "/workspace"}],
+            mounts=[{"from": "local-storage:nfs", "mount_path": "/workspace"}],
         )
 
         with pytest.raises(RuntimeError):
@@ -768,7 +816,14 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[{"path": "/workspace", "mount_path": "/workspace", "random": True}],
+            mounts=[
+                {
+                    "from": "local-storage:nfs",
+                    "path": "/workspace",
+                    "mount_path": "/workspace",
+                    "random": True,
+                }
+            ],
         )
 
         assert executor._validate_mounts() is None
@@ -788,7 +843,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         status = executor.status("job123")
@@ -811,7 +866,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         status = executor.status("job123")
@@ -834,7 +889,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         status = executor.status("job123")
@@ -859,7 +914,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         status = executor.status("job123")
@@ -880,7 +935,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         status = executor.status("job123")
@@ -903,7 +958,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         executor.cancel("job123")
@@ -916,7 +971,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         configs = [
@@ -947,7 +1002,7 @@ class TestLeptonExecutor:
             executor = LeptonExecutor(
                 container_image="test-image",
                 nemo_run_dir="/test/path",
-                mounts=[{"path": "/test", "mount_path": "/test"}],
+                mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
             )
             executor.experiment_id = "test_exp"
             executor.job_dir = tmp_dir
@@ -969,7 +1024,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="test-image",
             nemo_run_dir="/test/path",
-            mounts=[{"path": "/test", "mount_path": "/test"}],
+            mounts=[{"from": "local-storage:nfs", "path": "/test", "mount_path": "/test"}],
         )
 
         result = executor.macro_values()
