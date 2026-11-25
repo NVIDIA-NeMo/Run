@@ -1073,6 +1073,16 @@ class TypeParser:
             value = value[1:-1]
         if value in literal_values:
             return value
+        # Non-string Literals (e.g. Literal[1, 2], Literal[True, False]) arrive as
+        # strings from the CLI, so coerce the input to each literal's own type
+        # before comparing; otherwise only str Literals could ever match.
+        for literal in literal_values:
+            if not isinstance(literal, str):
+                try:
+                    if self.parse(value, type(literal)) == literal:
+                        return literal
+                except ParseError:
+                    pass
         raise LiteralParseError(
             value,
             Literal,
