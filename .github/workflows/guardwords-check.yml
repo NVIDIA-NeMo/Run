@@ -1,0 +1,41 @@
+# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+name: Guardwords check
+
+on:
+  push:
+    branches: ["pull-request/[0-9]+"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pr_info:
+    runs-on: ubuntu-latest
+    outputs:
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+    steps:
+      - name: Verify mirror commit
+        id: pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^pull-request/([1-9][0-9]*)$ ]]
+          number=${BASH_REMATCH[1]}
+          base_sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$number" |
+            jq -er --arg head "$GITHUB_SHA" 'select(.head.sha == $head) | .base.sha')
+          [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]]
+          printf 'base_sha=%s\npr_number=%s\n' "$base_sha" "$number" | tee -a "$GITHUB_OUTPUT"
+
+  guardwords-check:
+    needs: pr_info
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_guardwords_check.yml@1ebb754bdbe6680cce2b3d81da4e63be7200380a
+    with:
+      base-sha: ${{ needs.pr_info.outputs.base_sha }}
+      head-sha: ${{ github.sha }}
+      pr-number: ${{ fromJSON(needs.pr_info.outputs.pr_number) }}
+    secrets:
+      GUARDWORDS_DEPLOY_KEY: ${{ secrets.GUARDWORDS_DEPLOY_KEY }}
