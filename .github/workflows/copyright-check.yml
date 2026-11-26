@@ -21,6 +21,10 @@ on:
     branches: ["pull-request/**"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   copyright-check:
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_copyright_check.yml@a8006e87bff5bce54336c3e1e8571563ac70d88e # v0.54.4
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_copyright_check.yml@1ebb754bdbe6680cce2b3d81da4e63be7200380a

@@ -20,8 +20,8 @@ on:
     branches:
       - "main"
       - "pull-request/**"
-      - "[rv][0-9].[0-9].[0-9]"
-      - "[rv][0-9].[0-9].[0-9]rc[0-9]"
+      - "[rv][0-9]+.[0-9]+.[0-9]+"
+      - "[rv][0-9]+.[0-9]+.[0-9]+rc[0-9]+"
       - "deploy-release/*"
   workflow_dispatch:
     inputs:
@@ -53,9 +53,7 @@ defaults:
   run:
     shell: bash -x -e -u -o pipefail {0}
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -80,14 +78,15 @@ jobs:
         run: |
           python -m venv .venv-release-tests
           .venv-release-tests/bin/python -m pip install PyYAML==6.0.3
-          .venv-release-tests/bin/python .github/tests/test_release_workflow.py -v
+          .venv-release-tests/bin/python -m unittest discover -s .github/tests -p 'test_*workflow.py' -v
 
   validate-inputs:
     if: |
       !cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - name: Validate immutable release ref
         env:
@@ -98,15 +97,33 @@ jobs:
             exit 1
           fi
 
+      - name: Verify manual release source and target
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ inputs.version-bump-branch }}
+          RELEASE_REF: ${{ inputs.release-ref }}
+        run: |
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "::error::Dispatch releases from main."
+            exit 1
+          fi
+          if [[ "$TARGET_BRANCH" != main && ! "$TARGET_BRANCH" =~ ^[rv][0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+            echo "::error::Select main or a versioned Run release branch."
+            exit 1
+          fi
+          tip=$(gh api "repos/$GITHUB_REPOSITORY/branches/$TARGET_BRANCH" --jq 'select(.protected) | .commit.sha')
+          [[ "$tip" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::The release target must be protected."; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_REF...$tip" --jq '.status' | grep -Ex 'ahead|identical'
+
   bump:
     needs: [validate-inputs, release-workflow-tests]
     if: |
       !cancelled() && !failure() && needs.validate-inputs.result == 'success'
       && needs.release-workflow-tests.result == 'success'
     permissions:
-      contents: write
-      pull-requests: write
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_bump.yml@2eee849aec3da7b625a798188a0e1ba603e448d8
+      contents: read
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_bump.yml@1ebb754bdbe6680cce2b3d81da4e63be7200380a
     with:
       release-ref: ${{ inputs.release-ref || github.sha }}
       python-package: nemo_run
@@ -114,11 +131,10 @@ jobs:
       validate-only: ${{ github.event_name != 'workflow_dispatch' }}
       dry-run: ${{ inputs.dry-run || false }}
       version-bump-branch: ${{ inputs.version-bump-branch || github.ref_name }}
-      app-id: ${{ vars.BOT_ID }}
+      release-environment: run-release
+      release-branch-pattern: "[rv][0-9]*.[0-9]*.[0-9]*"
       packaging: setuptools
       restrict-to-admins: true
-    secrets:
-      BOT_KEY: ${{ secrets.BOT_KEY }}
 
   build-wheel:
     needs: [bump]
@@ -126,7 +142,7 @@ jobs:
       !cancelled() && !failure() && needs.bump.result == 'success'
     permissions:
       contents: read
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_build_test_wheel.yml@2eee849aec3da7b625a798188a0e1ba603e448d8
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_build_test_wheel.yml@1ebb754bdbe6680cce2b3d81da4e63be7200380a
     with:
       python-package: nemo_run
       python-version: "3.10"
@@ -162,23 +178,41 @@ jobs:
       && needs.build-wheel.result == 'success'
       && (github.event_name != 'workflow_dispatch' || inputs.dry-run || needs.publish-wheel.result == 'success')
     permissions:
-      contents: write
-    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_finalize.yml@2eee849aec3da7b625a798188a0e1ba603e448d8
+      contents: read
+      pull-requests: read
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_release_finalize.yml@1ebb754bdbe6680cce2b3d81da4e63be7200380a
     with:
       release-ref: ${{ inputs.release-ref || github.sha }}
       library-name: NeMo Run
       validate-only: ${{ github.event_name != 'workflow_dispatch' }}
       dry-run: ${{ inputs.dry-run || false }}
-      app-id: ${{ vars.BOT_ID }}
+      release-environment: run-release
       gh-release-use-changelog-builder: ${{ inputs.generate-changelog || false }}
-      publish-docs: ${{ github.event_name != 'workflow_dispatch' || inputs.publish-docs }}
+      publish-docs: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs }}
       docs-target-path: nemo/run
       release-version: ${{ needs.bump.outputs.release-version || needs.build-wheel.outputs.version }}
       pypi-name: ${{ needs.build-wheel.outputs.pypi-name }}
-    secrets: inherit  # pragma: allowlist secret
+    secrets:
+      AWS_ASSUME_ROLE_ARN: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs && secrets.AWS_ASSUME_ROLE_ARN || '' }}
+      AWS_ACCESS_KEY_ID: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs && secrets.AWS_ACCESS_KEY_ID || '' }}
+      AWS_SECRET_ACCESS_KEY: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs && secrets.AWS_SECRET_ACCESS_KEY || '' }}
+      AKAMAI_HOST: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs && secrets.AKAMAI_HOST || '' }}
+      AKAMAI_CLIENT_TOKEN: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs && secrets.AKAMAI_CLIENT_TOKEN || '' }}
+      AKAMAI_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs && secrets.AKAMAI_CLIENT_SECRET || '' }}
+      AKAMAI_ACCESS_TOKEN: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs && secrets.AKAMAI_ACCESS_TOKEN || '' }}
+      S3_BUCKET_NAME: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry-run && inputs.publish-docs && secrets.S3_BUCKET_NAME || '' }}
+
+  rehearse-docs:
+    needs: [bump, build-wheel]
+    if: github.event_name != 'workflow_dispatch' || (inputs.dry-run && inputs.publish-docs)
+    permissions:
+      contents: read
+    uses: NVIDIA-NeMo/FW-CI-templates/.github/workflows/_build_docs.yml@1ebb754bdbe6680cce2b3d81da4e63be7200380a
+    with:
+      ref: ${{ inputs.release-ref || github.sha }}
 
   release-summary:
-    needs: [release-workflow-tests, validate-inputs, bump, build-wheel, publish-wheel, finalize]
+    needs: [release-workflow-tests, validate-inputs, bump, build-wheel, publish-wheel, finalize, rehearse-docs]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

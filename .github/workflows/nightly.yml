@@ -5,6 +5,9 @@ on:
     - cron: '0 0 * * *'  # Runs at midnight UTC every day
   workflow_dispatch:      # Allows manual trigger
 
+permissions:
+  contents: read
+
 jobs:
   format:
     uses: ./.github/workflows/ruff-format.yml
@@ -14,11 +17,12 @@ jobs:
     uses: ./.github/workflows/test.yml
   tag:
     name: Run Tests and Create Nightly Tag
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     needs: [format, lint, test]
     steps:
-        - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
         - name: Create nightly tag
           uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
           with:

@@ -8,3 +8,7 @@ repos:
       args: [ --fix ]
     # Run the formatter.
     - id: ruff-format
+- repo: https://github.com/NVIDIA-NeMo/FW-CI-templates
+  rev: 1ebb754bdbe6680cce2b3d81da4e63be7200380a
+  hooks:
+    - id: guardwords-check
