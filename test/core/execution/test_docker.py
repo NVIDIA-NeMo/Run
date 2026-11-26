@@ -333,6 +333,29 @@ class TestDockerContainer:
         assert container.extra_env == {"EXTRA": "value"}
         assert container.executor.experiment_id == "exp123"
 
+    @pytest.mark.parametrize(
+        "ulimit, expected",
+        [
+            ("memlock=-1", ("memlock", -1, -1)),
+            ("nofile=1024:2048", ("nofile", 1024, 2048)),
+            ("stack=67108864", ("stack", 67108864, 67108864)),
+            ("memlock:0:123", ("memlock", 0, 123)),
+            ("nofile:1024", ("nofile", 1024, 1024)),
+        ],
+    )
+    @patch("nemo_run.core.execution.docker.ensure_network")
+    def test_run_parses_ulimits(self, mock_ensure_network, mock_docker_client, ulimit, expected):
+        executor = DockerExecutor(container_image="test:latest", ulimits=[ulimit])
+        executor.experiment_id = "exp123"
+        container = DockerContainer(
+            name="test-container", command=["python", "script.py"], executor=executor, extra_env={}
+        )
+
+        container.run(mock_docker_client, "job123")
+
+        (parsed,) = mock_docker_client.containers.run.call_args.kwargs["ulimits"]
+        assert (parsed.name, parsed.soft, parsed.hard) == expected
+
     def test_get_container(self, mock_docker_client, mock_container):
         """Test get_container method."""
         executor = DockerExecutor(container_image="test:latest")

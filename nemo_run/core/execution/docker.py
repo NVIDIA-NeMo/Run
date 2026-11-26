@@ -248,7 +248,8 @@ class DockerContainer:
         if self.executor.ulimits:
             ulimits = []
             for ulimit in self.executor.ulimits:
-                vals = ulimit.split(":")
+                # Accept the documented <type>=<soft>[:<hard>] form as well as <type>:<soft>[:<hard>].
+                vals = ulimit.replace("=", ":", 1).split(":")
                 name = vals[0]
                 soft = vals[1]
                 hard = vals[2] if len(vals) > 2 else vals[1]
